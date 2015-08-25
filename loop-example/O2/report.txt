@@ -1,0 +1,89 @@
+Step 1: 
+  case split on whether 23 is visited
+Step 2: case in (1) where 23 is visited
+  prove visits to 64 related to visits [2, 4, 6 ...] to 10
+    with equalities
+      ((Mem) ('mem')) (@ addr 64)
+      = ((Mem) ('Mem')) (@ addr 10)
+    and with invariants
+      ((Word32) (('r1' + ((0 - '#seq-visits') * (4 + 4))))) (@ addr 64)
+      ((Word32) ('ret')) (@ addr 64)
+      ((Word32) (('r0' + ((0 - '#seq-visits') * (8 + 8))))) (@ addr 64)
+      ((Word32) ('r9')) (@ addr 64)
+      ((Word32) ('r8')) (@ addr 64)
+      ((Word32) ('r5')) (@ addr 64)
+      ((Word32) ('r11')) (@ addr 64)
+      ((Bool) (ROData('mem'))) (@ addr 64)
+      ((Word32) (('r3' + ((0 - '#seq-visits') * (1 + 1))))) (@ addr 64)
+      ((Word32) ('r14')) (@ addr 64)
+      ((Word32) ('r7')) (@ addr 64)
+      ((Word32) ('r6')) (@ addr 64)
+      ((Word32) ('r10')) (@ addr 64)
+      ((Word32) ('r13')) (@ addr 64)
+      ((RelWrapper) (StackWrapper(((Word32) (('r13' + 0))), ((Mem) ('stack'))))) (@ addr 64)
+      ((Word32) ('p#v')) (@ addr 10)
+      ((Word32) (('loop#2#count' + (('#seq-visits' * -2) * 1)))) (@ addr 10)
+      ((Word32) (('i#v' + (('#seq-visits' * -2) * 1)))) (@ addr 10)
+    .. proven.
+Step 3: case in (2) where the length of the sequence < 2
+  Prove the number of visits to 64 is in {0 ..< 3}
+    .. proven.
+Step 4: 
+  Prove the number of visits to 10 is in {0 ..< 6}
+    .. proven.
+Step 5: 
+  prove all verification conditions
+    .. proven.
+Step 6: case in (2) where the length of the sequence is i + 2
+  Prove the number of visits to 64 is in {i + 0 ..< i + 3}
+    .. proven.
+Step 7: 
+  Prove the number of visits to 10 is in {i + 0 ..< i + 5}
+    .. proven.
+Step 8: 
+  prove all verification conditions
+    .. proven.
+Step 9: case in (1) where 23 is not visited
+  prove visits to 64 related to visits [3, 5, 7 ...] to 73
+    with equalities
+      ((Mem) ('mem')) (@ addr 64)
+      = ((Mem) ('Mem.1')) (@ addr 73)
+    and with invariants
+      ((Word32) (('r1' + ((0 - '#seq-visits') * (4 + 4))))) (@ addr 64)
+      ((Word32) ('ret')) (@ addr 64)
+      ((Word32) (('r0' + ((0 - '#seq-visits') * (8 + 8))))) (@ addr 64)
+      ((Word32) ('r9')) (@ addr 64)
+      ((Word32) ('r8')) (@ addr 64)
+      ((Word32) ('r5')) (@ addr 64)
+      ((Word32) ('r11')) (@ addr 64)
+      ((Bool) (ROData('mem'))) (@ addr 64)
+      ((Word32) (('r3' + ((0 - '#seq-visits') * (1 + 1))))) (@ addr 64)
+      ((Word32) ('r14')) (@ addr 64)
+      ((Word32) ('r7')) (@ addr 64)
+      ((Word32) ('r6')) (@ addr 64)
+      ((Word32) ('r10')) (@ addr 64)
+      ((Word32) ('r13')) (@ addr 64)
+      ((RelWrapper) (StackWrapper(((Word32) (('r13' + 0))), ((Mem) ('stack'))))) (@ addr 64)
+      ((Word32) ('p#v')) (@ addr 73)
+      ((Word32) (('loop#2#count' + (('#seq-visits' * -2) * 1)))) (@ addr 73)
+      ((Word32) (('i#v' + (('#seq-visits' * -2) * 1)))) (@ addr 73)
+    .. proven.
+Step 10: case in (9) where the length of the sequence < 2
+  Prove the number of visits to 64 is in {0 ..< 3}
+    .. proven.
+Step 11: 
+  Prove the number of visits to 73 is in {0 ..< 7}
+    .. proven.
+Step 12: 
+  prove all verification conditions
+    .. proven.
+Step 13: case in (9) where the length of the sequence is j + 2
+  Prove the number of visits to 64 is in {j + 0 ..< j + 3}
+    .. proven.
+Step 14: 
+  Prove the number of visits to 73 is in {j + 0 ..< j + 5}
+    .. proven.
+Step 15: 
+  prove all verification conditions
+    .. proven.
+

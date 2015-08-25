@@ -1,0 +1,215 @@
+/*
+ * Copyright 2015, NICTA
+ *
+ * This software may be distributed and modified according to the terms of
+ * the BSD 2-Clause license. Note that NO WARRANTY is provided.
+ * See "LICENSE_BSD2.txt" for details.
+ *
+ * @TAG(NICTA_BSD)
+*/
+
+digraph foo {
+1 [fontname = "Arial", fontsize = 20, penwidth=3, color=forestgreen, fontcolor=forestgreen
+ label="ass_1_C_Loop.f_0x1"
+ tooltip="1: assignment to []"];
+Ret_1 [label="Ret", fontname = "Arial", fontsize = 20, penwidth=3, color=forestgreen, fontcolor=forestgreen, shape=doubleoctagon];
+1 -> Ret_1 [label=N, fontname = "Arial", fontsize = 20, penwidth=3, color=forestgreen, fontcolor=forestgreen];
+2 [fontname = "Arial", fontsize = 20, penwidth=3, color=forestgreen, fontcolor=forestgreen
+ label="ass_2_C_Loop.f_0x2"
+ tooltip="2: assignment to [loop#2#count]"];
+2 -> 37 [label=C, fontname = "Arial", fontsize = 20, penwidth=3, color=forestgreen, fontcolor=forestgreen];
+3 [fontname = "Arial", fontsize = 20, penwidth=3, color=forestgreen, fontcolor=forestgreen
+ label="3_C_Loop.f_0x3"
+ tooltip="3: conditional node"];
+3 -> 10 [label=T, fontname = "Arial", fontsize = 20, penwidth=3, color=forestgreen, fontcolor=forestgreen];
+3 -> 1 [label=F, fontname = "Arial", fontsize = 20, penwidth=3, color=forestgreen, fontcolor=forestgreen];
+4 [fontname = "Arial", fontsize = 20, penwidth=3, color=forestgreen, fontcolor=forestgreen
+ label="ass_4_C_Loop.f_0x4"
+ tooltip="4: assignment to [loop#2#count]"];
+4 -> 38 [label=C, fontname = "Arial", fontsize = 20, penwidth=3, color=forestgreen, fontcolor=forestgreen];
+5 [fontname = "Arial", fontsize = 20, penwidth=3, color=forestgreen, fontcolor=forestgreen
+ label="ass_5_C_Loop.f_0x5"
+ tooltip="5: assignment to [i#v]"];
+5 -> 2 [label=C, fontname = "Arial", fontsize = 20, penwidth=3, color=forestgreen, fontcolor=forestgreen];
+6 [fontname = "Arial", fontsize = 20, penwidth=3, color=forestgreen, fontcolor=forestgreen
+ label="6_C_Loop.f_0x6"
+ tooltip="6: conditional node"];
+6 -> 5 [label=T, fontname = "Arial", fontsize = 20, penwidth=3, color=forestgreen, fontcolor=forestgreen];
+6 -> 40 [label=F, fontname = "Arial", fontsize = 20, penwidth=3, color=forestgreen, fontcolor=forestgreen];
+7 [fontname = "Arial", fontsize = 20, penwidth=3, color=forestgreen, fontcolor=forestgreen
+ label="ass_7_C_Loop.f_0x7"
+ tooltip="7: assignment to [Mem]"];
+7 -> 6 [label=C, fontname = "Arial", fontsize = 20, penwidth=3, color=forestgreen, fontcolor=forestgreen];
+8 [fontname = "Arial", fontsize = 20, penwidth=3, color=forestgreen, fontcolor=forestgreen
+ label="8_C_Loop.f_0x8"
+ tooltip="8: conditional node"];
+8 -> 7 [label=T, fontname = "Arial", fontsize = 20, penwidth=3, color=forestgreen, fontcolor=forestgreen];
+8 -> 41 [label=F, fontname = "Arial", fontsize = 20, penwidth=3, color=forestgreen, fontcolor=forestgreen];
+9 [fontname = "Arial", fontsize = 20, penwidth=3, color=forestgreen, fontcolor=forestgreen
+ label="ass_9_C_Loop.f_0x9"
+ tooltip="9: assignment to [ret__int#v]"];
+9 -> 8 [label=C, fontname = "Arial", fontsize = 20, penwidth=3, color=forestgreen, fontcolor=forestgreen];
+10 [fontname = "Arial", fontsize = 20, penwidth=3, color=forestgreen, fontcolor=forestgreen
+ label="fcall_10_C_Loop.f_0xa"
+ tooltip="10: call to 'Loop.g'"];
+10 -> 9 [label=C, fontname = "Arial", fontsize = 20, penwidth=3, color=forestgreen, fontcolor=forestgreen];
+11 [fontname = "Arial", fontsize = 20, penwidth=3, color=forestgreen, fontcolor=forestgreen
+ label="ass_11_C_Loop.f_0xb"
+ tooltip="11: assignment to [i#v]"];
+11 -> 4 [label=C, fontname = "Arial", fontsize = 20, penwidth=3, color=forestgreen, fontcolor=forestgreen];
+12 [fontname = "Arial", fontsize = 20, penwidth=3, color=forestgreen, fontcolor=forestgreen
+ label="ass_12_C_Loop.f_0x11"
+ tooltip="12: assignment to []"];
+12 -> 11 [label=N, fontname = "Arial", fontsize = 20, penwidth=3, color=forestgreen, fontcolor=forestgreen];
+13 [fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange
+ label="ass_13_ASM_f_0x1"
+ tooltip="13: assignment to [stack, r13]"];
+13 -> 22 [label=C, fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange];
+14 [fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange
+ label="ass_14_ASM_f_0x3"
+ tooltip="14: assignment to []"];
+14 -> 35 [label=N, fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange];
+15 [fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange
+ label="ass_15_ASM_f_0x5"
+ tooltip="15: assignment to []"];
+15 -> 25 [label=N, fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange];
+16 [fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange
+ label="fcall_16_ASM_f_0x7"
+ tooltip="16: call to 'g'"];
+16 -> 30 [label=C, fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange];
+17 [fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange
+ label="ass_17_ASM_f_0x9"
+ tooltip="17: assignment to [mem, r5]"];
+17 -> 31 [label=C, fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange];
+18 [fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange
+ label="ass_18_ASM_f_0xb"
+ tooltip="18: assignment to []"];
+18 -> 27 [label=N, fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange];
+19 [fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange
+ label="19_ASM_f_0xc"
+ tooltip="19: conditional node"];
+19 -> 13 [label=T, fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange];
+19 -> 42 [label=F, fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange];
+20 [fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange
+ label="ass_20_ASM_f_0xd"
+ tooltip="20: assignment to []"];
+20 -> 35 [label=N, fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange];
+21 [fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange
+ label="ass_21_ASM_f_0xf"
+ tooltip="21: assignment to [r14, r5, r4, r3, r13]"];
+21 -> 36 [label=C, fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange];
+22 [fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange
+ label="ass_22_ASM_f_0x10"
+ tooltip="22: assignment to [v, c, z, n]"];
+22 -> 24 [label=C, fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange];
+23 [fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange
+ label="ass_23_ASM_f_0x11"
+ tooltip="23: assignment to []"];
+Ret_23 [label="Ret", fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange, shape=doubleoctagon];
+23 -> Ret_23 [label=N, fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange];
+24 [fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange
+ label="24_ASM_f_0x14"
+ tooltip="24: conditional node"];
+24 -> 14 [label=T, fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange];
+24 -> 15 [label=F, fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange];
+25 [fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange
+ label="ass_25_ASM_f_0x18"
+ tooltip="25: assignment to [r5]"];
+25 -> 26 [label=C, fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange];
+26 [fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange
+ label="ass_26_ASM_f_0x1c"
+ tooltip="26: assignment to [r4]"];
+26 -> 39 [label=C, fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange];
+27 [fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange
+ label="ass_27_ASM_f_0x20"
+ tooltip="27: assignment to [r0]"];
+27 -> 29 [label=C, fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange];
+28 [fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange
+ label="ass_28_ASM_f_0x21"
+ tooltip="28: assignment to []"];
+28 -> 19 [label=N, fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange];
+29 [fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange
+ label="29_ASM_f_0x24"
+ tooltip="29: conditional node"];
+29 -> 16 [label=T, fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange];
+29 -> 43 [label=F, fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange];
+30 [fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange
+ label="30_ASM_f_0x28"
+ tooltip="30: conditional node"];
+30 -> 17 [label=T, fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange];
+30 -> 44 [label=F, fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange];
+31 [fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange
+ label="ass_31_ASM_f_0x2c"
+ tooltip="31: assignment to [r4]"];
+31 -> 32 [label=C, fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange];
+32 [fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange
+ label="ass_32_ASM_f_0x30"
+ tooltip="32: assignment to [v, c, z, n]"];
+32 -> 34 [label=C, fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange];
+33 [fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange
+ label="ass_33_ASM_f_0x31"
+ tooltip="33: assignment to [orig_r0]"];
+33 -> 28 [label=C, fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange];
+34 [fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange
+ label="34_ASM_f_0x34"
+ tooltip="34: conditional node"];
+34 -> 18 [label=T, fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange];
+34 -> 20 [label=F, fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange];
+35 [fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange
+ label="35_ASM_f_0x38"
+ tooltip="35: conditional node"];
+35 -> 21 [label=T, fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange];
+35 -> 45 [label=F, fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange];
+36 [fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange
+ label="36_ASM_f_0x3c"
+ tooltip="36: conditional node"];
+36 -> 23 [label=T, fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange];
+36 -> 46 [label=F, fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange];
+37 [fontname = "Arial", fontsize = 20, penwidth=3, color=forestgreen, fontcolor=forestgreen
+ label="ass_37_C_LoopReturn_0x3"
+ tooltip="37: assignment to []"];
+37 -> 3 [label=N, fontname = "Arial", fontsize = 20, penwidth=3, color=forestgreen, fontcolor=forestgreen];
+38 [fontname = "Arial", fontsize = 20, penwidth=3, color=forestgreen, fontcolor=forestgreen
+ label="ass_38_C_MergePadding"
+ tooltip="38: assignment to []"];
+38 -> 3 [label=N, fontname = "Arial", fontsize = 20, penwidth=3, color=forestgreen, fontcolor=forestgreen];
+39 [fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange
+ label="ass_39_ASM_MergePadding"
+ tooltip="39: assignment to []"];
+39 -> 27 [label=N, fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange];
+40 [fontname = "Arial", fontsize = 20, penwidth=3, color=forestgreen, fontcolor=forestgreen
+ label="ass_40_C_MergePadding"
+ tooltip="40: assignment to []"];
+Err_40 [label="Err", fontname = "Arial", fontsize = 20, penwidth=3, color=forestgreen, fontcolor=forestgreen, shape=Mdiamond];
+40 -> Err_40 [label=N, fontname = "Arial", fontsize = 20, penwidth=3, color=forestgreen, fontcolor=forestgreen];
+41 [fontname = "Arial", fontsize = 20, penwidth=3, color=forestgreen, fontcolor=forestgreen
+ label="ass_41_C_MergePadding"
+ tooltip="41: assignment to []"];
+Err_41 [label="Err", fontname = "Arial", fontsize = 20, penwidth=3, color=forestgreen, fontcolor=forestgreen, shape=Mdiamond];
+41 -> Err_41 [label=N, fontname = "Arial", fontsize = 20, penwidth=3, color=forestgreen, fontcolor=forestgreen];
+42 [fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange
+ label="ass_42_ASM_MergePadding"
+ tooltip="42: assignment to []"];
+Err_42 [label="Err", fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange, shape=Mdiamond];
+42 -> Err_42 [label=N, fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange];
+43 [fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange
+ label="ass_43_ASM_MergePadding"
+ tooltip="43: assignment to []"];
+Err_43 [label="Err", fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange, shape=Mdiamond];
+43 -> Err_43 [label=N, fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange];
+44 [fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange
+ label="ass_44_ASM_MergePadding"
+ tooltip="44: assignment to []"];
+Err_44 [label="Err", fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange, shape=Mdiamond];
+44 -> Err_44 [label=N, fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange];
+45 [fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange
+ label="ass_45_ASM_MergePadding"
+ tooltip="45: assignment to []"];
+Err_45 [label="Err", fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange, shape=Mdiamond];
+45 -> Err_45 [label=N, fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange];
+46 [fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange
+ label="ass_46_ASM_MergePadding"
+ tooltip="46: assignment to []"];
+Err_46 [label="Err", fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange, shape=Mdiamond];
+46 -> Err_46 [label=N, fontname = "Arial", fontsize = 20, penwidth=3, color=darkorange, fontcolor=darkorange];
+}

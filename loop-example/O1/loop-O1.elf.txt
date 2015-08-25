@@ -1,0 +1,25 @@
+
+O1/loop-O1.o:     file format elf32-littlearm
+
+
+Disassembly of section .text:
+
+00000000 <g>:
+   0:	e200300f 	and	r3, r0, #15
+   4:	e0830180 	add	r0, r3, r0, lsl #3
+   8:	e12fff1e 	bx	lr
+
+0000000c <f>:
+   c:	e92d4038 	push	{r3, r4, r5, lr}
+  10:	e3510063 	cmp	r1, #99	; 0x63
+  14:	ca000007 	bgt	38 <f+0x2c>
+  18:	e0805101 	add	r5, r0, r1, lsl #2
+  1c:	e1a04001 	mov	r4, r1
+  20:	e1a00004 	mov	r0, r4
+  24:	ebfffffe 	bl	0 <g>
+  28:	e4850004 	str	r0, [r5], #4
+  2c:	e2844001 	add	r4, r4, #1
+  30:	e3540064 	cmp	r4, #100	; 0x64
+  34:	1afffff9 	bne	20 <f+0x14>
+  38:	e8bd4038 	pop	{r3, r4, r5, lr}
+  3c:	e12fff1e 	bx	lr

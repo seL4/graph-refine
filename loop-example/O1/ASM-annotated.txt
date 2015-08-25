@@ -1,0 +1,79 @@
+# * Copyright 2015, NICTA
+# *
+# * This software may be distributed and modified according to the terms of
+# * the BSD 2-Clause license. Note that NO WARRANTY is provided.
+# * See "LICENSE_BSD2.txt" for details.
+# *
+# * @TAG(NICTA_BSD)
+
+ 
+Function f 26 ret Word 32 r0 Word 32 r1 Word 32 r2 Word 32 r3 Word 32 r4 Word 32 r5 Word 32 r6 Word 32 r7 Word 32 r8 Word 32 r9 Word 32 r10 Word 32 r11 Word 32 r12 Word 32 r13 Word 32 r14 Word 32 mode Word 32 n Bool z Bool c Bool v Bool mem Mem dom Dom stack Mem dom_stack Dom clock Word 32 25 r0 Word 32 r1 Word 32 r2 Word 32 r3 Word 32 r4 Word 32 r5 Word 32 r6 Word 32 r7 Word 32 r8 Word 32 r9 Word 32 r10 Word 32 r11 Word 32 r12 Word 32 r13 Word 32 r14 Word 32 mode Word 32 n Bool z Bool c Bool v Bool mem Mem dom Dom stack Mem dom_stack Dom clock Word 32
+
+#    c:	e92d4038 	push	{r3, r4, r5, lr}
+# (first check alignment and in-stack-domain constraints)
+12 Cond 1 Err Op And Bool 2 Op Equals Bool 2 Op BWAnd Word 32 2 Var r13 Word 32 Num 3 Word 32 Num 0 Word 32 Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r13 Word 32 Num 4294967280 Word 32 Var dom_stack Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r13 Word 32 Num 4294967281 Word 32 Var dom_stack Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r13 Word 32 Num 4294967282 Word 32 Var dom_stack Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r13 Word 32 Num 4294967283 Word 32 Var dom_stack Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r13 Word 32 Num 4294967284 Word 32 Var dom_stack Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r13 Word 32 Num 4294967288 Word 32 Var dom_stack Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r13 Word 32 Num 4294967292 Word 32 Var dom_stack Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r13 Word 32 Num 4294967285 Word 32 Var dom_stack Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r13 Word 32 Num 4294967286 Word 32 Var dom_stack Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r13 Word 32 Num 4294967287 Word 32 Var dom_stack Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r13 Word 32 Num 4294967289 Word 32 Var dom_stack Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r13 Word 32 Num 4294967290 Word 32 Var dom_stack Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r13 Word 32 Num 4294967293 Word 32 Var dom_stack Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r13 Word 32 Num 4294967294 Word 32 Var dom_stack Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r13 Word 32 Num 4294967291 Word 32 Var dom_stack Dom Op MemDom Bool 2 Op Plus Word 32 2 Var r13 Word 32 Num 4294967295 Word 32 Var dom_stack Dom
+1 Basic 16 2 stack Mem Op MemUpdate Mem 3 Op MemUpdate Mem 3 Op MemUpdate Mem 3 Op MemUpdate Mem 3 Var stack Mem Op Plus Word 32 2 Var r13 Word 32 Num 4294967292 Word 32 Var r14 Word 32 Op Plus Word 32 2 Var r13 Word 32 Num 4294967288 Word 32 Var r5 Word 32 Op Plus Word 32 2 Var r13 Word 32 Num 4294967284 Word 32 Var r4 Word 32 Op Plus Word 32 2 Var r13 Word 32 Num 4294967280 Word 32 Var r3 Word 32 r13 Word 32 Op Plus Word 32 2 Var r13 Word 32 Num 4294967280 Word 32
+
+#   10:	e3510063 	cmp	r1, #99	; 0x63
+16 Basic 20 4 v Bool Op And Bool 2 Op Not Bool 1 Op Equals Bool 2 Num 0 Word 32 Op BWAnd Word 32 2 Var r1 Word 32 Op ShiftLeft Word 32 2 Num 1 Word 32 Num 31 Word 32 Op Not Bool 1 Op Equals Bool 2 Op Not Bool 1 Op Equals Bool 2 Num 0 Word 32 Op BWAnd Word 32 2 Var r1 Word 32 Op ShiftLeft Word 32 2 Num 1 Word 32 Num 31 Word 32 Op Not Bool 1 Op Equals Bool 2 Num 0 Word 32 Op BWAnd Word 32 2 Op Plus Word 32 2 Var r1 Word 32 Num 4294967197 Word 32 Op ShiftLeft Word 32 2 Num 1 Word 32 Num 31 Word 32 c Bool Op Or Bool 2 Op LessEquals Bool 2 Op Minus Word 32 2 Num 0 Word 32 Op Plus Word 32 2 Num 4294967196 Word 32 Num 1 Word 32 Var r1 Word 32 Op Equals Bool 2 Num 4294967196 Word 32 Num ~1 Word 32 z Bool Op Equals Bool 2 Op Plus Word 32 2 Var r1 Word 32 Num 4294967197 Word 32 Num 0 Word 32 n Bool Op Not Bool 1 Op Equals Bool 2 Num 0 Word 32 Op BWAnd Word 32 2 Op Plus Word 32 2 Var r1 Word 32 Num 4294967197 Word 32 Op ShiftLeft Word 32 2 Num 1 Word 32 Num 31 Word 32
+
+#   14:	ca000007 	bgt	38 <f+0x2c>
+20 Cond 3 5 Op And Bool 2 Op Equals Bool 2 Var n Bool Var v Bool Op Not Bool 1 Var z Bool
+3 Basic 56 0
+5 Basic 24 0
+
+#   18:	e0805101 	add	r5, r0, r1, lsl #2
+24 Basic 28 1 r5 Word 32 Op Plus Word 32 2 Var r0 Word 32 Op ShiftLeft Word 32 2 Var r1 Word 32 Num 2 Word 32
+
+#   1c:	e1a04001 	mov	r4, r1
+28 Basic 32 1 r4 Word 32 Var r1 Word 32
+
+#   20:	e1a00004 	mov	r0, r4
+32 Basic 36 1 r0 Word 32 Var r4 Word 32
+
+#   24:	ebfffffe 	bl	0 <g>
+36 Cond 7 Err Op True Bool 0
+7 Call 40 g 26 Num 40 Word 32 Var r0 Word 32 Var r1 Word 32 Var r2 Word 32 Var r3 Word 32 Var r4 Word 32 Var r5 Word 32 Var r6 Word 32 Var r7 Word 32 Var r8 Word 32 Var r9 Word 32 Var r10 Word 32 Var r11 Word 32 Var r12 Word 32 Var r13 Word 32 Num 40 Word 32 Var mode Word 32 Var n Bool Var z Bool Var c Bool Var v Bool Var mem Mem Var dom Dom Var stack Mem Var dom_stack Dom Var clock Word 32 25 r0 Word 32 r1 Word 32 r2 Word 32 r3 Word 32 r4 Word 32 r5 Word 32 r6 Word 32 r7 Word 32 r8 Word 32 r9 Word 32 r10 Word 32 r11 Word 32 r12 Word 32 r13 Word 32 r14 Word 32 mode Word 32 n Bool z Bool c Bool v Bool mem Mem dom Dom stack Mem dom_stack Dom clock Word 32
+
+#   28:	e4850004 	str	r0, [r5], #4
+# (first check alignment and in-heap-domain constraints)
+40 Cond 9 Err Op And Bool 2 Op Equals Bool 2 Op BWAnd Word 32 2 Var r5 Word 32 Num 3 Word 32 Num 0 Word 32 Op And Bool 2 Op MemDom Bool 2 Var r5 Word 32 Var dom Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r5 Word 32 Num 1 Word 32 Var dom Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r5 Word 32 Num 2 Word 32 Var dom Dom Op MemDom Bool 2 Op Plus Word 32 2 Var r5 Word 32 Num 3 Word 32 Var dom Dom
+9 Basic 44 2 mem Mem Op MemUpdate Mem 3 Var mem Mem Var r5 Word 32 Var r0 Word 32 r5 Word 32 Op Plus Word 32 2 Var r5 Word 32 Num 4 Word 32
+
+#   2c:	e2844001 	add	r4, r4, #1
+44 Basic 48 1 r4 Word 32 Op Plus Word 32 2 Var r4 Word 32 Num 1 Word 32
+
+#   30:	e3540064 	cmp	r4, #100	; 0x64
+48 Basic 52 4 v Bool Op And Bool 2 Op Not Bool 1 Op Equals Bool 2 Num 0 Word 32 Op BWAnd Word 32 2 Var r4 Word 32 Op ShiftLeft Word 32 2 Num 1 Word 32 Num 31 Word 32 Op Not Bool 1 Op Equals Bool 2 Op Not Bool 1 Op Equals Bool 2 Num 0 Word 32 Op BWAnd Word 32 2 Var r4 Word 32 Op ShiftLeft Word 32 2 Num 1 Word 32 Num 31 Word 32 Op Not Bool 1 Op Equals Bool 2 Num 0 Word 32 Op BWAnd Word 32 2 Op Plus Word 32 2 Var r4 Word 32 Num 4294967196 Word 32 Op ShiftLeft Word 32 2 Num 1 Word 32 Num 31 Word 32 c Bool Op Or Bool 2 Op LessEquals Bool 2 Op Minus Word 32 2 Num 0 Word 32 Op Plus Word 32 2 Num 4294967195 Word 32 Num 1 Word 32 Var r4 Word 32 Op Equals Bool 2 Num 4294967195 Word 32 Num ~1 Word 32 z Bool Op Equals Bool 2 Op Plus Word 32 2 Var r4 Word 32 Num 4294967196 Word 32 Num 0 Word 32 n Bool Op Not Bool 1 Op Equals Bool 2 Num 0 Word 32 Op BWAnd Word 32 2 Op Plus Word 32 2 Var r4 Word 32 Num 4294967196 Word 32 Op ShiftLeft Word 32 2 Num 1 Word 32 Num 31 Word 32
+
+#   34:	1afffff9 	bne	20 <f+0x14>
+52 Cond 11 13 Op Not Bool 1 Var z Bool
+11 Basic 32 0
+13 Basic 56 0
+
+#   38:	e8bd4038 	pop	{r3, r4, r5, lr}
+# (first check alignment and in-stack-domain constraints)
+56 Cond 15 Err Op And Bool 2 Op Equals Bool 2 Op BWAnd Word 32 2 Var r13 Word 32 Num 3 Word 32 Num 0 Word 32 Op And Bool 2 Op MemDom Bool 2 Var r13 Word 32 Var dom_stack Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r13 Word 32 Num 1 Word 32 Var dom_stack Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r13 Word 32 Num 2 Word 32 Var dom_stack Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r13 Word 32 Num 3 Word 32 Var dom_stack Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r13 Word 32 Num 4 Word 32 Var dom_stack Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r13 Word 32 Num 8 Word 32 Var dom_stack Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r13 Word 32 Num 12 Word 32 Var dom_stack Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r13 Word 32 Num 5 Word 32 Var dom_stack Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r13 Word 32 Num 6 Word 32 Var dom_stack Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r13 Word 32 Num 7 Word 32 Var dom_stack Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r13 Word 32 Num 9 Word 32 Var dom_stack Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r13 Word 32 Num 10 Word 32 Var dom_stack Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r13 Word 32 Num 13 Word 32 Var dom_stack Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r13 Word 32 Num 14 Word 32 Var dom_stack Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r13 Word 32 Num 11 Word 32 Var dom_stack Dom Op MemDom Bool 2 Op Plus Word 32 2 Var r13 Word 32 Num 15 Word 32 Var dom_stack Dom
+15 Basic 60 5 r14 Word 32 Op MemAcc Word 32 2 Var stack Mem Op Plus Word 32 2 Var r13 Word 32 Num 12 Word 32 r5 Word 32 Op MemAcc Word 32 2 Var stack Mem Op Plus Word 32 2 Var r13 Word 32 Num 8 Word 32 r4 Word 32 Op MemAcc Word 32 2 Var stack Mem Op Plus Word 32 2 Var r13 Word 32 Num 4 Word 32 r3 Word 32 Op MemAcc Word 32 2 Var stack Mem Var r13 Word 32 r13 Word 32 Op Plus Word 32 2 Var r13 Word 32 Num 16 Word 32
+
+#   3c:	e12fff1e 	bx	lr
+# (first check return address is expected, and aligned)
+60 Cond 17 Err Op And Bool 2 Op Equals Bool 2 Op BWAnd Word 32 2 Var r14 Word 32 Num 3 Word 32 Num 0 Word 32 Op Equals Bool 2 Var r14 Word 32 Var ret Word 32
+17 Basic Ret 0
+
+EntryPoint 12
+
+
+Function g 26 ret Word 32 r0 Word 32 r1 Word 32 r2 Word 32 r3 Word 32 r4 Word 32 r5 Word 32 r6 Word 32 r7 Word 32 r8 Word 32 r9 Word 32 r10 Word 32 r11 Word 32 r12 Word 32 r13 Word 32 r14 Word 32 mode Word 32 n Bool z Bool c Bool v Bool mem Mem dom Dom stack Mem dom_stack Dom clock Word 32 25 r0 Word 32 r1 Word 32 r2 Word 32 r3 Word 32 r4 Word 32 r5 Word 32 r6 Word 32 r7 Word 32 r8 Word 32 r9 Word 32 r10 Word 32 r11 Word 32 r12 Word 32 r13 Word 32 r14 Word 32 mode Word 32 n Bool z Bool c Bool v Bool mem Mem dom Dom stack Mem dom_stack Dom clock Word 32
+
+#    0:	e200300f 	and	r3, r0, #15
+0 Basic 4 1 r3 Word 32 Op BWAnd Word 32 2 Var r0 Word 32 Num 15 Word 32
+
+#    4:	e0830180 	add	r0, r3, r0, lsl #3
+4 Basic 8 1 r0 Word 32 Op Plus Word 32 2 Var r3 Word 32 Op ShiftLeft Word 32 2 Var r0 Word 32 Num 3 Word 32
+
+#    8:	e12fff1e 	bx	lr
+# (first check return address is expected, and aligned)
+8 Cond 1 Err Op And Bool 2 Op Equals Bool 2 Op BWAnd Word 32 2 Var r14 Word 32 Num 3 Word 32 Num 0 Word 32 Op Equals Bool 2 Var r14 Word 32 Var ret Word 32
+1 Basic Ret 0
+EntryPoint 0

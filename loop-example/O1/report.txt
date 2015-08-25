@@ -1,0 +1,65 @@
+Function Loop.f
+Function Loop.g
+Function f
+Function g
+Pseudo-Compiling.
+Compiling in Loop.f.
+Compiling in Loop.g.
+Compiling in g.
+Compiling in f.
+Checking.
+Proofs for g -> Loop.g
+ .. built problem, finding proof
+ProofNode ('Leaf', None, ())
+ .. proof found.
+Step 1: 
+  prove all verification conditions
+    .. proven.
+Refinement g -> Loop.g proven.
+Proofs for f -> Loop.f
+ .. built problem, finding proof
+ProofNode ('Split', ((30, (0, 1), [Expr ('Var', Type ("Word", 32), name = 'r13'), Expr ('Var', Type ("Word", 32), name = 'ret'), Expr ('Var', Type ("Word", 32), name = 'r9'), Expr ('Var', Type ("Word", 32), name = 'r8'), Expr ('Op', Type ("Word", 32), name = 'Plus', vals = [Expr ('Var', Type ("Word", 32), name = 'r5'), Expr ('Op', Type ("Word", 32), name = 'Times', vals = [Expr ('Op', Type ("Word", 32), name = 'Minus', vals = [Expr ('Num', Type ("Word", 32), val = 0), Expr ('Var', Type ("Word", 32), name = '%i')]), Expr ('Num', Type ("Word", 32), val = 4)])]), Expr ('Op', Type ("Word", 32), name = 'Plus', vals = [Expr ('Var', Type ("Word", 32), name = 'r4'), Expr ('Op', Type ("Word", 32), name = 'Times', vals = [Expr ('Op', Type ("Word", 32), name = 'Minus', vals = [Expr ('Num', Type ("Word", 32), val = 0), Expr ('Var', Type ("Word", 32), name = '%i')]), Expr ('Num', Type ("Word", 32), val = 1)])]), Expr ('Op', Type ('Builtin', 'Bool'), name = 'ROData', vals = [Expr ('Var', Type ('Builtin', 'Mem'), name = 'mem')]), Expr ('Var', Type ("Word", 32), name = 'r11'), Expr ('Var', Type ("Word", 32), name = 'r6'), Expr ('Var', Type ("Word", 32), name = 'r10'), Expr ('Var', Type ("Word", 32), name = 'r7'), Expr ('Op', Type ('Builtin', 'RelWrapper'), name = 'StackWrapper', vals = [Expr ('Op', Type ("Word", 32), name = 'Plus', vals = [Expr ('Var', Type ("Word", 32), name = 'r13'), Expr ('Num', Type ("Word", 32), val = 0)]), Expr ('Var', Type ('Builtin', 'Mem'), name = 'stack')])]), (8, (0, 1), [Expr ('Var', Type ("Word", 32), name = 'p#v'), Expr ('Op', Type ("Word", 32), name = 'Plus', vals = [Expr ('Var', Type ("Word", 32), name = 'loop#2#count'), Expr ('Op', Type ("Word", 32), name = 'Times', vals = [Expr ('Op', Type ("Word", 32), name = 'Minus', vals = [Expr ('Num', Type ("Word", 32), val = 0), Expr ('Var', Type ("Word", 32), name = '%i')]), Expr ('Num', Type ("Word", 32), val = 1)])]), Expr ('Op', Type ("Word", 32), name = 'Plus', vals = [Expr ('Var', Type ("Word", 32), name = 'i#v'), Expr ('Op', Type ("Word", 32), name = 'Times', vals = [Expr ('Op', Type ("Word", 32), name = 'Minus', vals = [Expr ('Num', Type ("Word", 32), val = 0), Expr ('Var', Type ("Word", 32), name = '%i')]), Expr ('Num', Type ("Word", 32), val = 1)])])]), [(Expr ('Var', Type ("Word", 32), name = 'r0'), Expr ('Var', Type ("Word", 32), name = 'ret__int#v')), (Expr ('Var', Type ('Builtin', 'Mem'), name = 'mem'), Expr ('Var', Type ('Builtin', 'Mem'), name = 'Mem'))], 2, 1), (ProofNode ('Restr', (30, ('Number', (0, 3))), (ProofNode ('Restr', (8, ('Number', (0, 3))), (ProofNode ('Leaf', None, ()),)),)), ProofNode ('Restr', (30, ('Offset', (0, 3))), (ProofNode ('Restr', (8, ('Offset', (0, 3))), (ProofNode ('Leaf', None, ()),)),))))
+ .. proof found.
+Step 1: 
+  prove visits to 30 related to visits to 8
+    with equalities
+      ((Word32) ('r0')) (@ addr 30)
+      = ((Word32) ('ret__int#v')) (@ addr 8)
+      ((Mem) ('mem')) (@ addr 30)
+      = ((Mem) ('Mem')) (@ addr 8)
+    and with invariants
+      ((Word32) ('r13')) (@ addr 30)
+      ((Word32) ('ret')) (@ addr 30)
+      ((Word32) ('r9')) (@ addr 30)
+      ((Word32) ('r8')) (@ addr 30)
+      ((Word32) (('r5' + ((0 - '#seq-visits') * 4)))) (@ addr 30)
+      ((Word32) (('r4' + ((0 - '#seq-visits') * 1)))) (@ addr 30)
+      ((Bool) (ROData('mem'))) (@ addr 30)
+      ((Word32) ('r11')) (@ addr 30)
+      ((Word32) ('r6')) (@ addr 30)
+      ((Word32) ('r10')) (@ addr 30)
+      ((Word32) ('r7')) (@ addr 30)
+      ((RelWrapper) (StackWrapper(((Word32) (('r13' + 0))), ((Mem) ('stack'))))) (@ addr 30)
+      ((Word32) ('p#v')) (@ addr 8)
+      ((Word32) (('loop#2#count' + ((0 - '#seq-visits') * 1)))) (@ addr 8)
+      ((Word32) (('i#v' + ((0 - '#seq-visits') * 1)))) (@ addr 8)
+    .. proven.
+Step 2: case in (1) where the length of the sequence < 2
+  Prove the number of visits to 30 is in {0 ..< 3}
+    .. proven.
+Step 3: 
+  Prove the number of visits to 8 is in {0 ..< 3}
+    .. proven.
+Step 4: 
+  prove all verification conditions
+    .. proven.
+Step 5: case in (1) where the length of the sequence is i + 2
+  Prove the number of visits to 30 is in {i + 0 ..< i + 3}
+    .. proven.
+Step 6: 
+  Prove the number of visits to 8 is in {i + 0 ..< i + 3}
+    .. proven.
+Step 7: 
+  prove all verification conditions
+    .. proven.
+Refinement f -> Loop.f proven.
