@@ -761,29 +761,27 @@ class Solver:
 		raw_hyps = [(hyp2, tag) for (hyp, tag) in hyps
 			for hyp2 in split_hyp (hyp)]
 		hyps = [self.next_hyp (h, hyp_dict) for h in raw_hyps]
-		if force_slow:
-			all_ok = False
-		else:
+		if not force_slow:
 			trace ('testing group of %d hyps:' % len (hyps))
 			for (hyp, _) in raw_hyps:
 				trace ('  ' + hyp)
-			(response, m, ucs, all_ok) = self.solver_loop (lambda:
+			(response, m, ucs, succ) = self.solver_loop (lambda:
 				self.hyps_sat_raw_inner (hyps,
 					model != None, unsat_core != None))
 
-		if m:
-			model.clear ()
-			model.update (m)
-		if ucs:
-			unsat_core.extend (self.get_unsat_core_tags (ucs,
-				hyp_dict))
-		if response == 'unknown' or response == '' or not all_ok:
-			# the fast solver failed us, appeal to the slow solver
-			trace ('%s failed, running %s' % (fast_solver[0],
-				slow_solver[0]))
+		if force_slow or not succ or response not in ['sat', 'unsat']:
+			if not force_slow:
+				trace ('failed to get result from %s' % fast_solver[0])
+			trace ('running %s' % slow_solver[0])
 			self.close ()
 			response = self.slow_solver (raw_hyps, model = model,
 				unsat_core = unsat_core)
+		elif m:
+			model.clear ()
+			model.update (m)
+		elif ucs:
+			unsat_core.extend (self.get_unsat_core_tags (ucs,
+				hyp_dict))
 
 		if response == 'sat':
 			if not recursion:
@@ -1501,19 +1499,25 @@ pvalid_type_map = {}
 #def compile_struct_pvalid ():
 #def compile_pvalids ():
 	
-def test ():
+def quick_test (force_slow = False):
 	"""quick test that the solver supports the needed features."""
+	fs = force_slow
 	solv = Solver ()
 	solv.assert_fact (true_term, {})
-	assert solv.check_hyp (false_term, {}) == 'sat'
-	assert solv.check_hyp (true_term, {}) == 'unsat'
+	assert solv.check_hyp (false_term, {}, force_slow = fs) == 'sat'
+	assert solv.check_hyp (true_term, {}, force_slow = fs) == 'unsat'
 	v = syntax.mk_var ('v', word32T)
 	z = syntax.mk_word32 (0)
 	env = {('v', word32T): solv.add_var ('v', word32T)}
 	solv.assert_fact (syntax.mk_eq (v, z), env)
 	m = {}
-	assert solv.check_hyp (false_term, {}, model = m) == 'sat'
+	assert solv.check_hyp (false_term, {}, model = m,
+		force_slow = fs) == 'sat'
 	assert m == {'v': z}, m
+
+def test ():
+	quick_test ()
+	quick_test (force_slow = True)
 	print 'Solver self-test successful'
 
 if __name__ == "__main__":
