@@ -1518,8 +1518,10 @@ def test ():
 
 if __name__ == "__main__":
 	import sys, target_objects
-	if sys.argv[1:] == ['test']:
+	if sys.argv[1:] == ['testq']:
 		target_objects.tracer[0] = lambda x, y: ()
+		test ()
+	elif sys.argv[1:] == ['test']:
 		test ()
 
 
