@@ -47,6 +47,10 @@ $(if ${DECOMP_SCRIPT},,$(error decompile.py not executable in ${DECOMP_DIR}))
 HOLMAKE= $(shell which Holmake)
 $(if ${HOLMAKE},,$(error Holmake not found - first install/configure HOL4))
 
+SOLV_TEST = $(shell python ../solver.py testq | grep 'Solver self-test succ')
+$(if ${SOLV_TEST},,$(error Solver self-test failed (python ../solver.py test)))
+
+
 # compile and decompile
 
 include ${SOURCE_ROOT}/Makefile
