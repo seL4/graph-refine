@@ -1,5 +1,5 @@
-[The NICTA Graph Refinement Toolset]
-====================================
+The NICTA Graph Refinement Toolset
+==================================
 
 This is a set of tools which discover and check refinement proofs between
 programs with fairly arbitrary control flow graphs, including a number of
@@ -35,8 +35,8 @@ The [`example`](example/) and [`loop-example`](loop-example/) directories
 contain prebuilt example refinement targets. They can be used to exercise the
 tool as follows:
 
-   python graph-refine.py example quiet all
-   python graph-refine.py loop-example/O1 report all
+    python graph-refine.py example quiet all
+    python graph-refine.py loop-example/O1 report all
 
 The [`seL4-example`](seL4-example/) directory contains a recipe for building
 the seL4 binary verification problem. If this repository is set up via the
@@ -53,6 +53,10 @@ configuration file, which is described in [`solver.py`](solver.py). The tool
 will also provide instructions on the command line if the configuration is
 missing or invalid.
 
+To test the solver setup is working:
+
+    python solver.py test
+
 Additional dependencies are required to run the full seL4 binary verification
 problem. They are described in the [`seL4-example`](seL4-example/) directory.
 
@@ -61,19 +65,19 @@ Usage
 
 The tool is invoked by:
 
-   python graph-refine.py <target> <instructions>
+    python graph-refine.py <target> <instructions>
 
-Here <target> is a target directory, which specifies an input problem. It must
-contain a target.py setup script. See the example directory for an example.
+A target is a directory which contains all of the functions and configuration
+associated with an input problem. Target directories must contain a target.py
+setup script. See the example directory for an example.
 
 There are various instructions available:
 
-  <name of function>: run checks for this function
-  "all": run checks for all functions
-  "no-loops": skip functions with loops
-  "only-loops": skip functions without loops
-  "quiet": quiet mode, only report progress.
-  "report": report mode, produce a nice report on proof structure & progress.
+  - all: test all functions. this will usually be the last instruction.
+  - no-loops: skip functions with loops
+  - only-loops: skip functions without loops
+  - quiet: suppress diagnostic output
+  - report: report mode. suppress diagnostic output, but format a report on proof structure and progress.
 
 Overview
 --------
