@@ -91,8 +91,9 @@ GRAPH_REFINE_INPUTS= kernel.elf.rodata kernel.elf.symtab ASMFunctions.txt \
 StackBounds.txt: ${GRAPH_REFINE_INPUTS}
 	python ../graph-refine.py .
 
-report.txt: ${GRAPH_REFINE_INPUTS}
-	python ../graph-refine.py . report all
+report.txt: StackBounds.txt ${GRAPH_REFINE_INPUTS}
+	python ../graph-refine.py . report-to:partial-$@ all
+	mv partial-$@ $@
 
 default: report.txt
 
