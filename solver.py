@@ -1501,5 +1501,25 @@ pvalid_type_map = {}
 #def compile_struct_pvalid ():
 #def compile_pvalids ():
 	
+def test ():
+	"""quick test that the solver supports the needed features."""
+	solv = Solver ()
+	solv.assert_fact (true_term, {})
+	assert solv.check_hyp (false_term, {}) == 'sat'
+	assert solv.check_hyp (true_term, {}) == 'unsat'
+	v = syntax.mk_var ('v', word32T)
+	z = syntax.mk_word32 (0)
+	env = {('v', word32T): solv.add_var ('v', word32T)}
+	solv.assert_fact (syntax.mk_eq (v, z), env)
+	m = {}
+	assert solv.check_hyp (false_term, {}, model = m) == 'sat'
+	assert m == {'v': z}, m
+	print 'Solver self-test successful'
+
+if __name__ == "__main__":
+	import sys, target_objects
+	if sys.argv[1:] == ['test']:
+		target_objects.tracer[0] = lambda x, y: ()
+		test ()
 
 
