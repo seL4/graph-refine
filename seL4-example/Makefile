@@ -65,7 +65,7 @@ kernel.elf.symtab: kernel.elf
 	${OBJDUMP} -t $^ > $@
 
 kernel.sigs: kernel_all.c_pp
-	cd ${PARSERPATH}; make c-parser
+	MAKEFILES= make -C ${PARSERPATH} standalone-cparser
 	${PARSERPATH}/c-parser --mmbytes $^ > $@
 
 kernel.tar.gz: kernel.elf.rodata kernel.elf.txt kernel.elf.symtab \
