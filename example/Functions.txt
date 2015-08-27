@@ -1,0 +1,422 @@
+# * Copyright 2015, NICTA
+# *
+# * This software may be distributed and modified according to the terms of
+# * the BSD 2-Clause license. Note that NO WARRANTY is provided.
+# * See "LICENSE_BSD2.txt" for details.
+# *
+# * @TAG(NICTA_BSD)
+
+# very simple mathematical example. weak refinement, f_refine is f.
+Function f 3 x Word 32 y Word 32 m Mem 2 z Word 32 m Mem
+1 Cond 2 3 Op Equals Bool 2 Var x Word 32 Num 0 Word 32
+2 Basic 3 1 x Word 32 Op Plus Word 32 2 Op Times Word 32 2 Var y Word 32 Var y Word 32 Num 1 Word 32
+3 Basic Ret 1 z Word 32 Op Plus Word 32 2 Var x Word 32 Var y Word 32
+EntryPoint 1
+Function f_refine 3 x Word 32 y Word 32 m Mem 2 z Word 32 m Mem
+1 Cond 2 3 Op Equals Bool 2 Var x Word 32 Num 0 Word 32
+2 Basic 3 1 x Word 32 Op Plus Word 32 2 Op Times Word 32 2 Var y Word 32 Var y Word 32 Num 1 Word 32
+3 Basic Ret 1 z Word 32 Op Plus Word 32 2 Var x Word 32 Var y Word 32
+EntryPoint 1
+
+# calls f and doesn't do anything else
+Function callit 3 x Word 32 y Word 32 m Mem 2 z Word 32 m Mem
+1 Call Ret f 3 Var x Word 32 Var y Word 32 Var m Mem 2 z Word 32 m Mem
+EntryPoint 1
+Function callit_refine 3 x Word 32 y Word 32 m Mem 2 z Word 32 m Mem
+1 Call Ret f_refine 3 Var x Word 32 Var y Word 32 Var m Mem 2 z Word 32 m Mem
+EntryPoint 1
+
+# an example with a loop. g_refine is a simple unfolding of g.
+Function g 2 x Word 32 m Mem 2 z Word 32 m Mem
+1 Basic 2 1 y Word 32 Op Times Word 32 2 Var x Word 32 Var x Word 32
+2 Cond 3 5 Op SignedLessEquals Bool 2 Num 0 Word 32 Var y Word 32
+3 Basic 4 1 m Mem Op MemUpdate Mem 3 Var m Mem Op Plus Word 32 2 Num 4096 Word 32 Op Times Word 32 2 Var y Word 32 Num 12 Word 32 Var y Word 32
+4 Basic 2 1 y Word 32 Op Minus Word 32 2 Var y Word 32 Num 1 Word 32
+5 Basic Ret 1 z Word 32 Op MemAcc Word 32 2 Var m Mem Num 4192 Word 32
+EntryPoint 1
+Function g_refine 2 x Word 32 m Mem 2 z Word 32 m Mem
+1 Basic 2 1 y Word 32 Op Times Word 32 2 Var x Word 32 Var x Word 32
+2 Cond 3 5 Op SignedLessEquals Bool 2 Num 0 Word 32 Var y Word 32
+3 Basic 4 1 m Mem Op MemUpdate Mem 3 Var m Mem Op Plus Word 32 2 Num 4096 Word 32 Op Times Word 32 2 Var y Word 32 Num 12 Word 32 Var y Word 32
+4 Basic 6 1 y Word 32 Op Minus Word 32 2 Var y Word 32 Num 1 Word 32
+6 Cond 3 5 Op SignedLessEquals Bool 2 Num 0 Word 32 Var y Word 32
+5 Basic Ret 1 z Word 32 Op MemAcc Word 32 2 Var m Mem Num 4192 Word 32
+EntryPoint 1
+
+# an example with an unrolled loop. un_refine contains a loop that amounts
+# to two instances of the loop in un
+Function un 2 x Word 32 m Mem 2 z Word 32 m Mem
+1 Basic 2 0
+2 Cond 3 4 Op Not Bool 1 Op Equals Bool 2 Var x Word 32 Num 0 Word 32
+3 Basic 2 2 m Mem Op MemUpdate Mem 3 Var m Mem Var x Word 32 Num 0 Word 32 x Word 32 Op MemAcc Word 32 2 Var m Mem Var x Word 32
+4 Basic Ret 1 z Word 32 Var x Word 32
+EntryPoint 1
+Function un_refine 2 x Word 32 m Mem 2 z Word 32 m Mem
+1 Basic 2 0
+2 Cond 3 4 Op Not Bool 1 Op Equals Bool 2 Var x Word 32 Num 0 Word 32
+3 Basic 5 2 m Mem Op MemUpdate Mem 3 Var m Mem Var x Word 32 Num 0 Word 32 x Word 32 Op MemAcc Word 32 2 Var m Mem Var x Word 32
+5 Cond 6 4 Op Not Bool 1 Op Equals Bool 2 Var x Word 32 Num 0 Word 32
+6 Basic 2 2 m Mem Op MemUpdate Mem 3 Var m Mem Var x Word 32 Num 0 Word 32 x Word 32 Op MemAcc Word 32 2 Var m Mem Var x Word 32
+4 Basic Ret 1 z Word 32 Var x Word 32
+EntryPoint 1
+
+# an example with an unrolled loop and a linear counter.
+# note that unl_refine checks its conditionals less often
+Function unl 2 x Word 32 m Mem 1 m Mem
+1 Basic 2 1 y Word 32 Num 4 Word 32
+2 Cond 3 4 Op LessEquals Bool 2 Var y Word 32 Op Times Word 32 2 Var x Word 32 Num 16 Word 32
+3 Basic 2 2 m Mem Op MemUpdate Mem 3 Var m Mem Var y Word 32 Num 0 Word 32 y Word 32 Op Plus Word 32 2 Var y Word 32 Num 4 Word 32
+4 Basic Ret 0
+EntryPoint 1
+Function unl_refine 2 x Word 32 m Mem 1 m Mem
+1 Basic 2 1 y Word 32 Num 4 Word 32
+2 Cond 3 4 Op LessEquals Bool 2 Var y Word 32 Op Times Word 32 2 Var x Word 32 Num 16 Word 32
+3 Basic 5 2 m Mem Op MemUpdate Mem 3 Var m Mem Var y Word 32 Num 0 Word 32 y Word 32 Op Plus Word 32 2 Var y Word 32 Num 4 Word 32
+4 Basic Ret 0
+5 Basic 2 2 m Mem Op MemUpdate Mem 3 Var m Mem Var y Word 32 Num 0 Word 32 y Word 32 Op Plus Word 32 2 Var y Word 32 Num 4 Word 32
+EntryPoint 1
+
+# this example is based on this simple and silly C code.
+# n.b. this C code has not been proven to do anything useful.
+
+##define NULL ((void *)0)
+#
+#struct tree {
+#  int value;
+#  struct tree *left;
+#  struct tree *right;
+#};
+#
+#int
+#has_value (int x, struct tree *t) {
+#  while (t) {
+#    if (t->value == x)
+#      return 1;
+#    else if (t->value < x)
+#      t = t->right;
+#    else
+#      t = t->left;
+#  }
+#  return 0;
+#}
+#
+#struct tree *
+#rotate_left (struct tree *t) {
+#  struct tree *head = t->right;
+#  t->right = head->left;
+#  head->left = t;
+#  return head;
+#}
+#
+#struct tree *
+#rotate_right (struct tree *t) {
+#  struct tree *head = t->left;
+#  t->left = head->right;
+#  head->right = t;
+#  return head;
+#}
+#
+#struct tree *
+#insert_element (struct tree *x, struct tree *t) {
+#  /* assuming x->prev and x->next are NULL */
+#  struct tree **prev = NULL;
+#  struct tree *init = t;
+#
+#  if (! t) {
+#    return x;
+#  }
+#
+#  while (t) {
+#    if (t->value < x->value) {
+#      prev = & (t->right);
+#      t = t->right;
+#    }
+#    else {
+#      prev = &(t->left);
+#      t = t->left;
+#    }
+#  }
+#  *prev = x;
+#  return init;
+#}
+
+# needed structs
+Struct C.tree_C 12 4
+StructField value_C Word 32 0
+StructField left_C Ptr Struct C.tree_C 4
+StructField right_C Ptr Struct C.tree_C 8
+
+# C functions, in no particular order
+Function C.rotate_right 4 C.t Word 32 Mem Mem HTD HTD PMS PMS 4 C.ret__ptr_to_struct_tree_C Word 32 Mem Mem HTD HTD PMS PMS
+1 Cond Ret Err Op False Bool 0
+2 Basic Ret 1 C.ret__ptr_to_struct_tree_C Word 32 Var C.head Word 32
+3 Basic 2 1 Mem Mem Op MemUpdate Mem 3 Var Mem Mem Op Plus Word 32 2 Var C.head Word 32 Num 8 Word 32 Var C.t Word 32
+4 Cond 3 Err Op And Bool 2 Op PValid Bool 3 Var HTD HTD Type Struct C.tree_C Var C.head Word 32 Op PValid Bool 3 Var HTD HTD Type Struct C.tree_C Var C.head Word 32
+5 Basic 4 1 Mem Mem Op MemUpdate Mem 3 Var Mem Mem Op Plus Word 32 2 Var C.t Word 32 Num 4 Word 32 Op MemAcc Word 32 2 Var Mem Mem Op Plus Word 32 2 Var C.head Word 32 Num 8 Word 32
+6 Cond 5 Err Op And Bool 2 Op And Bool 2 Op And Bool 2 Op PValid Bool 3 Var HTD HTD Type Struct C.tree_C Var C.t Word 32 Op PValid Bool 3 Var HTD HTD Type Struct C.tree_C Var C.t Word 32 Op PValid Bool 3 Var HTD HTD Type Struct C.tree_C Var C.head Word 32 Op PValid Bool 3 Var HTD HTD Type Struct C.tree_C Var C.head Word 32
+7 Basic 6 1 C.head Word 32 Op MemAcc Word 32 2 Var Mem Mem Op Plus Word 32 2 Var C.t Word 32 Num 4 Word 32
+8 Cond 7 Err Op And Bool 2 Op PValid Bool 3 Var HTD HTD Type Struct C.tree_C Var C.t Word 32 Op PValid Bool 3 Var HTD HTD Type Struct C.tree_C Var C.t Word 32
+9 Cond 8 8 Op True Bool 0
+EntryPoint 9
+
+Function C.insert_element 5 C.x___ptr_to_struct_tree_C Word 32 C.t Word 32 Mem Mem HTD HTD PMS PMS 4 C.ret__ptr_to_struct_tree_C Word 32 Mem Mem HTD HTD PMS PMS
+1 Cond Ret Err Op False Bool 0
+2 Basic Ret 1 C.ret__ptr_to_struct_tree_C Word 32 Var C.init Word 32
+3 Basic 2 1 Mem Mem Op MemUpdate Mem 3 Var Mem Mem Var C.prev Word 32 Var C.x___ptr_to_struct_tree_C Word 32
+4 Cond 3 Err Op PValid Bool 3 Var HTD HTD Type Ptr Struct C.tree_C Var C.prev Word 32
+5 Cond 15 4 Op Not Bool 1 Op Equals Bool 2 Var C.t Word 32 Num 0 Word 32
+6 Basic 5 1 C.t Word 32 Op MemAcc Word 32 2 Var Mem Mem Op Plus Word 32 2 Var C.t Word 32 Num 8 Word 32
+7 Cond 6 Err Op And Bool 2 Op PValid Bool 3 Var HTD HTD Type Struct C.tree_C Var C.t Word 32 Op PValid Bool 3 Var HTD HTD Type Struct C.tree_C Var C.t Word 32
+8 Basic 7 1 C.prev Word 32 Op Plus Word 32 2 Var C.t Word 32 Num 8 Word 32
+9 Cond 8 Err Op And Bool 2 Op PValid Bool 3 Var HTD HTD Type Struct C.tree_C Var C.t Word 32 Op PValid Bool 3 Var HTD HTD Type Struct C.tree_C Var C.t Word 32
+10 Basic 5 1 C.t Word 32 Op MemAcc Word 32 2 Var Mem Mem Op Plus Word 32 2 Var C.t Word 32 Num 4 Word 32
+11 Cond 10 Err Op And Bool 2 Op PValid Bool 3 Var HTD HTD Type Struct C.tree_C Var C.t Word 32 Op PValid Bool 3 Var HTD HTD Type Struct C.tree_C Var C.t Word 32
+12 Basic 11 1 C.prev Word 32 Op Plus Word 32 2 Var C.t Word 32 Num 4 Word 32
+13 Cond 12 Err Op And Bool 2 Op PValid Bool 3 Var HTD HTD Type Struct C.tree_C Var C.t Word 32 Op PValid Bool 3 Var HTD HTD Type Struct C.tree_C Var C.t Word 32
+14 Cond 9 13 Op SignedLess Bool 2 Op MemAcc Word 32 2 Var Mem Mem Var C.t Word 32 Op MemAcc Word 32 2 Var Mem Mem Var C.x___ptr_to_struct_tree_C Word 32
+15 Cond 14 Err Op And Bool 2 Op And Bool 2 Op And Bool 2 Op PValid Bool 3 Var HTD HTD Type Struct C.tree_C Var C.x___ptr_to_struct_tree_C Word 32 Op PValid Bool 3 Var HTD HTD Type Struct C.tree_C Var C.x___ptr_to_struct_tree_C Word 32 Op PValid Bool 3 Var HTD HTD Type Struct C.tree_C Var C.t Word 32 Op PValid Bool 3 Var HTD HTD Type Struct C.tree_C Var C.t Word 32
+16 Basic Ret 1 C.ret__ptr_to_struct_tree_C Word 32 Var C.x___ptr_to_struct_tree_C Word 32
+17 Cond 16 5 Op Not Bool 1 Op Not Bool 1 Op Equals Bool 2 Var C.t Word 32 Num 0 Word 32
+18 Basic 17 1 C.init Word 32 Var C.t Word 32
+19 Basic 18 1 C.prev Word 32 Op WordCastSigned Word 32 1 Num 0 Word 32
+20 Cond 19 19 Op True Bool 0
+EntryPoint 20
+
+Function C.rotate_left 4 C.t Word 32 Mem Mem HTD HTD PMS PMS 4 C.ret__ptr_to_struct_tree_C Word 32 Mem Mem HTD HTD PMS PMS
+1 Cond Ret Err Op False Bool 0
+2 Basic Ret 1 C.ret__ptr_to_struct_tree_C Word 32 Var C.head Word 32
+3 Basic 2 1 Mem Mem Op MemUpdate Mem 3 Var Mem Mem Op Plus Word 32 2 Var C.head Word 32 Num 4 Word 32 Var C.t Word 32
+4 Cond 3 Err Op And Bool 2 Op PValid Bool 3 Var HTD HTD Type Struct C.tree_C Var C.head Word 32 Op PValid Bool 3 Var HTD HTD Type Struct C.tree_C Var C.head Word 32
+5 Basic 4 1 Mem Mem Op MemUpdate Mem 3 Var Mem Mem Op Plus Word 32 2 Var C.t Word 32 Num 8 Word 32 Op MemAcc Word 32 2 Var Mem Mem Op Plus Word 32 2 Var C.head Word 32 Num 4 Word 32
+6 Cond 5 Err Op And Bool 2 Op And Bool 2 Op And Bool 2 Op PValid Bool 3 Var HTD HTD Type Struct C.tree_C Var C.t Word 32 Op PValid Bool 3 Var HTD HTD Type Struct C.tree_C Var C.t Word 32 Op PValid Bool 3 Var HTD HTD Type Struct C.tree_C Var C.head Word 32 Op PValid Bool 3 Var HTD HTD Type Struct C.tree_C Var C.head Word 32
+7 Basic 6 1 C.head Word 32 Op MemAcc Word 32 2 Var Mem Mem Op Plus Word 32 2 Var C.t Word 32 Num 8 Word 32
+8 Cond 7 Err Op And Bool 2 Op PValid Bool 3 Var HTD HTD Type Struct C.tree_C Var C.t Word 32 Op PValid Bool 3 Var HTD HTD Type Struct C.tree_C Var C.t Word 32
+9 Cond 8 8 Op True Bool 0
+EntryPoint 9
+
+Function C.has_value 5 C.x Word 32 C.t Word 32 Mem Mem HTD HTD PMS PMS 1 C.ret__int Word 32
+1 Cond Ret Err Op False Bool 0
+2 Basic Ret 1 C.ret__int Word 32 Num 0 Word 32
+3 Cond 12 2 Op Not Bool 1 Op Equals Bool 2 Var C.t Word 32 Num 0 Word 32
+4 Basic Ret 1 C.ret__int Word 32 Num 1 Word 32
+5 Basic 3 1 C.t Word 32 Op MemAcc Word 32 2 Var Mem Mem Op Plus Word 32 2 Var C.t Word 32 Num 8 Word 32
+6 Cond 5 Err Op And Bool 2 Op PValid Bool 3 Var HTD HTD Type Struct C.tree_C Var C.t Word 32 Op PValid Bool 3 Var HTD HTD Type Struct C.tree_C Var C.t Word 32
+7 Basic 3 1 C.t Word 32 Op MemAcc Word 32 2 Var Mem Mem Op Plus Word 32 2 Var C.t Word 32 Num 4 Word 32
+8 Cond 7 Err Op And Bool 2 Op PValid Bool 3 Var HTD HTD Type Struct C.tree_C Var C.t Word 32 Op PValid Bool 3 Var HTD HTD Type Struct C.tree_C Var C.t Word 32
+9 Cond 6 8 Op SignedLess Bool 2 Op MemAcc Word 32 2 Var Mem Mem Var C.t Word 32 Var C.x Word 32
+10 Cond 9 Err Op And Bool 2 Op PValid Bool 3 Var HTD HTD Type Struct C.tree_C Var C.t Word 32 Op PValid Bool 3 Var HTD HTD Type Struct C.tree_C Var C.t Word 32
+11 Cond 4 10 Op Equals Bool 2 Op MemAcc Word 32 2 Var Mem Mem Var C.t Word 32 Var C.x Word 32
+12 Cond 11 Err Op And Bool 2 Op PValid Bool 3 Var HTD HTD Type Struct C.tree_C Var C.t Word 32 Op PValid Bool 3 Var HTD HTD Type Struct C.tree_C Var C.t Word 32
+13 Cond 3 3 Op True Bool 0
+EntryPoint 13
+
+# machine code functions in no particular order.
+# naming convention mc_func = 'machine code of func'
+# the part1 etc functions are produced to control shared machine code paths.
+Function mc_has_value_part1 2 r3.1 Word 32 m.2 Mem 2 x3.3 Word 32 x4.4 Mem
+2 Basic Ret 1 x4.4 Mem Var m.2 Mem
+3 Basic 2 1 x3.3 Word 32 Var r0.5 Word 32
+4 Cond 3 Err Op True Bool 0
+5 Basic 4 1 r0.5 Word 32 Var r3.1 Word 32
+1 Cond 5 5 Op True Bool 0
+EntryPoint 1
+Function mc_has_value_part2 4 s2.1 Word 32 s3.2 Word 32 dm.3 Dom m.4 Mem 1 x5.5 Word 32
+2 Basic Ret 1 x5.5 Word 32 Var r3.8 Word 32
+3 Cond 2 Err Op True Bool 0
+4 Basic 3 1 r3.8 Word 32 Num 0 Word 32
+5 Basic Ret 1 x5.5 Word 32 Var r3.14 Word 32
+6 Cond 5 Err Op True Bool 0
+7 Basic 6 1 r3.14 Word 32 Num 1 Word 32
+8 Basic 1 1 m.4 Mem Var m.4 Mem
+9 Basic 8 1 dm.3 Dom Var dm.3 Dom
+10 Basic 9 1 s3.2 Word 32 Var s3.23 Word 32
+11 Basic 10 1 s2.1 Word 32 Var s2.1 Word 32
+12 Cond 11 Err Op True Bool 0
+13 Basic 12 1 s3.23 Word 32 Var r3.22 Word 32
+14 Basic 13 1 r3.22 Word 32 Op MemAcc Word 32 2 Var m.4 Mem Op Plus Word 32 2 Var r3.20 Word 32 Num 8 Word 32
+15 Cond 14 Err Var x21.21 Bool
+16 Basic 15 1 x21.21 Bool Op And Bool 2 Op True Bool 0 Op And Bool 2 Op Equals Bool 2 Op BWAnd Word 32 2 Op Plus Word 32 2 Var r3.20 Word 32 Num 8 Word 32 Num 3 Word 32 Num 0 Word 32 Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.20 Word 32 Num 8 Word 32 Var dm.3 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.20 Word 32 Num 9 Word 32 Var dm.3 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.20 Word 32 Num 10 Word 32 Var dm.3 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.20 Word 32 Num 11 Word 32 Var dm.3 Dom Op True Bool 0
+17 Basic 16 1 r3.20 Word 32 Var s3.2 Word 32
+18 Basic 1 1 m.4 Mem Var m.4 Mem
+19 Basic 18 1 dm.3 Dom Var dm.3 Dom
+20 Basic 19 1 s3.2 Word 32 Var s3.27 Word 32
+21 Basic 20 1 s2.1 Word 32 Var s2.1 Word 32
+22 Cond 21 Err Op True Bool 0
+23 Basic 22 1 s3.27 Word 32 Var r3.26 Word 32
+24 Basic 23 1 r3.26 Word 32 Op MemAcc Word 32 2 Var m.4 Mem Op Plus Word 32 2 Var r3.24 Word 32 Num 4 Word 32
+25 Cond 24 Err Var x25.25 Bool
+26 Basic 25 1 x25.25 Bool Op And Bool 2 Op True Bool 0 Op And Bool 2 Op Equals Bool 2 Op BWAnd Word 32 2 Op Plus Word 32 2 Var r3.24 Word 32 Num 4 Word 32 Num 3 Word 32 Num 0 Word 32 Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.24 Word 32 Num 4 Word 32 Var dm.3 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.24 Word 32 Num 5 Word 32 Var dm.3 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.24 Word 32 Num 6 Word 32 Var dm.3 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.24 Word 32 Num 7 Word 32 Var dm.3 Dom Op True Bool 0
+27 Basic 26 1 r3.24 Word 32 Var s3.2 Word 32
+28 Cond 17 27 Var x19.19 Bool
+29 Basic 28 1 x19.19 Bool Op SignedLess Bool 2 Var r2.17 Word 32 Var r3.18 Word 32
+30 Basic 29 1 r3.18 Word 32 Var s2.1 Word 32
+31 Basic 30 1 r2.17 Word 32 Op MemAcc Word 32 2 Var m.4 Mem Var r3.15 Word 32
+32 Cond 31 Err Var x16.16 Bool
+33 Basic 32 1 x16.16 Bool Op And Bool 2 Op True Bool 0 Op And Bool 2 Op Equals Bool 2 Op BWAnd Word 32 2 Var r3.15 Word 32 Num 3 Word 32 Num 0 Word 32 Op And Bool 2 Op MemDom Bool 2 Var r3.15 Word 32 Var dm.3 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.15 Word 32 Num 1 Word 32 Var dm.3 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.15 Word 32 Num 2 Word 32 Var dm.3 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.15 Word 32 Num 3 Word 32 Var dm.3 Dom Op True Bool 0
+34 Basic 33 1 r3.15 Word 32 Var s3.2 Word 32
+35 Cond 7 34 Var x13.13 Bool
+36 Basic 35 1 x13.13 Bool Op Equals Bool 2 Var r2.11 Word 32 Var r3.12 Word 32
+37 Basic 36 1 r3.12 Word 32 Var s2.1 Word 32
+38 Basic 37 1 r2.11 Word 32 Op MemAcc Word 32 2 Var m.4 Mem Var r3.9 Word 32
+39 Cond 38 Err Var x10.10 Bool
+40 Basic 39 1 x10.10 Bool Op And Bool 2 Op Equals Bool 2 Op BWAnd Word 32 2 Var r3.9 Word 32 Num 3 Word 32 Num 0 Word 32 Op And Bool 2 Op MemDom Bool 2 Var r3.9 Word 32 Var dm.3 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.9 Word 32 Num 1 Word 32 Var dm.3 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.9 Word 32 Num 2 Word 32 Var dm.3 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.9 Word 32 Num 3 Word 32 Var dm.3 Dom Op True Bool 0
+41 Basic 40 1 r3.9 Word 32 Var s3.2 Word 32
+42 Cond 4 41 Var x7.7 Bool
+43 Basic 42 1 x7.7 Bool Op Equals Bool 2 Var r3.6 Word 32 Num 0 Word 32
+44 Basic 43 1 r3.6 Word 32 Var s3.2 Word 32
+1 Cond 44 44 Op True Bool 0
+EntryPoint 1
+Function mc_has_value 4 r0.1 Word 32 r1.2 Word 32 dm.3 Dom m.4 Mem 2 x5.5 Word 32 x6.6 Mem
+2 Basic Ret 1 x6.6 Mem Var m.13 Mem
+3 Basic 2 1 x5.5 Word 32 Var r0.12 Word 32
+4 Cond 3 Err Op True Bool 0
+5 Call 4 mc_has_value_part1 2 Var r3.10 Word 32 Var m.4 Mem 2 r0.12 Word 32 m.13 Mem
+6 Call 5 mc_has_value_part2 4 Var s2.7 Word 32 Var s3.8 Word 32 Var dm.3 Dom Var m.4 Mem 1 r3.10 Word 32
+7 Basic 6 1 s3.8 Word 32 Var r1.2 Word 32
+8 Basic 7 1 s2.7 Word 32 Var r0.1 Word 32
+1 Cond 8 8 Op True Bool 0
+EntryPoint 1
+Function mc_insert_element_part1 5 s2.1 Word 32 s3.2 Word 32 s4.3 Word 32 dm.4 Dom m.5 Mem 2 x6.6 Word 32 x7.7 Mem
+2 Basic Ret 1 x7.7 Mem Var m.15 Mem
+3 Basic 2 1 x6.6 Word 32 Var r0.14 Word 32
+4 Cond 3 Err Op True Bool 0
+5 Call 4 mc_insert_element_part2 2 Var r3.12 Word 32 Var m.11 Mem 2 r0.14 Word 32 m.15 Mem
+6 Basic 5 1 r3.12 Word 32 Var s3.2 Word 32
+7 Basic 6 1 m.11 Mem Op MemUpdate Mem 3 Var m.5 Mem Var r3.8 Word 32 Var r2.9 Word 32
+8 Cond 7 Err Var x10.10 Bool
+9 Basic 8 1 x10.10 Bool Op And Bool 2 Op Equals Bool 2 Op BWAnd Word 32 2 Var r3.8 Word 32 Num 3 Word 32 Num 0 Word 32 Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.8 Word 32 Num 3 Word 32 Var dm.4 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.8 Word 32 Num 2 Word 32 Var dm.4 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.8 Word 32 Num 1 Word 32 Var dm.4 Dom Op And Bool 2 Op MemDom Bool 2 Var r3.8 Word 32 Var dm.4 Dom Op True Bool 0
+10 Basic 9 1 r2.9 Word 32 Var s4.3 Word 32
+11 Basic 10 1 r3.8 Word 32 Var s2.1 Word 32
+1 Cond 11 11 Op True Bool 0
+EntryPoint 1
+Function mc_insert_element_part2 2 r3.1 Word 32 m.2 Mem 2 x3.3 Word 32 x4.4 Mem
+2 Basic Ret 1 x4.4 Mem Var m.2 Mem
+3 Basic 2 1 x3.3 Word 32 Var r0.5 Word 32
+4 Cond 3 Err Op True Bool 0
+5 Basic 4 1 r0.5 Word 32 Var r3.1 Word 32
+1 Cond 5 5 Op True Bool 0
+EntryPoint 1
+Function mc_insert_element_part3 5 s2.1 Word 32 s4.2 Word 32 s5.3 Word 32 dm.4 Dom m.5 Mem 1 x6.6 Word 32
+2 Basic Ret 1 x6.6 Word 32 Var s2.1 Word 32
+3 Cond 2 Err Op True Bool 0
+4 Basic 1 1 m.5 Mem Var m.5 Mem
+5 Basic 4 1 dm.4 Dom Var dm.4 Dom
+6 Basic 5 1 s5.3 Word 32 Var s5.22 Word 32
+7 Basic 6 1 s4.2 Word 32 Var s4.2 Word 32
+8 Basic 7 1 s2.1 Word 32 Var s2.18 Word 32
+9 Cond 8 Err Op True Bool 0
+10 Basic 9 1 s5.22 Word 32 Var r3.21 Word 32
+11 Basic 10 1 r3.21 Word 32 Op MemAcc Word 32 2 Var m.5 Mem Op Plus Word 32 2 Var r3.19 Word 32 Num 8 Word 32
+12 Cond 11 Err Var x20.20 Bool
+13 Basic 12 1 x20.20 Bool Op And Bool 2 Op True Bool 0 Op And Bool 2 Op Equals Bool 2 Op BWAnd Word 32 2 Op Plus Word 32 2 Var r3.19 Word 32 Num 8 Word 32 Num 3 Word 32 Num 0 Word 32 Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.19 Word 32 Num 8 Word 32 Var dm.4 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.19 Word 32 Num 9 Word 32 Var dm.4 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.19 Word 32 Num 10 Word 32 Var dm.4 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.19 Word 32 Num 11 Word 32 Var dm.4 Dom Op True Bool 0
+14 Basic 13 1 r3.19 Word 32 Var s5.3 Word 32
+15 Basic 14 1 s2.18 Word 32 Var r3.17 Word 32
+16 Basic 15 1 r3.17 Word 32 Op Plus Word 32 2 Var r3.16 Word 32 Num 8 Word 32
+17 Basic 16 1 r3.16 Word 32 Var s5.3 Word 32
+18 Basic 1 1 m.5 Mem Var m.5 Mem
+19 Basic 18 1 dm.4 Dom Var dm.4 Dom
+20 Basic 19 1 s5.3 Word 32 Var s5.29 Word 32
+21 Basic 20 1 s4.2 Word 32 Var s4.2 Word 32
+22 Basic 21 1 s2.1 Word 32 Var s2.25 Word 32
+23 Cond 22 Err Op True Bool 0
+24 Basic 23 1 s5.29 Word 32 Var r3.28 Word 32
+25 Basic 24 1 r3.28 Word 32 Op MemAcc Word 32 2 Var m.5 Mem Op Plus Word 32 2 Var r3.26 Word 32 Num 4 Word 32
+26 Cond 25 Err Var x27.27 Bool
+27 Basic 26 1 x27.27 Bool Op And Bool 2 Op True Bool 0 Op And Bool 2 Op Equals Bool 2 Op BWAnd Word 32 2 Op Plus Word 32 2 Var r3.26 Word 32 Num 4 Word 32 Num 3 Word 32 Num 0 Word 32 Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.26 Word 32 Num 4 Word 32 Var dm.4 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.26 Word 32 Num 5 Word 32 Var dm.4 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.26 Word 32 Num 6 Word 32 Var dm.4 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.26 Word 32 Num 7 Word 32 Var dm.4 Dom Op True Bool 0
+28 Basic 27 1 r3.26 Word 32 Var s5.3 Word 32
+29 Basic 28 1 s2.25 Word 32 Var r3.24 Word 32
+30 Basic 29 1 r3.24 Word 32 Op Plus Word 32 2 Var r3.23 Word 32 Num 4 Word 32
+31 Basic 30 1 r3.23 Word 32 Var s5.3 Word 32
+32 Cond 17 31 Var x15.15 Bool
+33 Basic 32 1 x15.15 Bool Op SignedLess Bool 2 Var r2.11 Word 32 Var r3.14 Word 32
+34 Basic 33 1 r3.14 Word 32 Op MemAcc Word 32 2 Var m.5 Mem Var r3.12 Word 32
+35 Cond 34 Err Var x13.13 Bool
+36 Basic 35 1 x13.13 Bool Op And Bool 2 Op True Bool 0 Op And Bool 2 Op Equals Bool 2 Op BWAnd Word 32 2 Var r3.12 Word 32 Num 3 Word 32 Num 0 Word 32 Op And Bool 2 Op MemDom Bool 2 Var r3.12 Word 32 Var dm.4 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.12 Word 32 Num 1 Word 32 Var dm.4 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.12 Word 32 Num 2 Word 32 Var dm.4 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.12 Word 32 Num 3 Word 32 Var dm.4 Dom Op True Bool 0
+37 Basic 36 1 r3.12 Word 32 Var s4.2 Word 32
+38 Basic 37 1 r2.11 Word 32 Op MemAcc Word 32 2 Var m.5 Mem Var r3.9 Word 32
+39 Cond 38 Err Var x10.10 Bool
+40 Basic 39 1 x10.10 Bool Op And Bool 2 Op Equals Bool 2 Op BWAnd Word 32 2 Var r3.9 Word 32 Num 3 Word 32 Num 0 Word 32 Op And Bool 2 Op MemDom Bool 2 Var r3.9 Word 32 Var dm.4 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.9 Word 32 Num 1 Word 32 Var dm.4 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.9 Word 32 Num 2 Word 32 Var dm.4 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.9 Word 32 Num 3 Word 32 Var dm.4 Dom Op True Bool 0
+41 Basic 40 1 r3.9 Word 32 Var s5.3 Word 32
+42 Cond 3 41 Var x8.8 Bool
+43 Basic 42 1 x8.8 Bool Op Equals Bool 2 Var r3.7 Word 32 Num 0 Word 32
+44 Basic 43 1 r3.7 Word 32 Var s5.3 Word 32
+1 Cond 44 44 Op True Bool 0
+EntryPoint 1
+Function mc_insert_element 4 r0.1 Word 32 r1.2 Word 32 dm.3 Dom m.4 Mem 2 x5.5 Word 32 x6.6 Mem
+2 Basic Ret 1 x6.6 Mem Var m.18 Mem
+3 Basic 2 1 x5.5 Word 32 Var r0.17 Word 32
+4 Cond 3 Err Op True Bool 0
+5 Call 4 mc_insert_element_part2 2 Var r3.15 Word 32 Var m.4 Mem 2 r0.17 Word 32 m.18 Mem
+6 Basic 5 1 r3.15 Word 32 Var s4.7 Word 32
+7 Basic Ret 1 x6.6 Mem Var x23.23 Mem
+8 Basic 7 1 x5.5 Word 32 Var x22.22 Word 32
+9 Cond 8 Err Op True Bool 0
+10 Cond 9 Err Var x24.24 Bool
+11 Basic 10 1 x24.24 Bool Op And Bool 2 Op True Bool 0 Op True Bool 0
+12 Call 11 mc_insert_element_part1 5 Var s2.20 Word 32 Var s3.12 Word 32 Var s4.7 Word 32 Var dm.3 Dom Var m.4 Mem 2 x22.22 Word 32 x23.23 Mem
+13 Call 12 mc_insert_element_part3 5 Var s2.10 Word 32 Var s4.7 Word 32 Var s5.8 Word 32 Var dm.3 Dom Var m.4 Mem 1 s2.20 Word 32
+14 Cond 6 13 Var x14.14 Bool
+15 Basic 14 1 x14.14 Bool Op Equals Bool 2 Var r3.13 Word 32 Num 0 Word 32
+16 Basic 15 1 r3.13 Word 32 Var s5.8 Word 32
+17 Basic 16 1 s3.12 Word 32 Var r3.11 Word 32
+18 Basic 17 1 r3.11 Word 32 Var s5.8 Word 32
+19 Basic 18 1 s2.10 Word 32 Var r3.9 Word 32
+20 Basic 19 1 r3.9 Word 32 Num 0 Word 32
+21 Basic 20 1 s5.8 Word 32 Var r1.2 Word 32
+22 Basic 21 1 s4.7 Word 32 Var r0.1 Word 32
+1 Cond 22 22 Op True Bool 0
+EntryPoint 1
+Function mc_rotate_left 3 r0.1 Word 32 dm.2 Dom m.3 Mem 2 x4.4 Word 32 x5.5 Mem
+2 Basic Ret 1 x5.5 Mem Var m.20 Mem
+3 Basic 2 1 x4.4 Word 32 Var r0.22 Word 32
+4 Cond 3 Err Op True Bool 0
+5 Basic 4 1 r0.22 Word 32 Var r3.21 Word 32
+6 Basic 5 1 r3.21 Word 32 Var s2.10 Word 32
+7 Basic 6 1 m.20 Mem Op MemUpdate Mem 3 Var m.16 Mem Op Plus Word 32 2 Var r3.17 Word 32 Num 4 Word 32 Var r2.18 Word 32
+8 Cond 7 Err Var x19.19 Bool
+9 Basic 8 1 x19.19 Bool Op And Bool 2 Op True Bool 0 Op And Bool 2 Op Equals Bool 2 Op BWAnd Word 32 2 Op Plus Word 32 2 Var r3.17 Word 32 Num 4 Word 32 Num 3 Word 32 Num 0 Word 32 Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.17 Word 32 Num 7 Word 32 Var dm.2 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.17 Word 32 Num 6 Word 32 Var dm.2 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.17 Word 32 Num 5 Word 32 Var dm.2 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.17 Word 32 Num 4 Word 32 Var dm.2 Dom Op True Bool 0
+10 Basic 9 1 r2.18 Word 32 Var s4.6 Word 32
+11 Basic 10 1 r3.17 Word 32 Var s2.10 Word 32
+12 Basic 11 1 m.16 Mem Op MemUpdate Mem 3 Var m.3 Mem Op Plus Word 32 2 Var r3.14 Word 32 Num 8 Word 32 Var r2.13 Word 32
+13 Cond 12 Err Var x15.15 Bool
+14 Basic 13 1 x15.15 Bool Op And Bool 2 Op True Bool 0 Op And Bool 2 Op Equals Bool 2 Op BWAnd Word 32 2 Op Plus Word 32 2 Var r3.14 Word 32 Num 8 Word 32 Num 3 Word 32 Num 0 Word 32 Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.14 Word 32 Num 11 Word 32 Var dm.2 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.14 Word 32 Num 10 Word 32 Var dm.2 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.14 Word 32 Num 9 Word 32 Var dm.2 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.14 Word 32 Num 8 Word 32 Var dm.2 Dom Op True Bool 0
+15 Basic 14 1 r3.14 Word 32 Var s4.6 Word 32
+16 Basic 15 1 r2.13 Word 32 Op MemAcc Word 32 2 Var m.3 Mem Op Plus Word 32 2 Var r3.11 Word 32 Num 4 Word 32
+17 Cond 16 Err Var x12.12 Bool
+18 Basic 17 1 x12.12 Bool Op And Bool 2 Op True Bool 0 Op And Bool 2 Op Equals Bool 2 Op BWAnd Word 32 2 Op Plus Word 32 2 Var r3.11 Word 32 Num 4 Word 32 Num 3 Word 32 Num 0 Word 32 Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.11 Word 32 Num 4 Word 32 Var dm.2 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.11 Word 32 Num 5 Word 32 Var dm.2 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.11 Word 32 Num 6 Word 32 Var dm.2 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.11 Word 32 Num 7 Word 32 Var dm.2 Dom Op True Bool 0
+19 Basic 18 1 r3.11 Word 32 Var s2.10 Word 32
+20 Basic 19 1 s2.10 Word 32 Var r3.9 Word 32
+21 Basic 20 1 r3.9 Word 32 Op MemAcc Word 32 2 Var m.3 Mem Op Plus Word 32 2 Var r3.7 Word 32 Num 8 Word 32
+22 Cond 21 Err Var x8.8 Bool
+23 Basic 22 1 x8.8 Bool Op And Bool 2 Op Equals Bool 2 Op BWAnd Word 32 2 Op Plus Word 32 2 Var r3.7 Word 32 Num 8 Word 32 Num 3 Word 32 Num 0 Word 32 Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.7 Word 32 Num 8 Word 32 Var dm.2 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.7 Word 32 Num 9 Word 32 Var dm.2 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.7 Word 32 Num 10 Word 32 Var dm.2 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.7 Word 32 Num 11 Word 32 Var dm.2 Dom Op True Bool 0
+24 Basic 23 1 r3.7 Word 32 Var s4.6 Word 32
+25 Basic 24 1 s4.6 Word 32 Var r0.1 Word 32
+1 Cond 25 25 Op True Bool 0
+EntryPoint 1
+Function mc_rotate_right 3 r0.1 Word 32 dm.2 Dom m.3 Mem 2 x4.4 Word 32 x5.5 Mem
+2 Basic Ret 1 x5.5 Mem Var m.20 Mem
+3 Basic 2 1 x4.4 Word 32 Var r0.22 Word 32
+4 Cond 3 Err Op True Bool 0
+5 Basic 4 1 r0.22 Word 32 Var r3.21 Word 32
+6 Basic 5 1 r3.21 Word 32 Var s2.10 Word 32
+7 Basic 6 1 m.20 Mem Op MemUpdate Mem 3 Var m.16 Mem Op Plus Word 32 2 Var r3.17 Word 32 Num 8 Word 32 Var r2.18 Word 32
+8 Cond 7 Err Var x19.19 Bool
+9 Basic 8 1 x19.19 Bool Op And Bool 2 Op True Bool 0 Op And Bool 2 Op Equals Bool 2 Op BWAnd Word 32 2 Op Plus Word 32 2 Var r3.17 Word 32 Num 8 Word 32 Num 3 Word 32 Num 0 Word 32 Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.17 Word 32 Num 11 Word 32 Var dm.2 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.17 Word 32 Num 10 Word 32 Var dm.2 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.17 Word 32 Num 9 Word 32 Var dm.2 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.17 Word 32 Num 8 Word 32 Var dm.2 Dom Op True Bool 0
+10 Basic 9 1 r2.18 Word 32 Var s4.6 Word 32
+11 Basic 10 1 r3.17 Word 32 Var s2.10 Word 32
+12 Basic 11 1 m.16 Mem Op MemUpdate Mem 3 Var m.3 Mem Op Plus Word 32 2 Var r3.14 Word 32 Num 4 Word 32 Var r2.13 Word 32
+13 Cond 12 Err Var x15.15 Bool
+14 Basic 13 1 x15.15 Bool Op And Bool 2 Op True Bool 0 Op And Bool 2 Op Equals Bool 2 Op BWAnd Word 32 2 Op Plus Word 32 2 Var r3.14 Word 32 Num 4 Word 32 Num 3 Word 32 Num 0 Word 32 Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.14 Word 32 Num 7 Word 32 Var dm.2 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.14 Word 32 Num 6 Word 32 Var dm.2 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.14 Word 32 Num 5 Word 32 Var dm.2 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.14 Word 32 Num 4 Word 32 Var dm.2 Dom Op True Bool 0
+15 Basic 14 1 r3.14 Word 32 Var s4.6 Word 32
+16 Basic 15 1 r2.13 Word 32 Op MemAcc Word 32 2 Var m.3 Mem Op Plus Word 32 2 Var r3.11 Word 32 Num 8 Word 32
+17 Cond 16 Err Var x12.12 Bool
+18 Basic 17 1 x12.12 Bool Op And Bool 2 Op True Bool 0 Op And Bool 2 Op Equals Bool 2 Op BWAnd Word 32 2 Op Plus Word 32 2 Var r3.11 Word 32 Num 8 Word 32 Num 3 Word 32 Num 0 Word 32 Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.11 Word 32 Num 8 Word 32 Var dm.2 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.11 Word 32 Num 9 Word 32 Var dm.2 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.11 Word 32 Num 10 Word 32 Var dm.2 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.11 Word 32 Num 11 Word 32 Var dm.2 Dom Op True Bool 0
+19 Basic 18 1 r3.11 Word 32 Var s2.10 Word 32
+20 Basic 19 1 s2.10 Word 32 Var r3.9 Word 32
+21 Basic 20 1 r3.9 Word 32 Op MemAcc Word 32 2 Var m.3 Mem Op Plus Word 32 2 Var r3.7 Word 32 Num 4 Word 32
+22 Cond 21 Err Var x8.8 Bool
+23 Basic 22 1 x8.8 Bool Op And Bool 2 Op Equals Bool 2 Op BWAnd Word 32 2 Op Plus Word 32 2 Var r3.7 Word 32 Num 4 Word 32 Num 3 Word 32 Num 0 Word 32 Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.7 Word 32 Num 4 Word 32 Var dm.2 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.7 Word 32 Num 5 Word 32 Var dm.2 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.7 Word 32 Num 6 Word 32 Var dm.2 Dom Op And Bool 2 Op MemDom Bool 2 Op Plus Word 32 2 Var r3.7 Word 32 Num 7 Word 32 Var dm.2 Dom Op True Bool 0
+24 Basic 23 1 r3.7 Word 32 Var s4.6 Word 32
+25 Basic 24 1 s4.6 Word 32 Var r0.1 Word 32
+1 Cond 25 25 Op True Bool 0
+EntryPoint 1
