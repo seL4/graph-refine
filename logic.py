@@ -30,7 +30,7 @@ def mk_rodata (m):
 	return Expr ('Op', boolT, name = 'ROData', vals = [m])
 
 def cast_pair (((a, a_addr), (c, c_addr))):
-	if c.typ == boolT:
+	if a.typ != c.typ and c.typ == boolT:
 		c = mk_if (c, mk_word32 (1), mk_word32 (0))
 	return ((a, a_addr), (mk_cast (c, a.typ), c_addr))
 
@@ -544,17 +544,9 @@ def cont_with_conds (nodes, n, conds):
 		else:
 			return n
 
-def contextual_cond_simps (nodes, preds):
-	"""a common pattern in architectures with conditional operations is
-	a sequence of instructions with the same condition.
-	we can usually then reduce to a single contional block.
-	  b   e    =>    b-e
-	 / \ / \   =>   /   \ 
-	a-c-d-f-g  =>  a-c-f-g
-	this is sometimes important if b calculates a register than e uses
-	since variable dependency analysis will see this register escape via
-	the impossible path a-c-d-e
-	"""
+def contextual_conds (nodes, preds):
+	"""computes a collection of conditions that can be assumed true
+	at any point in the node graph."""
 	pre_conds = {}
 	arc_conds = {}
 	visit = [n for n in nodes if not (preds[n])]
@@ -571,7 +563,9 @@ def contextual_cond_simps (nodes, preds):
 		pre_conds[n] = conds
 		if n not in nodes:
 			continue
-		if nodes[n].kind == 'Cond':
+		if nodes[n].kind == 'Cond' and nodes[n].left == nodes[n].right:
+			c_conds = [conds, conds]
+		elif nodes[n].kind == 'Cond':
 			c_conds = [nodes[n].cond, mk_not_red (nodes[n].cond)]
 			c_conds = [set.union (set ([c]), conds)
 				for c in c_conds]
@@ -583,6 +577,20 @@ def contextual_cond_simps (nodes, preds):
 		for (cont, conds) in zip (nodes[n].get_conts (), c_conds):
 			arc_conds[(n, cont)] = conds
 			visit.append (cont)
+	return (arc_conds, pre_conds)
+
+def contextual_cond_simps (nodes, preds):
+	"""a common pattern in architectures with conditional operations is
+	a sequence of instructions with the same condition.
+	we can usually then reduce to a single contional block.
+	  b   e    =>    b-e
+	 / \ / \   =>   /   \ 
+	a-c-d-f-g  =>  a-c-f-g
+	this is sometimes important if b calculates a register than e uses
+	since variable dependency analysis will see this register escape via
+	the impossible path a-c-d-e
+	"""
+	(arc_conds, pre_conds) = contextual_conds (nodes, preds)
 	nodes = dict (nodes)
 	for n in nodes:
 		if nodes[n].kind == 'Cond':
