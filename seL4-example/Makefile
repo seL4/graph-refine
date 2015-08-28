@@ -92,7 +92,7 @@ StackBounds.txt: ${GRAPH_REFINE_INPUTS}
 	python ../graph-refine.py .
 
 report.txt: StackBounds.txt ${GRAPH_REFINE_INPUTS}
-	python ../graph-refine.py . report-to:partial-$@ all
+	python ../graph-refine.py . trace-to:partial-$@ all
 	mv partial-$@ $@
 
 default: report.txt

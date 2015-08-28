@@ -35,8 +35,8 @@ The [`example`](example/) and [`loop-example`](loop-example/) directories
 contain prebuilt example refinement targets. They can be used to exercise the
 tool as follows:
 
-    python graph-refine.py example quiet all
-    python graph-refine.py loop-example/O1 report all
+    python graph-refine.py example f g rotate_right has_value
+    python graph-refine.py loop-example/O1 all
 
 The [`seL4-example`](seL4-example/) directory contains a recipe for building
 the seL4 binary verification problem. If this repository is set up via the
@@ -76,8 +76,9 @@ There are various instructions available:
   - all: test all functions. this will usually be the last instruction.
   - no-loops: skip functions with loops
   - only-loops: skip functions without loops
-  - quiet: suppress diagnostic output
-  - report: report mode. suppress diagnostic output, but format a report on proof structure and progress.
+  - verbose: produce a lot of diagnostic output in subsequent instructions. 
+  - `function-name`: other instructions will be taken as the name of a single
+function to be tested.
 
 Overview
 --------
