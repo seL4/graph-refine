@@ -40,8 +40,11 @@ else:
 	print 'See example target (named "example") for information on targets.'
 	print "See graph-refine.py source for possible instructions."
 
-def toplevel_check (pair, quiet, check_loops = True):
+def toplevel_check (pair, quiet, check_loops = True, count = None):
 	printout ('Testing Function pair %s' % pair)
+	if count:
+		(i, n) = count
+		printout ('  (function pairing %d of %d)' % (i + 1, n))
 	
 	for (tag, fname) in pair.funs.iteritems ():
 		if not functions[fname].entry:
@@ -101,7 +104,7 @@ def toplevel_check (pair, quiet, check_loops = True):
 
 	return str (result)
 
-def toplevel_check_report (pair):
+def toplevel_check_report (pair, count = None):
 	arrer = '%s -> %s' % tuple ([pair.funs[t] for t in pair.tags])
 	for (tag, fname) in pair.funs.iteritems ():
 		if not functions[fname].entry:
@@ -110,6 +113,9 @@ def toplevel_check_report (pair):
 
 	try:
 		printout ('Proofs for %s' % arrer)
+		if count:
+			(i, n) = count
+			printout ('  (function pairing %d of %d)' % (i + 1, n))
 		p = check.build_problem (pair)
 		printout (' .. built problem, finding proof')
 		proof = search.build_proof (p)
@@ -123,11 +129,12 @@ def toplevel_check_report (pair):
 		printout ('Could not find split for %s' % pair)
 
 def toplevel_check_wname (pair, quiet = False, check_loops = True,
-		report_mode = False):
+		report_mode = False, count = None):
 	if report_mode:
-		toplevel_check_report (pair)
+		toplevel_check_report (pair, count = count)
 	else:
-		r = toplevel_check (pair, quiet, check_loops = check_loops)
+		r = toplevel_check (pair, quiet, check_loops = check_loops,
+			count = count)
 		return (pair.name, r)
 
 word_re = re.compile('\\w+')
@@ -157,12 +164,13 @@ def check_all (omit_set = set (), quiet = False, loops = True, tags = None,
 	pairs = list (set ([pair for f in pairings for pair in pairings[f]
 		if omit_set.isdisjoint (pair.funs.values ())
 		if not tags or tags.issubset (set (pair.tags))]))
+	num_pairs = len (pairs)
 	omitted = list (set ([pair for f in pairings for pair in pairings[f]
 		if not omit_set.isdisjoint (pair.funs.values())]))
 	random.shuffle (pairs)
 	results = [toplevel_check_wname (pair, quiet, check_loops = loops,
-			report_mode = report_mode)
-		for pair in pairs]
+			report_mode = report_mode, count = (i, num_pairs))
+		for (i, pair) in enumerate (pairs)]
 	if not report_mode:
 		printout ('Results: %s' % results)
 		count = len ([1 for (_, r) in results if r == 'True'])
@@ -198,10 +206,10 @@ def main (args):
 				quiet = True
 			elif arg == 'report':
 				report = True
-			elif arg == 'report-to:':
+			elif arg.startswith ('report-to:'):
 				(_, s) = arg.split (':', 1)
 				f = open (s, 'w')
-				target_objects.trace_files.append (s)
+				target_objects.trace_files.append (f)
 				report = True
 			elif arg == 'all':
 				check_all (excludes, quiet,
