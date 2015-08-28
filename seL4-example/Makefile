@@ -19,10 +19,12 @@ CC?=gcc
 OBJDUMP?=${TOOLPREFIX}objdump
 
 SOURCE_ROOT?=../../seL4
+
 L4V_ROOT?=../../l4v
 PARSERPATH?=${L4V_ROOT}/tools/c-parser/standalone-parser
 
-DECOMP_DIR?=../../decompiler/graph
+HOL4_ROOT?=../../HOL4
+DECOMP_DIR?=${HOL4_ROOT}/examples/machine-code/graph
 
 # standard configuration
 UMM_TYPES=umm_types.txt
@@ -44,8 +46,7 @@ $(if ${OBJDUMP_PATH},,$(error objdump ${OBJDUMP} not executable))
 DECOMP_SCRIPT= $(shell PATH="${DECOMP_DIR}:${PATH}" sh -c "which decompile.py")
 $(if ${DECOMP_SCRIPT},,$(error decompile.py not executable in ${DECOMP_DIR}))
 
-HOLMAKE= $(shell which Holmake)
-$(if ${HOLMAKE},,$(error Holmake not found - first install/configure HOL4))
+$(if $(wildcard ${HOL4_ROOT}/bin/Holmake),,$(error Holmake not found in ${HOL4_ROOT}/bin - first configure HOL4))
 
 SOLV_TEST = $(shell python ../solver.py testq | grep 'Solver self-test succ')
 $(if ${SOLV_TEST},,$(error Solver self-test failed (python ../solver.py test)))
@@ -75,8 +76,10 @@ kernel.tar.gz: kernel.elf.rodata kernel.elf.txt kernel.elf.symtab \
 
 tar: kernel.tar.gz
 
+H4PATH=$(realpath ${HOL4_ROOT}/bin):${PATH}
+
 ASMFunctions.txt: kernel.elf.txt kernel.sigs
-	${DECOMP_SCRIPT} ./kernel --ignore=fastpath_restore,slowpath
+	PATH=${H4PATH} ${DECOMP_SCRIPT} ./kernel --ignore=fastpath_restore,slowpath
 	# we move the output to a new location to get around a problem where
 	# the decompiler can fail leaving an incomplete output file.
 	mv kernel_mc_graph.txt ASMFunctions.txt
