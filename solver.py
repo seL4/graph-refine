@@ -13,25 +13,33 @@
 # todo: support a collection of solvers running in parallel
 
 solverlist_missing = """
-This tool requires a list of available SMT solvers in the following format.
+This tool requires the use of an SMT solver.
 
 This tool searches for the file '.solverlist' in the current directory and
 in every parent directory up to the filesystem root.
 """
 solverlist_format = """
-The format is one solver per line, e.g.
+The .solverlist format is one solver per line, e.g.
 
-Z3 4.3: online: /home/tsewell/dev/z3-dist/build/z3 -t:2 -smt2 -in
-Z3 4.3: offline: /home/tsewell/dev/z3-dist/build/z3 -smt2 -in
+# SONOLAR is the strongest offline solver in our experiments.
 SONOLAR: offline: /home/tsewell/bin/sonolar --input-format=smtlib2
+# CVC4 is useful in online and offline mode.
+# Note that ONLY ONE offline solver is used!
+# The second CVC4 line is redundant in this example.
 CVC4: online: /home/tsewell/bin/cvc4 --incremental --lang smt --tlimit=5000
 CVC4: offline: /home/tsewell/bin/cvc4 --lang smt
+# Z3 is a useful online solver. Use of Z3 in offline mode is not recommended,
+# because it produces incompatible models.
+Z3 4.3: online: /home/tsewell/dev/z3-dist/build/z3 -t:2 -smt2 -in
+# Z3 4.3: offline: /home/tsewell/dev/z3-dist/build/z3 -smt2 -in
 
-Each line is ':' separated. The first token is a name for the solver (used in
-output) and the second must be online/fast or offline/slow. Solvers in
-"fast" or "online" mode must support all interactive SMTLIB2 features
-including push/pop. With "slow" or "offline" mode there will be one solver
-instance per query.
+Each non-comment line is ':' separated, with this pattern:
+name : online/offline/fast/slow : command
+
+The name is used to identify the solver in output. The second token specifies
+the solver mode. Solvers in "fast" or "online" mode must support all
+interactive SMTLIB2 features including push/pop. With "slow" or "offline" mode
+the solver will be executed once per query, and push/pop will not be used.
 
 The remainder of each line is a shell command that executes the solver in
 SMTLIB2 mode. For online solvers it is typically worth setting a resource
@@ -60,7 +68,7 @@ def get_solver_set ():
 		bits = [bit.strip () for bit in line.split (':', 2)]
 		mode_set = ['fast', 'slow', 'online', 'offline']
 		if len (bits) < 3 or bits[1].lower () not in mode_set:
-			print 'solver.py: .solverlist misunderstood'
+			print 'solver.py: .solverlist could not be parsed'
 			print '  reading %r' % bits
 			print solverlist_format
 			sys.exit (1)
