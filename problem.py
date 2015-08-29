@@ -10,7 +10,7 @@ from syntax import (Expr, mk_var, Node, true_term, false_term,
   fresh_name, word32T, word8T, mk_eq, mk_word32, builtinTs)
 import syntax
 
-from target_objects import functions, pairings, trace
+from target_objects import functions, pairings, trace, printout
 import sys
 import logic
 from logic import azip
@@ -75,7 +75,7 @@ class Problem:
 
 	def add_function (self, fun, tag, node_renames, loop_id = None):
 		if not fun.entry:
-			trace ('Aborting %s: underspecified %s' % (
+			printout ('Aborting %s: underspecified %s' % (
 				self.name, fun.name))
 			raise Abort ()
 		node_renames.setdefault('Ret', 'Ret')

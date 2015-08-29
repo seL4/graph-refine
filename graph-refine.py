@@ -68,6 +68,7 @@ def toplevel_check (pair, check_loops = True, report = False, count = None):
 			tracer[0] = prev_tracer
 			return 'Loop'
 		if check_loops == 'only' and not p.loop_data:
+			printout ('No loop in problem.')
 			tracer[0] = prev_tracer
 			return 'NoLoop'
 		proof = search.build_proof (p)
@@ -108,6 +109,8 @@ def toplevel_check (pair, check_loops = True, report = False, count = None):
 	if not report:
 		printout ('Time taken to check %s for pair %s: %f'
 			% (result, pair, end_time - start_time))
+	elif result in ['ProofNoSplit', 'ProofEXCEPT', 'CheckEXCEPT']:
+		printout ('Proof process failure (%s).' % result)
 	sys.stdout.flush ()
 
 	return str (result)
