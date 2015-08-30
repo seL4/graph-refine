@@ -496,6 +496,13 @@ def get_s_expression (stdout, prompt):
 			emps = 0
 	return parse_s_expressions (responses)
 
+class SolverFailure(Exception):
+	def __init__ (self, msg):
+		self.msg = msg
+
+	def __str__ (self):
+		return 'SolverFailure (%r)' % self.msg
+
 class Solver:
 	def __init__ (self, produce_unsat_cores = False):
 		self.replayable = []
@@ -797,14 +804,18 @@ class Solver:
 			if model:
 				self.check_model ([h for (h, _) in raw_hyps],
 					model, recursion = recursion)
-
-		if response == 'unsat':
+		elif response == 'unsat':
 			fact = '(not (and %s))' % ' '.join ([h
 				for (h, _) in raw_hyps])
 			# sending this fact (and not its core-deps) might
 			# lead to inaccurate cores in the future
 			if not self.unsat_cores:
 				self.send ('(assert %s)' % fact)
+		else:
+			# couldn't get a useful response from either solver.
+			trace ('All solvers failed to resolve sat/unsat!')
+			trace ('last solver result %r' % response)
+			raise SolverFailure (response)
 		return response
 
 	def get_unsat_core_tags (self, fact_names, hyps):

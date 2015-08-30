@@ -84,6 +84,9 @@ def toplevel_check (pair, check_loops = True, report = False, count = None):
 					printout ('Refinement proven.')
 				else:
 					printout ('Refinement NOT proven.')
+		except solver.SolverFailure, e:
+			printout ('Solver timeout/failure in proof check.')
+			result = 'CheckSolverFailure'
 		except Exception, e:
 			trace ('EXCEPTION in checking %s:' % p.name)
 			exception = sys.exc_info ()
@@ -93,6 +96,9 @@ def toplevel_check (pair, check_loops = True, report = False, count = None):
 		result = 'ProofAbort'
 	except search.NoSplit:
 		result = 'ProofNoSplit'
+	except solver.SolverFailure, e:
+		printout ('Solver timeout/failure in proof search.')
+		result = 'ProofSolverFailure'
 
 	except Exception, e:
 		trace ('EXCEPTION in handling %s:' % pair)
