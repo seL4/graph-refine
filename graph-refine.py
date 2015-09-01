@@ -160,19 +160,18 @@ def check_all (omit_set = set (), loops = True, tags = None,
 	results = [toplevel_check_wname (pair, check_loops = loops,
 			report_mode = report_mode, count = (i, num_pairs))
 		for (i, pair) in enumerate (pairs)]
-	if not report_mode:
-		printout ('Results: %s' % results)
-		count = len ([1 for (_, r) in results if r == 'True'])
-		printout ('%d proofs checked' % count)
-		count = len ([1 for (_, r) in results
-			if r in ['ProofAbort', None]])
-		printout ('%d proofs skipped' % count)
-		fails = [(nm, r) for (nm, r) in results
-			if r not in ['True', 'ProofAbort', None]]
-		printout ('Failures: %s' % fails)
-		if omitted:
-			printout ('%d pairings omitted: %s'
-				% (len (omitted), omitted))
+	printout ('Result summary: %s' % results)
+	count = len ([1 for (_, r) in results if r == 'True'])
+	printout ('  - %d proofs checked' % count)
+	count = len ([1 for (_, r) in results
+		if r in ['ProofAbort', None]])
+	printout ('  - %d proofs skipped' % count)
+	fails = [(nm, r) for (nm, r) in results
+		if r not in ['True', 'ProofAbort', None]]
+	printout ('  - failures: %s' % fails)
+	if omitted:
+		printout ('  - %d pairings omitted: %s'
+			% (len (omitted), omitted))
 
 def save_compiled_funcs (fname):
 	out = open (fname, 'w')
