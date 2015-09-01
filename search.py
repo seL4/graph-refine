@@ -421,17 +421,18 @@ def mk_pairing_v_eqs (knowledge, pair):
 	(lvs, rvs) = pairs[pair]
 	zero = mk_word32 (0)
 	for v_i in lvs:
-		if v_i[0] == zero:
-			continue
 		(k, const) = vs[v_i]
-		if const and eq_known (knowledge, (v_i, 'Const')):
-			v_eqs.append ((v_i, 'Const'))
-			continue
+		if const and v_i[0] != zero:
+			if eq_known (knowledge, (v_i, 'Const')):
+				v_eqs.append ((v_i, 'Const'))
+				continue
 		vs_j = [v_j for v_j in rvs if vs[v_j][0] == k]
 		vs_j = [v_j for v_j in vs_j
 			if eq_known (knowledge, (v_i, v_j))]
 		if not vs_j:
 			return None
+		if v_i[0] == zero:
+			continue
 		v_j = vs_j[0]
 		v_eqs.append ((v_i, v_j))
 	return v_eqs

@@ -76,6 +76,37 @@ Function unl_refine 2 x Word 32 m Mem 1 m Mem
 5 Basic 2 2 m Mem Op MemUpdate Mem 3 Var m Mem Var y Word 32 Num 0 Word 32 y Word 32 Op Plus Word 32 2 Var y Word 32 Num 4 Word 32
 EntryPoint 1
 
+# an example with three loops in 'parallel' combination, i.e. only one is run
+# the loops scan for the value '1' in memory in 3 different patterns
+Function par_loop 2 x Word 32 m Mem 1 x Word 32
+1 Cond 10 2 Op Equals Bool 2 Var x Word 32 Num 1 Word 32
+2 Cond 20 30 Op Equals Bool 2 Var x Word 32 Num 2 Word 32
+10 Cond 11 12 Op Equals Bool 2 Op MemAcc Word 32 2 Var m Mem Var x Word 32 Num 1 Word 32
+11 Basic Ret 0
+12 Basic 10 1 x Word 32 Op Plus Word 32 2 Var x Word 32 Num 16 Word 32
+20 Cond 21 22 Op Equals Bool 2 Op MemAcc Word 32 2 Var m Mem Var x Word 32 Num 1 Word 32
+21 Basic Ret 0
+22 Basic 20 1 x Word 32 Op Plus Word 32 2 Var x Word 32 Num 64 Word 32
+30 Cond 31 32 Op Equals Bool 2 Op MemAcc Word 32 2 Var m Mem Var x Word 32 Num 1 Word 32
+31 Basic Ret 0
+32 Basic 30 1 x Word 32 Op Times Word 32 2 Var x Word 32 Num 3 Word 32
+EntryPoint 1
+
+Function par_loop_refine 2 x Word 32 m Mem 1 x Word 32
+1 Cond 10 2 Op Equals Bool 2 Var x Word 32 Num 1 Word 32
+2 Cond 20 30 Op Equals Bool 2 Var x Word 32 Num 2 Word 32
+10 Cond 11 12 Op Equals Bool 2 Op MemAcc Word 32 2 Var m Mem Var x Word 32 Num 1 Word 32
+11 Basic Ret 0
+12 Basic 10 1 x Word 32 Op Plus Word 32 2 Var x Word 32 Num 16 Word 32
+20 Cond 21 22 Op Equals Bool 2 Op MemAcc Word 32 2 Var m Mem Var x Word 32 Num 1 Word 32
+21 Basic Ret 0
+22 Basic 20 1 x Word 32 Op Plus Word 32 2 Var x Word 32 Num 64 Word 32
+30 Cond 31 32 Op Equals Bool 2 Op MemAcc Word 32 2 Var m Mem Var x Word 32 Num 1 Word 32
+31 Basic Ret 0
+32 Basic 30 1 x Word 32 Op Times Word 32 2 Var x Word 32 Num 3 Word 32
+EntryPoint 1
+
+
 # this example is based on this simple and silly C code.
 # n.b. this C code has not been proven to do anything useful.
 
