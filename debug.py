@@ -274,7 +274,7 @@ def m_var_name (expr):
 	else:
 		return '<Expr %s>' % expr.kind
 
-def trace_mem (rep, tag, m, verbose = False, simplify = True):
+def trace_mem (rep, tag, m, verbose = False, simplify = True, symbs = True):
 	p = rep.p
 	ns = walk_model (rep, tag, m)
 	trace = []
@@ -315,7 +315,12 @@ def trace_mem (rep, tag, m, verbose = False, simplify = True):
 				v_s = simplify_sexp (v_s, rep, m)
 			if verbose:
 				print '\t %s -- %s' % (addr_s, v_s)
-			trace.extend(accs)
+			if symbs:
+				(hit_symbs, secs) = find_symbol (addr, output = False)
+				ss = hit_symbs + secs
+				if ss:
+					print '\t [%s]' % ', '.join (ss)
+		trace.extend(accs)
 	return trace
 
 def simplify_sexp (smt_xp, rep, m, flatten = True):
@@ -335,10 +340,10 @@ def simplify_sexp (smt_xp, rep, m, flatten = True):
 	else:
 		return smt_xp
 
-def trace_mems (rep, m, verbose = False):
+def trace_mems (rep, m, verbose = False, symbs = True):
 	for tag in reversed (rep.p.pairing.tags):
 		print '%s mem trace:' % tag
-		trace_mem (rep, tag, m, verbose = verbose)
+		trace_mem (rep, tag, m, verbose = verbose, symbs = symbs)
 
 def trace_var (rep, tag, m, v):
 	p = rep.p
@@ -386,14 +391,24 @@ def loop_var_deps (p):
 			if p.var_deps[n][v] == 'LoopVariable'])
 		for n in p.loop_data]
 
-def find_symbol (n):
+def find_symbol (n, output = True):
 	from target_objects import symbols, sections
+	symbs = []
+	secs = []
+	if output:
+		def p (s):
+			print s
+	else:
+		p = lambda s: ()
 	for (s, (addr, size, _)) in symbols.iteritems ():
 		if addr <= n and n < addr + size:
-			print '%x in %s (%x - %x)' % (n, s, addr, addr + size - 1)
+			symbs.append (s)
+			p ('%x in %s (%x - %x)' % (n, s, addr, addr + size - 1))
 	for (s, (start, end)) in sections.iteritems ():
 		if start <= n and n <= end:
-			print '%x in section %s (%x - %x)' % (n, s, start, end)
+			secs.append (s)
+			p ('%x in section %s (%x - %x)' % (n, s, start, end))
+	return (symbs, secs)
 
 def assembly_point (p, n):
 	(_, hints) = p.node_tags[n]
