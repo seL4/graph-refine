@@ -22,6 +22,7 @@ SOURCE_ROOT?=../../seL4
 
 L4V_ROOT?=../../l4v
 PARSERPATH?=${L4V_ROOT}/tools/c-parser/standalone-parser
+CSPEC_PATH?=${L4V_ROOT}/spec/cspec/c
 
 HOL4_ROOT?=../../HOL4
 DECOMP_DIR?=${HOL4_ROOT}/examples/machine-code/graph
@@ -33,6 +34,7 @@ ARMV=armv6
 PLAT=imx31
 CPU=arm1136jf-s
 FASTPATH=yes
+CONFIG_DOMAIN_SCHEDULE=${CSPEC_PATH}/config.c
 
 # optional configuration
 
@@ -84,9 +86,13 @@ ASMFunctions.txt: kernel.elf.txt kernel.sigs
 	# the decompiler can fail leaving an incomplete output file.
 	mv kernel_mc_graph.txt ASMFunctions.txt
 
-CFunctions.txt: kernel_all.c_pp ../../l4v/tools/asmrefine/*.thy
-	MAKEFILES= make -C ../../l4v/proof/ SimplExportOnly
-	cp ../../l4v/proof/asmrefine/CFunDump.txt CFunctions.txt
+KERNEL_ALL_FILES= kernel_all.c_pp ${CSPEC_PATH}/kernel_all.c_pp
+
+CFunctions.txt: $(KERNEL_ALL_FILES) ${L4V_ROOT}/tools/asmrefine/*.thy
+	MAKEFILES= make -C ${L4V_ROOT}/proof/ SimplExportOnly
+	cp ${L4V_ROOT}/proof/asmrefine/CFunDump.txt CFunctions.txt
+	# it's important that the parser and compiler see the same source
+	diff -qs --ignore-matching-lines='^#' ${KERNEL_ALL_FILES}
 
 GRAPH_REFINE_INPUTS= kernel.elf.rodata kernel.elf.symtab ASMFunctions.txt \
                 CFunctions.txt target.py ../*.py
