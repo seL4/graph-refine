@@ -32,11 +32,20 @@ Examples
 --------
 
 The [`example`](example/) and [`loop-example`](loop-example/) directories
-contain prebuilt example refinement targets. They can be used to exercise the
-tool as follows:
+contain prebuilt example refinement targets. The [`example`](example/)
+directory contains a number of handwritten demonstration problems. The
+[`loop-example`](loop-example/) contains example compilation and decompilation
+of a simple example program involving a loop both the `-O1` and `-O2` arguments
+to `gcc`. Both versions should be provable, but the `-O2` version involves a
+loop unrolling that is computationally expensive to verify.
+
+The examples can be used to exercise the tool as follows:
 
     python graph-refine.py example f g rotate_right has_value
     python graph-refine.py loop-example/O1 all
+    
+    # *much* slower
+    python graph-refine.py loop-example/O2 all
 
 The [`seL4-example`](seL4-example/) directory contains a recipe for building
 the seL4 binary verification problem. If this repository is set up via the
@@ -48,10 +57,10 @@ Dependencies
 ------------
 
 The tool requires the use of an SMT solver supporting the QF\_ABV logic, which
-is not provided here. Available solvers should be listed in a .solverlist
-configuration file, which is described in [`solver.py`](solver.py). The tool
-will also provide instructions on the command line if the configuration is
-missing or invalid.
+is not provided here. Available solvers should be listed in a `.solverlist`
+configuration file. Further documentation will be given on the command line if
+the configuration is missing or invalide. The `.solverlist` file format is also
+documented in in [`solver.py`](solver.py).
 
 To test the solver setup is working:
 
@@ -97,4 +106,8 @@ Overview
     impossible traces. This may be useful for other static analysis, e.g. WCET
     estimation.
   - [debug.py](debug.py): debug helper code.
+
+  - [example](example), [loop-example](loop-example),
+    [seL4-example](seL4-example) are discussed in the [Examples](#examples)
+above.
 

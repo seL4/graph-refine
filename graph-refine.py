@@ -121,7 +121,7 @@ def toplevel_check (pair, check_loops = True, report = False, count = None):
 
 	return str (result)
 
-def toplevel_check_wname (pair, quiet = False, check_loops = True,
+def toplevel_check_wname (pair, check_loops = True,
 		report_mode = False, count = None):
 	r = toplevel_check (pair, count = count, report = report_mode)
 	return (pair.name, r)
@@ -140,11 +140,11 @@ def name_search (s, tags = None):
 	print 'Possibilities for %r: %s' % (s, [str (p) for p in pairs])
 	return None
 
-def check_search (s, quiet = False, tags = None, report_mode = False,
+def check_search (s, tags = None, report_mode = False,
 		check_loops = True):
 	pair = name_search (s, tags = tags)
 	if pair:
-		return toplevel_check_wname (pair, quiet,
+		return toplevel_check_wname (pair,
 			report_mode = report_mode,
 			check_loops = check_loops)
 

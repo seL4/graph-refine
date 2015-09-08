@@ -14,7 +14,7 @@ import search
 import logic
 import check
 
-from target_objects import functions, trace, pairings, pre_pairings
+from target_objects import functions, trace, pairings, pre_pairings, printout
 import target_objects
 
 from logic import azip
@@ -588,7 +588,8 @@ def ident_callables (fname, callees, idents):
 def compute_immediate_stack_bounds (idents, names):
 	from syntax import true_term
 	immed = {}
-	for fname in names:
+	names = sorted (names)
+	for (i, fname) in enumerate (names):
 		fun = functions[fname]
 		(offs, fn_offs) = guess_asm_stack_depth (fun)
 		callables = ident_callables (fname, fn_offs.keys (), idents)
@@ -598,6 +599,8 @@ def compute_immediate_stack_bounds (idents, names):
 				for ident2 in idents.get (fname2, [true_term])
 				if callables[(ident, fname2, ident2)]]
 			immed[(fname, ident)] = (offs, dict (calls))
+		printout ('Done stack analysis for %r. (%d of %d)' % (fname,
+			i + 1, len (names)))
 	last_immediate_stack_bounds[0] = immed
 	return immed
 
@@ -938,12 +941,23 @@ def deserialise_stack_bounds (lines):
 		bounds[fname] = bound
 	return bounds
 
-def compute_stack_bounds ():
+def compute_stack_bounds (quiet = False):
+	prev_tracer = target_objects.tracer[0]
+	if quiet:
+		target_objects.tracer[0] = lambda s, n: ()
+
 	c_fs = set ([pre_pairings[f]['C'] for f in pre_pairings])
 	idents = get_recursion_identifiers (c_fs)
 	asm_idents = convert_recursion_idents (idents)
 	asm_fs = set ([pre_pairings[f]['ASM'] for f in pre_pairings])
-	return compute_asm_stack_bounds (asm_idents, asm_fs)
+	printout ('Computed recursion limits.')
+
+	bounds = compute_asm_stack_bounds (asm_idents, asm_fs)
+	printout ('Computed stack bounds.')
+
+	if quiet:
+		target_objects.tracer[0] = prev_tracer
+	return bounds
 
 def read_fn_hash (fname):
 	try:
@@ -960,7 +974,8 @@ def read_fn_hash (fname):
 	except IOError, e:
 		return None
 
-def mk_stack_pairings (pairing_tups, stack_bounds_fname = None):
+def mk_stack_pairings (pairing_tups, stack_bounds_fname = None,
+		quiet = True):
 	"""build the stack-aware calling-convention-aware logical pairings
 	once a collection of function pairs have been read."""
 
@@ -982,7 +997,8 @@ def mk_stack_pairings (pairing_tups, stack_bounds_fname = None):
 		stack_bounds = deserialise_stack_bounds (f)
 		f.close ()
 	else:
-		stack_bounds = compute_stack_bounds ()
+		printout ('Computing stack bounds.')
+		stack_bounds = compute_stack_bounds (quiet = quiet)
 		f = open (stack_bounds_fname, 'w')
 		f.write ('FunctionHash %s\n' % fn_hash)
 		for line in serialise_stack_bounds (stack_bounds):
