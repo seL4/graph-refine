@@ -860,7 +860,8 @@ def build_proof_rec_with_restrs (split_points, kind, searcher, p, restrs, hyps):
 	limit = find_split_limit (p, sp, restrs, use_hyps, kind)
 	# double-check this limit with a rep constructed without the 'fast' flag
 	limit = find_split_limit (p, sp, restrs, use_hyps, kind,
-		hints = [limit], use_rep = mk_graph_slice (p))
+		hints = [limit], use_rep = mk_graph_slice (p),
+		bound = limit + 3)
 	if kind == 'Number':
 		vc_opts = vc_upto (limit + 1)
 	else:
