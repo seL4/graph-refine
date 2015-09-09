@@ -19,6 +19,7 @@ In particular:
     + the seL4 C model is built, which usually requires Isabelle in 64-bit mode ( `ML_PLATFORM="$ISABELLE_PLATFORM64"` in Isabelle's etc/settings )
   - HOL4 is provided but must be configured, see its README and INSTALL files.
     + HOL4 will require an ML environment, typically polyML.
+    + the final `bin/build` step of installing HOL4 can be deferred (to save time) and will be run by the Makefile.
     + transient faults have sometimes been observed running the HOL4
 decompiler. try rerunning the decompiler, or adjusting polyML version.
   - The standalone variant of the NICTA C parser must build

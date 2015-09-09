@@ -48,7 +48,9 @@ $(if ${OBJDUMP_PATH},,$(error objdump ${OBJDUMP} not executable))
 DECOMP_SCRIPT= $(shell PATH="${DECOMP_DIR}:${PATH}" sh -c "which decompile.py")
 $(if ${DECOMP_SCRIPT},,$(error decompile.py not executable in ${DECOMP_DIR}))
 
-$(if $(wildcard ${HOL4_ROOT}/bin/Holmake),,$(error Holmake not found in ${HOL4_ROOT}/bin - first configure HOL4))
+$(if $(wildcard ${HOL4_ROOT}/bin/Holmake ${HOL4_ROOT}/bin/build),, \
+  $(error Holmake/build not found in ${HOL4_ROOT}/bin - first configure HOL4. \
+  See INSTALL in HOL4, but skip the bin/build step))
 
 SOLV_TEST = $(shell python ../solver.py testq | grep 'Solver self-test succ')
 $(if ${SOLV_TEST},,$(error Solver self-test failed (python ../solver.py test)))
@@ -81,6 +83,7 @@ tar: kernel.tar.gz
 H4PATH=$(realpath ${HOL4_ROOT}/bin):${PATH}
 
 ASMFunctions.txt: kernel.elf.txt kernel.sigs
+	PATH=${H4PATH} build
 	PATH=${H4PATH} ${DECOMP_SCRIPT} ./kernel --ignore=fastpath_restore,slowpath
 	# we move the output to a new location to get around a problem where
 	# the decompiler can fail leaving an incomplete output file.
