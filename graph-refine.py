@@ -28,17 +28,8 @@ import time
 
 import sys
 
-if len(sys.argv) > 1:
-	target = '%s/target.py' % sys.argv[1]
-	target_objects.target_dir.set_dir(sys.argv[1])
-	target_objects.target_args.extend([arg[7:] for arg in sys.argv
-		if arg.startswith('target:')])
-	execfile (target, {})
-else:
-	print 'Usage: python graph-refine <target> <instructions>'
-	print 'Target should be a directory.'
-	print 'See example target (named "example") for information on targets.'
-	print "See graph-refine.py source for possible instructions."
+if __name__ == '__main__':
+	args = target_objects.load_target ()
 
 def toplevel_check (pair, check_loops = True, report = False, count = None):
 	printout ('Testing Function pair %s' % pair)
@@ -231,5 +222,6 @@ def main (args):
 			print 'EXCEPTION in syscall arg %s:' % arg
 			print traceback.format_exc ()
 
-main (sys.argv[2:])
+if __name__ == '__main__':
+	main (args)
 

@@ -70,3 +70,31 @@ tracer = [default_tracer]
 def trace (s, push = 0):
 	tracer[0](str (s), push)
 
+
+def load_target ():
+	import sys
+	args = list (sys.argv)
+	if len (args) <= 1:
+		import os.path
+		objname = os.path.basename (args[0])
+		dirname = os.path.dirname (args[0])
+		exname = os.path.join (dirname, 'example')
+		print 'Usage: python %s <target> <instructions>' % objname
+		print 'Target should be a directory.'
+		if os.path.isdir (exname):
+			print 'See example target (in %s)' % exname
+		else:
+			print 'See example target in graph-refine dir.'
+		assert not 'Target specified'
+	else:
+		target = args[1]
+		target_script = '%s/target.py' % target
+		target_dir.set_dir (target)
+		target_args.extend ([arg[7:] for arg in args
+			if arg.startswith ('target:')])
+		args = [arg for arg in args[2:]
+			if not arg.startswith ('target:')]
+		execfile (target_script, {})
+		return args
+
+

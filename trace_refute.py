@@ -65,6 +65,12 @@ def setup_body_addrs ():
 			if is_addr (n):
 				body_addrs[n] = f
 
+def get_body_addrs_fun (n):
+	"""get the function a given body address is within."""
+	if not body_addrs:
+		setup_body_addrs ()
+	return body_addrs.get (n)
+
 def build_compound_problem (fnames):
 	"""mirrors build_problem from check for multiple functions"""
 	print fnames
@@ -149,10 +155,10 @@ def find_actual_call_node (p, n):
 
 def adj_eq_seq_for_asm_fun_link (fname):
 	import stack_logic
-	adj = stack_logic.get_asm_adj (fname)
-	if not adj:
+	cc = stack_logic.get_asm_calling_convention (fname)
+	if not cc:
 		return None
-	addrs = [(p, v.typ) for arg in adj['call_args']
+	addrs = [(p, v.typ) for arg in cc['args']
 		for (_, p, v, _) in arg.get_mem_accesses ()]
 	inps = functions[fname].inputs
 	[stack_idx] = [i for (i, (nm, _)) in enumerate (inps)
@@ -168,24 +174,22 @@ def adj_eq_seq_for_asm_fun_link (fname):
 		return seq[:stack_idx] + seq[stack_idx + 1:] + stk_eqs
 	return adj
 
-def get_call_link_hyps (rep, n, (from_tags, from_pair), (to_tags, to_pair)):
-	n = find_actual_call_node (rep.p, n)
-	fname = rep.p.nodes[n].fname
+def get_call_link_hyps (p, n, (from_tags, from_pair), (to_tags, to_pair)):
+	n = find_actual_call_node (p, n)
+	fname = p.nodes[n].fname
 	assert fname == to_pair.funs['ASM']
-	vis = get_vis (rep.p, n)
-	hyps = rep_graph.mk_function_link_hyps (rep.p, vis, to_tags['ASM'],
+	vis = get_vis (p, n)
+	hyps = rep_graph.mk_function_link_hyps (p, vis, to_tags['ASM'],
 		adjust_eq_seq = adj_eq_seq_for_asm_fun_link (fname))
 
 	c_fname = to_pair.funs['C']
-	p = rep.p
 	ns = [n for n in p.nodes if p.nodes[n].kind == 'Call'
 		if p.nodes[n].fname == c_fname
 		if p.node_tags[n][0] == from_tags['C']]
 	if len (ns) == 1:
 		[cn] = ns
-		vis = get_vis (rep.p, cn)
-		hyps += rep_graph.mk_function_link_hyps (rep.p, vis,
-			to_tags['C'])
+		vis = get_vis (p, cn)
+		hyps += rep_graph.mk_function_link_hyps (p, vis, to_tags['C'])
 
 	return hyps
 
@@ -227,23 +231,24 @@ def previous_verdict (call_stack, f, arc):
 	return None
 
 def identify_function (call_stack, addrs):
-	fs = set ([body_addrs.get (addr) for addr in addrs]) - set ([None])
+	fs = set ([get_body_addrs_fun (addr) for addr in addrs]) - set ([None])
 	assert len (fs) <= 1, (fs, addrs)
 	if fs:
 		[f] = list (fs)
 		return f
 	call = call_stack[-1]
-	prev_fn = body_addrs[call]
+	prev_fn = get_body_addrs_fun (call)
 	cn = find_actual_call_node (functions[prev_fn], call)
 	fn = functions[prev_fn].nodes[cn].fname
 	return fn
 
-def build_compound_problem_with_links (fnames):
+def build_compound_problem_with_links (call_stack, f):
+	funs = [get_body_addrs_fun (addr) for addr in call_stack] + [f]
 	(p, hyps, addr_map, tag_pairs) = build_compound_problem (funs)
 	call_tags = zip (tag_pairs[:-1], tag_pairs[1:])
-	call_hyps = [get_call_link_hyps (rep, addr_map[n], from_tp, to_tp)
-		for (n, (from_tp, to_tp)) in zip (stack, call_tags)]
-	return (p, hyps + [h for hs in call_hyps for h in hs])
+	call_hyps = [get_call_link_hyps (p, addr_map[n], from_tp, to_tp)
+		for (n, (from_tp, to_tp)) in zip (call_stack, call_tags)]
+	return (p, hyps + [h for hs in call_hyps for h in hs], addr_map)
 
 def refute_function_arcs (call_stack, arcs):
 	f = identify_function (call_stack,
@@ -257,12 +262,8 @@ def refute_function_arcs (call_stack, arcs):
 	if not arcs:
 		return
 
-	funs = [body_addrs[addr] for addr in stack] + [f]
-	(p, hyps, addr_map, tag_pairs) = build_compound_problem (funs)
+	(p, hyps, addr_map) = build_compound_problem_with_links (call_stack, f)
 	rep = rep_graph.mk_graph_slice (p)
-	call_tags = zip (tag_pairs[:-1], tag_pairs[1:])
-	call_hyps = [get_call_link_hyps (rep, addr_map[n], from_tp, to_tp)
-		for (n, (from_tp, to_tp)) in zip (stack, call_tags)]
 
 	for arc in arcs:
 		if previous_verdict (call_stack, f, arc) != None:
@@ -342,28 +343,22 @@ def refute (inp_fname, out_fname, prev_fnames):
 	return (bool (new_refutes), report)
 
 if __name__ == '__main__':
-	# FIXME: globbed from graph-refine
 	import sys
-	from target_objects import target_dir, target_args
-	if len(sys.argv) > 3:
-		target = '%s/target.py' % sys.argv[1]
-		target_dir.set_dir(sys.argv[1])
-		target_args.extend([arg[7:] for arg in sys.argv
-			if arg.startswith('target:')])
-		execfile (target, {})
-		args = [arg for arg in sys.argv if 'target:' not in arg]
-		prevs = [arg[5:] for arg in args if arg.startswith ('prev:')]
-		args = [arg for arg in args if 'prev:' not in arg]
-		(new, _) = refute (args[2], args[3], prevs)
-		if new:
-			sys.exit (127)
-		else:
-			sys.exit (0)
-	else:
+	args = target_objects.load_target ()
+	prevs = [arg[5:] for arg in args if arg.startswith ('prev:')]
+	args = [arg for arg in args if 'prev:' not in arg]
+	if len (args) < 2:
 		print 'Usage: python trace_refute <target> <refutables> [prev:output] <output>'
 		print 'where <target> as per graph-refine, <refutables> from reconstruct.py'
 		print 'and <output> is output filename.'
 		print 'Optional previous output may be loaded.'
 		print 'e.g. python trace_refute new-gcc-O2 new-gcc-O2/ctxt_arcs.txt prev:refutes.txt refutes.txt'
+		sys.exit (1)
+	else:
+		(new, _) = refute (args[0], args[1], prevs)
+		if new:
+			sys.exit (127)
+		else:
+			sys.exit (0)
 
 
