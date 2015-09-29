@@ -35,7 +35,7 @@ def addr_of_node (preds, n):
 def all_asm_functions ():
     asm_fs = set ([pair.funs['ASM'] for f in target_objects.pairings
       for pair in target_objects.pairings[f]])
-    for f in asm_fs:
+    for f in list (asm_fs):
       asm_fs.update (functions[f].function_calls ())
     return asm_fs
 
