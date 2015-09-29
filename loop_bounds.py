@@ -1031,7 +1031,10 @@ def get_all_loop_heads ():
 def search_all_loops ():
     all_loops = get_all_loop_heads ()
     for loop in all_loops:
-      get_bound_super_ctxt (loop, [])
+      try:
+        get_bound_super_ctxt (loop, [])
+      except problem.Abort, e:
+        continue
 
 if __name__ == '__main__':
     import sys
