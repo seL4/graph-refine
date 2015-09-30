@@ -321,7 +321,7 @@ def get_call_ctxt_problem (split, call_ctxt):
 
   (p, hyps, addr_map) = build_compound_problem_with_links (call_ctxt, f)
   call_ctxt_problems.append(((call_ctxt, f), p, hyps, addr_map))
-  del call_ctxt_problems[-20:]
+  del call_ctxt_problems[: -20]
   return (p, hyps, addr_map)
 
 known_bound_restr_hyps = {}
@@ -631,16 +631,6 @@ def add_loop_bound_restrs_hyps (p, restrs, hyps, split, bound):
     return (restrs, hyps)
 
 max_acceptable_bound = [1000000]
-
-def printBounds(bounds,to_phy=False,p=None):
-    if to_phy:
-      pA = lambda x: phyAddrP(x,p)
-    else:
-      pA = lambda x:x
-    for x in sorted(bounds.keys(),key=pA):
-        b = bounds[x]
-        if b != 1:
-            print '%s: %d / 0x%x'%  (hex(pA(x)),b,b)
 
 def phyBounds(p_bounds, heads, phy_already=False, p = None):
     if not phy_already:
@@ -1008,12 +998,14 @@ def guessBound(p_n,p, restrs):
             val = guessBoundEntry(p_n,p,restrs,stop_reg,e)
             if val == None:
                 continue
-	    print 'for entry %s stop_reg %s, val:%d, bound: %d' % (hex(phyAddrP(e,p)), stop_reg, val,val/offset )
+	    print 'for entry %s stop_reg %s, val:%d, bound: %d' % ((p_n,
+              p.node_tags[p_n]), stop_reg, val,val/offset )
 	    vs.append(val/offset)
     return vs
 
 def get_all_loop_heads ():
     loops = set ()
+    abort_funs = set ()
     for f in all_asm_functions ():
       if not functions[f].entry:
         continue
@@ -1021,11 +1013,14 @@ def get_all_loop_heads ():
       try:
         p.do_loop_analysis ()
       except problem.Abort, e:
+        abort_funs.add (f)
         continue
       for h in p.loop_heads ():
         # any address in the loop will do. pick the smallest one
         addr = min ([n for n in p.loop_body (h) if trace_refute.is_addr (n)])
         loops.add (addr)
+    if abort_funs:
+      trace ('Cannot analyse loops in: %s' % ', '.join (abort_funs))
     return loops
 
 def search_all_loops ():

@@ -128,10 +128,13 @@ def mk_not_callable_hyps (p):
 		hyps.append (hyp)
 	return hyps
 
+last_get_ptr_offsets = [0]
+
 def get_ptr_offsets (p, n_ptrs, bases, hyps = []):
 	"""detect which ptrs are guaranteed to be at constant offsets
 	from some set of basis ptrs"""
 	rep = rep_graph.mk_graph_slice (p, fast = True)
+	last_get_ptr_offsets[0] = (p, n_ptrs, bases, hyps)
 
 	smt_bases = []
 	for (n, ptr, k) in bases:
@@ -175,18 +178,12 @@ def get_stack_sp (p, tag):
 
 def pseudo_node_lvals_rvals (node):
 	assert node.kind == 'Call'
-	fname = node.fname
-	fun = functions[fname]
-	cc = get_asm_calling_convention (fname)
+	cc = get_asm_calling_convention_at_node (node)
 	if not cc:
 		return None
 	
-	arg_input_map = dict (azip (fun.inputs, node.args))
-	output_ret_set = set (azip (fun.outputs, node.rets))
-
 	arg_vars = set ([var for arg in cc['args']
-		for var in syntax.get_expr_var_set (arg)
-		for var2 in syntax.get_expr_var_set (arg_input_map[var])])
+		for var in syntax.get_expr_var_set (arg)])
 
 	callee_saved_set = set (cc['callee_saved'])
 	rets = [(nm, typ) for (nm, typ) in node.rets
@@ -218,7 +215,7 @@ def adjusted_var_dep_outputs_for_tag (p, tag):
 	ret_set = set ([(nm, typ) for ret in cc['rets']
 		for (nm, typ) in syntax.get_expr_var_set (ret)])
 	rets = [(nm2, typ) for ((nm, typ), (nm2, _))
-			in azip (fun.outputs, p.outputs['ASM'])
+			in azip (fun.outputs, p.outputs[tag])
 			if (nm, typ) in ret_set
 				or mk_var (nm, typ) in callee_saved_set]
 	return rets
@@ -305,14 +302,11 @@ def stack_virtualise_node (node, sp_offs):
 			return (ptrs, syntax.Node ('Cond',
 				node.get_conts (), cond))
 	elif node.kind == 'Call':
-		cc = get_asm_calling_convention (node.fname)
-		fun = functions[node.fname]
+		cc = get_asm_calling_convention_at_node (node)
 		assert cc != None, node.fname
 		args = [arg for arg in cc['args'] if not is_stack (arg)]
 		args = [stack_virtualise_expr (arg, sp_offs) for arg in args]
-		rets = [ret for ret in cc['rets'] if not is_stack (ret)]
-		names_to_args = dict (azip (fun.inputs, node.args))
-		rets = [logic.var_subst (ret, names_to_args) for ret in rets]
+		rets = [ret for ret in cc['rets_inp'] if not is_stack (ret)]
 		rets = [stack_virtualise_ret (ret, sp_offs) for ret in rets]
 		ptrs = list (set ([p for (ps, _) in args for p in ps]
 			+ [p for (ps, _) in rets for p in ps]))
@@ -368,6 +362,9 @@ def get_loop_virtual_stack_analysis (p, tag):
 	rets = list (set ([ptr for arg in cc['rets']
 		for (ptr, _) in stack_virtualise_expr (arg, None)[0]]))
 	rets = [adjust_ret_ptr (ret) for ret in rets]
+	renames = p.entry_exit_renames (tags = [tag])
+	r = renames[tag + '_OUT']
+	rets = [syntax.rename_expr (ret, r) for ret in rets]
 
 	ns = [n for n in p.nodes if p.node_tags[n][0] == tag]
 
@@ -855,6 +852,26 @@ def get_asm_calling_convention_inner (num_c_args, num_c_rets, const_mem):
 	asm_cc_cache[key] = cc
 	return cc
 
+def get_asm_calling_convention_at_node (node):
+	cc = get_asm_calling_convention (node.fname)
+	if not cc:
+		return None
+
+	fun = functions[node.fname]
+	arg_input_map = dict (azip (fun.inputs, node.args))
+	ret_output_map = dict (azip (fun.outputs,
+		[mk_var (nm, typ) for (nm, typ) in node.rets]))
+
+	args = [logic.var_subst (arg, arg_input_map) for arg in cc['args']]
+	rets = [logic.var_subst (ret, ret_output_map) for ret in cc['rets']]
+	# these are useful because they happen to map ret r0_input back to
+	# the previous value r0, rather than the useless value r0_input_ignore.
+	rets_inp = [logic.var_subst (ret, arg_input_map) for ret in cc['rets']]
+	saved = [logic.var_subst (v, ret_output_map)
+		for v in cc['callee_saved']]
+	return {'args': args, 'rets': rets,
+		'rets_inp': rets_inp, 'callee_saved': saved}
+
 call_cache = {}
 
 def get_asm_callable (fname):
@@ -1028,14 +1045,13 @@ def node_const_rets (node):
 		return None
 	if pre_pairings[node.fname]['ASM'] != node.fname:
 		return None
-	cc = get_asm_calling_convention (node.fname)
-	fun = functions[node.fname]
-	names_to_args = dict (azip (fun.inputs, node.args))
-	names_to_rets = dict (azip (fun.outputs,
-		[mk_var (nm, typ) for (nm, typ) in node.rets]))
-	return [names_to_args[(nm, typ)] for (nm, typ) in fun.inputs
-		if mk_var (nm, typ) in cc['callee_saved']
-		if names_to_args[(nm, typ)] == names_to_rets[(nm, typ)]]
+	cc = get_asm_calling_convention_at_node (node)
+	input_set = set ([v for arg in node.args
+		for v in syntax.get_expr_var_set (arg)])
+	callee_saved_set = set (cc['callee_saved'])
+	return [mk_var (nm, typ) for (nm, typ) in node.rets
+		if mk_var (nm, typ) in callee_saved_set
+		if (nm, typ) in input_set]
 
 def const_ret_hook (node, nm, typ):
 	consts = node_const_rets (node)
