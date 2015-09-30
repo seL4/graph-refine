@@ -183,9 +183,9 @@ def linear_eq_hyps_at_visit (tag, split, eqs, restrs, visit_num):
                     mk_word32 (visit_num.n)))
 
     hyps = [(Hyp ('PCImp', visit, start), '%s pc imp' % tag)]
-    hyps += [(eq_hyp ((isub (exp), visit), (zsub (exp), start),
+    hyps += [(eq_hyp ((zsub (exp), start), (isub (exp), visit),
                             (split, 0)), '%s const' % tag)
-                    for exp in eqs]
+                    for exp in eqs if logic.inst_eq_at_visit (exp, visit_num)]
 
     return hyps
 
@@ -226,7 +226,7 @@ def get_linear_series_hyps (p, split,restrs,hyps):
     cands += candidate_additional_eqs (p, split)
     (tag, _) = p.node_tags[split]
 
-    rep = rep_graph.mk_graph_slice (p)
+    rep = rep_graph.mk_graph_slice (p, fast = True)
 
     def do_checks (eqs):
         checks = (linear_eq_induct_step_checks (p, restrs, hyps, tag, split, eqs)
@@ -262,33 +262,35 @@ def get_induct_eq_hyp (p, split, restrs, n):
     return eq_hyp ((mk_var ('%n', word32T), visit),
         (mk_word32 (n), visit), (split, 0))
 
+def is_zero (expr):
+    return expr.kind == 'Num' and expr.val & ((1 << expr.typ.num) - 1) == 0
+
 def candidate_additional_eqs (p, split):
-    z_vals = set ([dict (p.nodes[n].upds).get (('z', syntax.boolT))
-        for n in p.loop_body (split)
-        if p.nodes[n].kind == 'Basic']) - set ([None])
-    # for some reason the easiest way to pull out comparisons is to
-    # take apart the 'z' zero comparisons rather than scan the 'c'
-    # comparisons which are a mess
-    cmps = []
-    zero_w32 = syntax.mk_word32 (0)
-    for z_val in z_vals:
-        if not z_val.is_op ('Equals') and z_val.vals[1] == zero_w32:
-            continue
-        [lhs, rhs] = z_val.vals
-        if lhs.is_op ('Minus'):
-            [x, y] = lhs.vals
-            cmps.append ((x, y))
-        elif lhs.is_op ('Plus'):
-            [x, y] = lhs.vals
-            cmps.append ((x, syntax.mk_uminus (y)))
+    eq_vals = set ()
+    def visitor (expr):
+      if expr.is_op ('Equals') and expr.vals[0].typ.kind == 'Word':
+        [x, y] = expr.vals
+        eq_vals.update ([(x, y), (y, x)])
+    for n in p.loop_body (split):
+      p.nodes[n].visit (lambda x: (), visitor)
+    for (x, y) in list (eq_vals):
+        if is_zero (x) and y.is_op ('Plus'):
+          [x, y] = y.vals
+          eq_vals.add ((x, syntax.mk_uminus (y)))
+          eq_vals.add ((y, syntax.mk_uminus (x)))
+        elif is_zero (x) and y.is_op ('Minus'):
+          [x, y] = y.vals
+          eq_vals.add ((x, y))
+          eq_vals.add ((y, x))
+
     loop = syntax.mk_var ('%i', syntax.word32T)
     minus_loop_step = syntax.mk_uminus (loop)
 
     vas = search.get_loop_var_analysis_at(p, split)
-    ls_vas = [(var,data) for (var,data) in vas if data[0]=='LoopLinearSeries' ]
-    cmp_series = [(x, y, rew, offs) for (x, y) in cmps
-        for (var, (_, rew, offs)) in ls_vas
-        if var == x]
+    ls_vas = dict ([(var, [data]) for (var, data) in vas
+        if data[0] == 'LoopLinearSeries'])
+    cmp_series = [(x, y, rew, offs) for (x, y) in eq_vals
+        for (_, rew, offs) in ls_vas.get (x, [])]
     odd_eqs = []
     for (x, y, rew, offs) in cmp_series:
         x_init_cmp1 = syntax.mk_less_eq (x, rew (x, minus_loop_step))
