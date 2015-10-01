@@ -14,7 +14,7 @@ import logic
 import solver
 from logic import azip
 
-from target_objects import functions, pairings, sections, trace
+from target_objects import functions, pairings, sections, trace, printout
 import target_objects
 
 class VisitCount:

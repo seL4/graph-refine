@@ -13,12 +13,9 @@ import trace_refute
 def downBinSearch(minimum, maximum, tryFun):
     upperBound = maximum 
     lowerBound = minimum
-    print 'searching between %d to %d' % (lowerBound,upperBound)
-    ret = None
     while upperBound > lowerBound:
+      print 'searching in %d - %d' % (lowerBound,upperBound)
       cur = (lowerBound + upperBound) / 2
-      if True:
-        print 'trying %d' % cur
       if tryFun(cur):
           upperBound = cur
       else:
@@ -26,6 +23,20 @@ def downBinSearch(minimum, maximum, tryFun):
     assert upperBound == lowerBound
     ret = lowerBound
     return ret
+
+def upDownBinSearch (minimum, maximum, tryFun):
+    """performs a binary search between minimum and maximum, but does not start
+    in the middle. instead it does a binary escalation up from the minimum
+    first. this makes sense for ranges e.g. 2 - 1000000 where the bound is
+    likely to be near the bottom of the range. it also avoids testing values
+    more than twice as high as the bound, which may avoid some issues."""
+    upperBound = 2 * minimum
+    while upperBound < maximum:
+      if tryFun (upperBound):
+        return downBinSearch (minimum, upperBound, tryFun)
+      else:
+        upperBound *= 2
+    return downBinSearch (minimum, maximum, tryFun)
 
 def addr_of_node (preds, n):
   while not trace_refute.is_addr (n):
@@ -330,10 +341,14 @@ known_bound_restr_hyps = {}
 
 known_bounds = {}
 
-def serialise_bound (addr, (bound, kind)):
-    assert bound == None or logic.is_int (bound)
-    assert str (kind) == kind
-    return [hex (addr), str (bound), kind]
+def serialise_bound (addr, bound_info):
+    if bound_info == None:
+      return ["None", "None"]
+    else:
+      (bound, kind) = bound_info
+      assert logic.is_int (bound)
+      assert str (kind) == kind
+      return [hex (addr), str (bound), kind]
 
 def save_bound (split_bin_addr, call_ctxt, prob_hash, prev_bounds, bound):
     ss = ['LoopBound'] + serialise_bound (split_bin_addr, bound)
@@ -353,10 +368,11 @@ def parse_bound (ss, n):
     bound = ss[n + 1]
     if bound == 'None':
       bound = None
+      return (n + 3, (addr, None))
     else:
       bound = syntax.parse_int (bound)
-    kind = ss[n + 2]
-    return (n + 3, (addr, (bound, kind)))
+      kind = ss[n + 2]
+      return (n + 3, (addr, (bound, kind)))
 
 def load_bounds ():
     try:
@@ -404,7 +420,7 @@ def get_bound_ctxt (split, call_ctxt):
         if p.loop_id (addr_map[addr]) == split2])
       bound = get_bound_ctxt (addr, call_ctxt)
       prev_bounds.append ((addr, bound))
-      k = (p.name, split2, bound, restrs, hyps)
+      k = (p.name, split2, bound, restrs, tuple (hyps))
       if k in known_bound_restr_hyps:
         (restrs, hyps) = known_bound_restr_hyps[k]
       else:
@@ -446,18 +462,43 @@ def search_bin_bound (p, restrs, hyps, split):
 
     return None
 
+last_search_bound = [0]
+
 def search_bound (p, restrs, hyps, split):
+    last_search_bound[0] = (p, restrs, hyps, split)
+
     #try a naive bin search first
     bound = findLoopBoundBS(split, p, restrs=restrs, hyps=hyps)
 
     if bound != None:
-      return (bound, 'BinSearch')
+      return (bound, 'NaiveBinSearch')
 
-    print '     naive b search failed, trying induction, split:%d' % split
+    l_hyps = get_linear_series_hyps (p, split, restrs, hyps)
+    hyps = hyps + l_hyps
+
+    rep = rep_graph.mk_graph_slice (p, fast = True)
+
+    def test (n):
+        assert n > 10
+        hyp = get_induct_eq_hyp (p, split, restrs, n - 1)
+        visit = ((split, vc_offs (2)), ) + restrs
+        continue_to_split_guess = rep.get_pc ((split, visit))
+        return rep.test_hyp_whyps (syntax.mk_not (continue_to_split_guess),
+          [hyp] + l_hyps)
+
+    # findLoopBoundBS always checks to at least 16
+    min_bound = 16
+    max_bound = max_acceptable_bound[0]
+    bound = upDownBinSearch (min_bound, max_bound, test)
+    if bound != None and test (bound):
+      return (bound, 'InductiveBinSearch')
+    return None
+
+def old_searchBound (p, restrs, hyps, split):
+    results = []
     b_searchable = False
     ret = getOffset(split,p)
     if ret:
-        results = []
         moving_regs, offset = ret
         print '         moving_regs are %s, offset: %d' % (moving_regs,offset)
         exit_conds = getExitCond(split,p)
@@ -495,11 +536,8 @@ def search_bound (p, restrs, hyps, split):
       # the state might not look binary-searchable, but if we
       # find a result by decrementing our current guess, we should
       # search lower anyway
-      if findLoopBoundInduct(split, p, min (results) - 1, offset, restrs, hyps):
-        maxi = min (results) - 1
-    if results and maxi == None:
-      maxi = min (results)
-    if maxi == None:
+      (maxi, _) = min (results)
+    else:
       print 'getting max bound for b search'
       #firstly get a max bound
       bound_try_seq = [0x1000,0x2000000]
@@ -518,7 +556,7 @@ def search_bound (p, restrs, hyps, split):
       results.append( (downBinSearch(1, maxi, tryFun), 'DownwardInduct') )
 
     if results:
-      return min(results)
+      return min (results)
     return None
 
 def getBinaryBoundFromC (p, c_split, asm_split, hyps):
