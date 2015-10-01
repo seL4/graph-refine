@@ -343,7 +343,7 @@ known_bounds = {}
 
 def serialise_bound (addr, bound_info):
     if bound_info == None:
-      return ["None", "None"]
+      return [hex(addr), "None", "None"]
     else:
       (bound, kind) = bound_info
       assert logic.is_int (bound)
@@ -1072,6 +1072,8 @@ def search_all_loops ():
         get_bound_super_ctxt (loop, [])
       except problem.Abort, e:
         continue
+
+main = search_all_loops
 
 if __name__ == '__main__':
     import sys
