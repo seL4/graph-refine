@@ -407,7 +407,7 @@ def get_bound_ctxt (split, call_ctxt):
     assert split, (split_bin_addr, call_ctxt)
     prior = get_prior_loop_heads (p, split)
     assert split_bin_addr == min ([addr for addr in addr_map
-        if p.loop_id (addr_map[addr]) == split])
+        if p.loop_id (addr_map[addr]) == split]), split_bin_addr
 
     restrs = ()
     hyps = []
@@ -453,6 +453,8 @@ def search_bin_bound (p, restrs, hyps, split):
     if bound:
       return bound
 
+    from stack_logic import is_asm_node
+
     # try using a bound inferred from C
     if len (p.entries) == 2 and len (p.loop_heads ()) == 2:
       if len (set ([p.node_tags[n][0] for n in p.loop_heads ()])) == 2:
@@ -480,7 +482,7 @@ def search_bound (p, restrs, hyps, split):
 
     def test (n):
         assert n > 10
-        hyp = get_induct_eq_hyp (p, split, restrs, n - 1)
+        hyp = get_induct_eq_hyp (p, split, restrs, n - 2)
         visit = ((split, vc_offs (2)), ) + restrs
         continue_to_split_guess = rep.get_pc ((split, visit))
         return rep.test_hyp_whyps (syntax.mk_not (continue_to_split_guess),

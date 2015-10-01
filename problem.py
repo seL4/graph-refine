@@ -194,7 +194,7 @@ class Problem:
 				self.nodes[rets[0]].is_noop ()):
 			return None
 		r = self.alloc_node (self.node_tags[head][0],
-			('LoopReturn', head), loop_id = head)
+			'LoopReturn', loop_id = head)
 		self.nodes[r] = Node ('Basic', head, [])
 		for r2 in rets:
 			self.nodes[r2] = syntax.copy_rename (self.nodes[r2],
