@@ -410,7 +410,6 @@ def get_bound_ctxt (split, call_ctxt):
         if p.loop_id (addr_map[addr]) == split]), split_bin_addr
 
     restrs = ()
-    hyps = []
     prev_bounds = []
     for split2 in prior:
       # recursion!
@@ -453,16 +452,22 @@ def search_bin_bound (p, restrs, hyps, split):
     if bound:
       return bound
 
-    from stack_logic import is_asm_node
+    # try to use a bound inferred from C
+    if get_prior_loop_heads (p, split):
+      # too difficult for now
+      return None
+    asm_tag = p.node_tags[split][0]
+    (_, fname, _) = p.get_entry_details (asm_tag)
+    funs = [f for pair in target_objects.pairings[fname] for f in pair.funs]
+    c_tags = [tag for tag in p.tags ()
+        if p.get_entry_details (tag)[1] in funs]
+    if len (c_tags) != 1:
+      print 'Surprised to see multiple matching tags %s' % c_tags
+      return None
 
-    # try using a bound inferred from C
-    if len (p.entries) == 2 and len (p.loop_heads ()) == 2:
-      if len (set ([p.node_tags[n][0] for n in p.loop_heads ()])) == 2:
-        [asm_split] = [h for h in p.loop_heads() if is_asm_node (p, h)]
-        [c_split] = [sp for sp in p.loop_heads () if not is_asm_node (p, sp)]
-        return getBinaryBoundFromC (p, c_split, asm_split, hyps)
+    [c_tag] = c_tags
 
-    return None
+    return getBinaryBoundFromC (p, c_tag, asm_split, restrs, hyps)
 
 last_search_bound = [0]
 
@@ -561,17 +566,22 @@ def old_searchBound (p, restrs, hyps, split):
       return min (results)
     return None
 
-def getBinaryBoundFromC (p, c_split, asm_split, hyps):
-    c_bound = search_bound (p, (), hyps, c_split)
-    if c_bound == None:
+def getBinaryBoundFromC (p, c_tag, asm_split, restrs, hyps):
+    c_heads = [h for h in search.init_loops_to_split (p, restrs)
+      if p.node_tags[h] == c_tag]
+    c_bounds = [(split, search_bound (p, (), hyps, split))
+      for split in c_heads]
+    if set (c_bounds) <= set ([None]):
       return None
+
+    asm_tag = p.node_tags[asm_split][0]
 
     rep = rep_graph.mk_graph_slice (p)
     i_seq_opts = [(0, 1), (1, 1), (2, 1)]
     j_seq_opts = [(0, 1), (0, 2), (1, 1)]
     tags = [p.node_tags[asm_split][0], p.node_tags[c_split][0]]
-    split = search.find_split (rep, asm_split, (), hyps, i_seq_opts,
-        j_seq_opts, 5, tags = tags)
+    split = search.find_split (rep, asm_split, restrs, hyps, i_seq_opts,
+        j_seq_opts, 5, tags = [asm_tag, c_tag])
     if not split or split[0] != 'Split':
         return None
     (_, split) = split
@@ -582,7 +592,10 @@ def getBinaryBoundFromC (p, c_split, asm_split, hyps):
         if not check.test_hyp_group (rep, group):
             return None
     (as_details, c_details, _, n, _) = split
-    (_, (seq_start, step), _) = c_details
+    (c_split, (seq_start, step), _) = c_details
+    bound = dict (c_bounds).get (p.loop_id (c_split))
+    if not bound:
+      return None
     max_it = (c_bound - seq_start) / step
     assert max_it > n, (max_it, n)
     (_, (seq_start, step), _) = as_details
@@ -592,11 +605,21 @@ def getBinaryBoundFromC (p, c_split, asm_split, hyps):
     as_bound += 1
     return (as_bound, 'FromC')
 
-def get_prior_loop_heads (p, split):
-    rep = rep_graph.mk_graph_slice (p)
-    return [h for h in p.loop_heads ()
-      if rep.get_reachable (h, split)
-      if p.loop_id (h) != p.loop_id (split)]
+def get_prior_loop_heads (p, split, use_rep = None):
+    if use_rep:
+      rep = use_rep
+    else:
+      rep = rep_graph.mk_graph_slice (p)
+    prior = []
+    split = p.loop_id (split)
+    for h in p.loop_heads ():
+      s = set (prior)
+      if h not in s and rep.get_reachable (h, split) and h != split:
+        # need to recurse to ensure prior are in order
+        prior2 = get_prior_loop_heads (p, h, use_rep = rep)
+        prior.extend ([h2 for h2 in prior2 if h2 not in s])
+        prior.append (h)
+    return prior
 
 #given a bunch of guesses at the bound, try all of them with findLoopBoundInductWindow
 def tryGuessesInduct(guesses, split, p, offset, restrs,hyps,adjust_two_comp=True):

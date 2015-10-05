@@ -522,10 +522,14 @@ def find_split_loop (p, head, restrs, hyps):
 
 last_failed_pairings = []
 
-def find_split (rep, head, restrs, hyps, i_opts, j_opts, unfold_limit):
+def find_split (rep, head, restrs, hyps, i_opts, j_opts, unfold_limit,
+		tags = None):
 	p = rep.p
 
-	l_tag, r_tag = p.pairing.tags
+	if tags:
+		l_tag, r_tag = tags
+	else:
+		l_tag, r_tag = p.pairing.tags
 	loop_elts = [(n, start, step) for n in p.loop_data[head][1]
 		if p.loop_splittables[n]
 		for (start, step) in i_opts]
