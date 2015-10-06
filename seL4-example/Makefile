@@ -93,9 +93,9 @@ KERNEL_ALL_FILES= kernel_all.c_pp ${CSPEC_PATH}/kernel_all.c_pp
 
 CFunctions.txt: $(KERNEL_ALL_FILES) ${L4V_ROOT}/tools/asmrefine/*.thy
 	MAKEFILES= make -C ${L4V_ROOT}/proof/ SimplExportOnly
-	cp ${L4V_ROOT}/proof/asmrefine/CFunDump.txt CFunctions.txt
 	# it's important that the parser and compiler see the same source
 	diff -qs --ignore-matching-lines='^#' ${KERNEL_ALL_FILES}
+	cp ${L4V_ROOT}/proof/asmrefine/CFunDump.txt CFunctions.txt
 
 GRAPH_REFINE_INPUTS= kernel.elf.rodata kernel.elf.symtab ASMFunctions.txt \
                 CFunctions.txt target.py ../*.py
