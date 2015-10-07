@@ -370,7 +370,7 @@ def restr_others (p, restrs, n):
 def non_r_err_pc_hyp (tags, restrs):
 	return pc_false_hyp ((('Err', restrs), tags[1]))
 
-def split_r_err_pc_hyp (p, split, restrs):
+def split_r_err_pc_hyp (p, split, restrs, tags = None):
 	(_, r_details, _, n, loop_r_max) = split
 	(r_split, (r_seq_start, r_step), r_eqs) = r_details
 
@@ -379,7 +379,10 @@ def split_r_err_pc_hyp (p, split, restrs):
 
 	restrs = restr_others (p, ((r_split, vc), ) + restrs, 2)
 
-	return non_r_err_pc_hyp (p.pairing.tags, restrs)
+	if tags == None:
+		tags = p.pairing.tags
+
+	return non_r_err_pc_hyp (tags, restrs)
 
 restr_bump = 0
 
@@ -443,11 +446,12 @@ def split_init_step_checks (p, restrs, hyps, split):
 				'Induct check at visit %d: %s' % (i, desc)))
 	return checks
 
-def split_induct_step_checks (p, restrs, hyps, split):
+def split_induct_step_checks (p, restrs, hyps, split, tags = None):
 	((l_split, _, _), _, _, n, _) = split
-	tags = p.pairing.tags
+	if tags == None:
+		tags = p.pairing.tags
 
-	err_hyp = split_r_err_pc_hyp (p, split, restrs)
+	err_hyp = split_r_err_pc_hyp (p, split, restrs, tags = tags)
 	(cont, r_cont) = split_visit_visits (tags, split, restrs, vc_offs (n))
 	# the 'trivial' hyp here ensures the representation includes a loop
 	# of the rhs when proving const equations on the lhs
@@ -460,8 +464,9 @@ def split_induct_step_checks (p, restrs, hyps, split):
 		for (hyp, desc) in split_hyps_at_visit (tags, split,
 			restrs, vc_offs (n))]
 
-def check_split_induct_step_group (rep, restrs, hyps, split):
-	checks = split_induct_step_checks (rep.p, restrs, hyps, split)
+def check_split_induct_step_group (rep, restrs, hyps, split, tags = None):
+	checks = split_induct_step_checks (rep.p, restrs, hyps, split,
+		tags = tags)
 	groups = proof_check_groups (checks)
 	for group in groups:
 		if not test_hyp_group (rep, group):

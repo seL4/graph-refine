@@ -76,9 +76,9 @@ def findLoopBoundBS(p_n, p, restrs=None, hyps=None, try_seq=None):
         #bound_try_seq = [0,1,2,3,4,5,10,50,260]
         calls = [n for n in p.loop_body (p_n) if p.nodes[n].kind == 'Call']
         if calls:
-          bound_try_seq = [0,1,20,64]
+          bound_try_seq = [0,1,20]
         else:
-          bound_try_seq = [0,1,20,64,130]
+          bound_try_seq = [0,1,20,34]
     else:
         bound_try_seq = try_seq
     rep = mk_graph_slice (p, fast = True)
@@ -470,9 +470,10 @@ def search_bin_bound (p, restrs, hyps, split):
       return None
     asm_tag = p.node_tags[split][0]
     (_, fname, _) = p.get_entry_details (asm_tag)
-    funs = [f for pair in target_objects.pairings[fname] for f in pair.funs]
+    funs = [f for pair in target_objects.pairings[fname]
+      for f in pair.funs.values ()]
     c_tags = [tag for tag in p.tags ()
-        if p.get_entry_details (tag)[1] in funs]
+        if p.get_entry_details (tag)[1] in funs and tag != asm_tag]
     if len (c_tags) != 1:
       print 'Surprised to see multiple matching tags %s' % c_tags
       return None
@@ -481,14 +482,23 @@ def search_bin_bound (p, restrs, hyps, split):
 
     return getBinaryBoundFromC (p, c_tag, asm_split, restrs, hyps)
 
+def rab_test ():
+    [split_bin_addr] = get_loop_heads (functions['resolveAddressBits'])
+    (p, hyps, addr_map) = get_call_ctxt_problem (split_bin_addr, [])
+    split = p.loop_id (addr_map[split_bin_addr])
+    [c_tag] = [tag for tag in p.tags () if tag != p.node_tags[split][0]]
+    return getBinaryBoundFromC (p, c_tag, split, (), hyps)
+
 last_search_bound = [0]
 
 def search_bound (p, restrs, hyps, split):
     last_search_bound[0] = (p, restrs, hyps, split)
 
-    #try a naive bin search first
-    bound = findLoopBoundBS(split, p, restrs=restrs, hyps=hyps)
-
+    # try a naive bin search first
+    # limit this to a small bound for time purposes
+    #   - for larger bounds the less naive approach can be faster
+    bound = findLoopBoundBS(split, p, restrs=restrs, hyps=hyps,
+      try_seq = [0, 1, 6])
     if bound != None:
       return (bound, 'NaiveBinSearch')
 
@@ -511,6 +521,12 @@ def search_bound (p, restrs, hyps, split):
     bound = upDownBinSearch (min_bound, max_bound, test)
     if bound != None and test (bound):
       return (bound, 'InductiveBinSearch')
+
+    # let the naive bin search go a bit further
+    bound = findLoopBoundBS(split, p, restrs=restrs, hyps=hyps)
+    if bound != None:
+      return (bound, 'NaiveBinSearch')
+
     return None
 
 def old_searchBound (p, restrs, hyps, split):
@@ -580,7 +596,7 @@ def old_searchBound (p, restrs, hyps, split):
 
 def getBinaryBoundFromC (p, c_tag, asm_split, restrs, hyps):
     c_heads = [h for h in search.init_loops_to_split (p, restrs)
-      if p.node_tags[h] == c_tag]
+      if p.node_tags[h][0] == c_tag]
     c_bounds = [(split, search_bound (p, (), hyps, split))
       for split in c_heads]
     if set (c_bounds) <= set ([None]):
@@ -591,7 +607,7 @@ def getBinaryBoundFromC (p, c_tag, asm_split, restrs, hyps):
     rep = rep_graph.mk_graph_slice (p)
     i_seq_opts = [(0, 1), (1, 1), (2, 1)]
     j_seq_opts = [(0, 1), (0, 2), (1, 1)]
-    tags = [p.node_tags[asm_split][0], p.node_tags[c_split][0]]
+    tags = [p.node_tags[asm_split][0], c_tag]
     split = search.find_split (rep, asm_split, restrs, hyps, i_seq_opts,
         j_seq_opts, 5, tags = [asm_tag, c_tag])
     if not split or split[0] != 'Split':
@@ -1105,22 +1121,26 @@ def guessBound(p_n,p, restrs):
 	    vs.append(val/offset)
     return vs
 
+def get_loop_heads (fun):
+    if not fun.entry:
+      return []
+    p = fun.as_problem (problem.Problem)
+    p.do_loop_analysis ()
+    loops = set ()
+    for h in p.loop_heads ():
+      # any address in the loop will do. pick the smallest one
+      addr = min ([n for n in p.loop_body (h) if trace_refute.is_addr (n)])
+      loops.add (addr)
+    return list (loops)
+
 def get_all_loop_heads ():
     loops = set ()
     abort_funs = set ()
     for f in all_asm_functions ():
-      if not functions[f].entry:
-        continue
-      p = functions[f].as_problem (problem.Problem)
       try:
-        p.do_loop_analysis ()
+        loops.update (get_loop_heads (functions[f]))
       except problem.Abort, e:
         abort_funs.add (f)
-        continue
-      for h in p.loop_heads ():
-        # any address in the loop will do. pick the smallest one
-        addr = min ([n for n in p.loop_body (h) if trace_refute.is_addr (n)])
-        loops.add (addr)
     if abort_funs:
       trace ('Cannot analyse loops in: %s' % ', '.join (abort_funs))
     return loops

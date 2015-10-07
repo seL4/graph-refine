@@ -592,11 +592,13 @@ def find_split (rep, head, restrs, hyps, i_opts, j_opts, unfold_limit,
 		trace (' ... %d live pairings, %d endorsed' %
 			(len (pair_eqs), len (endorsed)))
 		for (pair, eqs) in endorsed:
-			split = v_eqs_to_split (p, pair, eqs, restrs, hyps)
+			split = v_eqs_to_split (p, pair, eqs, restrs, hyps,
+				tags = tags)
 			if split == None:
 				pairs[pair] = ('Failed', 'SplitWeak', eqs)
 				continue
-			if check_split_induct (p, restrs, hyps, split):
+			if check_split_induct (p, restrs, hyps, split,
+					tags = tags):
 				trace ('Tested v_eqs!')
 				return ('Split', split)
 			else:
@@ -626,7 +628,7 @@ def find_split (rep, head, restrs, hyps, i_opts, j_opts, unfold_limit,
 		add_model_wrapper (knowledge, u_eqs)
 		num_eqs = 4 - num_eqs # oscillate between 3, 1
 
-def find_case_split (p, head, restrs, hyps):
+def find_case_split (p, head, restrs, hyps, tags = None):
 	# are there multiple paths to the loop head 'head' and can we
 	# restrict to one of them?
 	preds = set ()
@@ -645,7 +647,10 @@ def find_case_split (p, head, restrs, hyps):
 
 	rep = mk_graph_slice (p)
 	err_restrs = restr_others (p, restrs, 2)
-	l_tag, r_tag = p.pairing.tags
+	if tags:
+		l_tag, r_tag = tags
+	else:
+		l_tag, r_tag = p.pairing.tags
 	nrerr_pc = mk_not (rep.get_pc (('Err', err_restrs), tag = r_tag))
 
 	# for this to be a usable case split, both paths must be possible
@@ -712,7 +717,7 @@ def c_memory_loop_invariant (p, c_sp, a_sp):
 	# so we pick C initial memory.
 	return mem_vars (c_sp)
 
-def v_eqs_to_split (p, pair, v_eqs, restrs, hyps):
+def v_eqs_to_split (p, pair, v_eqs, restrs, hyps, tags = None):
 	trace ('v_eqs_to_split: (%s, %s)' % pair)
 
 	((l_n, l_init, l_step), (r_n, r_init, r_step)) = pair
@@ -727,8 +732,9 @@ def v_eqs_to_split (p, pair, v_eqs, restrs, hyps):
 	n = 2
 	split = (l_details, r_details, eqs, n, (n * r_step) - 1)
 	trace ('Split: %s' % (split, ))
-	hyps = hyps + check.split_loop_hyps (p.pairing.tags, split,
-		restrs, exit = True)
+	if tags == None:
+		tags = p.pairing.tags
+	hyps = hyps + check.split_loop_hyps (tags, split, restrs, exit = True)
 
 	r_max = find_split_limit (p, r_n, restrs, hyps, 'Offset',
 		bound = (n + 2) * r_step, must_find = False,
@@ -758,19 +764,21 @@ def get_n_offset_successes (rep, sp, step, restrs):
 			succs.append (syntax.mk_implies (pc, succ))
 	return succs
 
-def check_split_induct (p, restrs, hyps, split):
+def check_split_induct (p, restrs, hyps, split, tags = None):
 	"""perform both the induction check and a function-call based check
 	on successes which can avoid some problematic inductions."""
 	((l_split, (_, l_step), _), (r_split, (_, r_step), _), _, n, _) = split
-	tags = p.pairing.tags
+	if tags == None:
+		tags = p.pairing.tags
 
-	err_hyp = check.split_r_err_pc_hyp (p, split, restrs)
+	err_hyp = check.split_r_err_pc_hyp (p, split, restrs, tags = tags)
 	hyps = [err_hyp] + hyps + check.split_loop_hyps (tags, split,
 		restrs, exit = False)
 
 	rep = mk_graph_slice (p)
 
-	if not check.check_split_induct_step_group (rep, restrs, hyps, split):
+	if not check.check_split_induct_step_group (rep, restrs, hyps, split,
+			tags = tags):
 		return False
 
 	l_succs = get_n_offset_successes (rep, l_split, l_step, restrs)
