@@ -614,7 +614,7 @@ def getBinaryBoundFromC (p, c_tag, asm_split, restrs, hyps):
         return None
     (_, split) = split
     rep = rep_graph.mk_graph_slice (p)
-    checks = check.split_checks (p, (), hyps, split)
+    checks = check.split_checks (p, (), hyps, split, tags = [asm_tag, c_tag])
     groups = check.proof_check_groups (checks)
     for group in groups:
         if not check.test_hyp_group (rep, group):

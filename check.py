@@ -425,9 +425,10 @@ def proof_restr_checks (n, (kind, (x, y)), p, restrs, hyps):
 		'Check of restr max %d %s for %d' % (y, kind, n))
 	return init_check + [top_check]
 
-def split_init_step_checks (p, restrs, hyps, split):
+def split_init_step_checks (p, restrs, hyps, split, tags = None):
 	(_, _, _, n, _) = split
-	tags = p.pairing.tags
+	if tags == None:
+		tags = p.pairing.tags
 
 	err_hyp = split_r_err_pc_hyp (p, split, restrs)
 	hyps = [err_hyp] + hyps
@@ -473,9 +474,9 @@ def check_split_induct_step_group (rep, restrs, hyps, split, tags = None):
 			return False
 	return True
 
-def split_checks (p, restrs, hyps, split):
-	return (split_init_step_checks (p, restrs, hyps, split)
-		+ split_induct_step_checks (p, restrs, hyps, split))
+def split_checks (p, restrs, hyps, split, tags = None):
+	return (split_init_step_checks (p, restrs, hyps, split, tags = tags)
+		+ split_induct_step_checks (p, restrs, hyps, split, tags = tags))
 
 def leaf_condition_checks (p, restrs, hyps):
 	'''checks of the final refinement conditions'''
