@@ -63,20 +63,33 @@ def split_sum_s_expr (expr, solv, extra_defs):
 	else:
 		return ({expr: 1}, 0)
 
-def simplify_expr_whyps (sexpr, rep, hyps):
+def simplify_expr_whyps (sexpr, rep, hyps, cache = None, extra_defs = {}):
+	if cache == None:
+		cache = {}
+	if sexpr in extra_defs:
+		sexpr = extra_defs[sexpr]
 	if sexpr[0] == 'ite':
 		(_, cond, x, y) = sexpr
 		cond = solver.mk_smt_expr (solver.flat_s_expression (cond),
 			syntax.boolT)
-		if rep.test_hyp_whyps (cond, hyps):
+		if rep.test_hyp_whyps (cond, hyps, cache = cache):
 			return x
-		if rep.test_hyp_whyps (syntax.mk_not (cond), hyps):
+		elif rep.test_hyp_whyps (syntax.mk_not (cond), hyps,
+				cache = cache):
 			return y
+		x = simplify_expr_whyps (x, rep, hyps, cache = cache,
+			extra_defs = extra_defs)
+		y = simplify_expr_whyps (y, rep, hyps, cache = cache,
+			extra_defs = extra_defs)
+		if x == y:
+			return x
+		return ('ite', cond, x, y)
 	return sexpr
 
 last_10_non_const = []
 
-def offs_expr_const (addr_expr, sp_expr, rep, hyps, extra_defs = {}):
+def offs_expr_const (addr_expr, sp_expr, rep, hyps, extra_defs = {},
+		cache = None):
 	"""if the offset between a stack addr and the initial stack pointer
 	is a constant offset, try to compute it."""
 	addr_x = solver.parse_s_expression (addr_expr)
@@ -96,7 +109,8 @@ def offs_expr_const (addr_expr, sp_expr, rep, hyps, extra_defs = {}):
 		vs = [(x, n) for (x, n) in new_vs.iteritems () if n != 0]
 		if not vs:
 			return const
-		vs = [(simplify_expr_whyps (x, rep, hyps), n)
+		vs = [(simplify_expr_whyps (x, rep, hyps,
+				cache = cache, extra_defs = extra_defs), n)
 			for (x, n) in vs]
 		if sorted (vs) == sorted (start_vs):
 			trace ('offs_expr_const: not const')
@@ -134,6 +148,7 @@ def get_ptr_offsets (p, n_ptrs, bases, hyps = []):
 	"""detect which ptrs are guaranteed to be at constant offsets
 	from some set of basis ptrs"""
 	rep = rep_graph.mk_graph_slice (p, fast = True)
+	cache = {}
 	last_get_ptr_offsets[0] = (p, n_ptrs, bases, hyps)
 
 	smt_bases = []
@@ -154,16 +169,38 @@ def get_ptr_offsets (p, n_ptrs, bases, hyps = []):
 		smt_ptrs.append (((n, ptr), smt, hyp))
 
 	hyps = hyps + mk_not_callable_hyps (p)
+	tags = set ([p.node_tags[n][0] for (n, ptr) in n_ptrs])
+	ex_defs = {}
+	for t in tags:
+		ex_defs.update (get_extra_sp_defs (rep, t))
 
 	offs = []
 	for (v, ptr, hyp) in smt_ptrs:
 		for (ptr2, k) in smt_bases:
-			off = offs_expr_const (ptr, ptr2, rep, [hyp] + hyps)
+			off = offs_expr_const (ptr, ptr2, rep, [hyp] + hyps,
+				cache = cache, extra_defs = ex_defs)
 			if off != None:
 				offs.append ((v, off, k))
 				break
 		trace ('get_ptr_offs fallthrough at %d: %s' % v) 
 	return offs
+
+def get_extra_sp_defs (rep, tag):
+	"""all functions will keep the stack pointer equal, whether they have
+	pairing partners or not. add these extra defs/equalities for the
+	purposes of stack depth analysis."""
+	# FIXME how to parametrise this?
+	sp = mk_var ('r13', syntax.word32T)
+	defs = {}
+	for ((n, vc), (inputs, outputs, _)) in rep.funcs.iteritems ():
+		if rep.p.node_tags[n][0] == tag:
+			inp_sp = solver.smt_expr (sp, inputs, rep.solv)
+			inp_sp = solver.parse_s_expression (inp_sp)
+			out_sp = solver.smt_expr (sp, outputs, rep.solv)
+			out_sp = solver.parse_s_expression (out_sp)
+			if inp_sp != out_sp:
+				defs[out_sp] = inp_sp
+	return defs
 
 def get_stack_sp (p, tag):
 	"""get stack and stack-pointer variables"""
