@@ -430,7 +430,7 @@ def split_init_step_checks (p, restrs, hyps, split, tags = None):
 	if tags == None:
 		tags = p.pairing.tags
 
-	err_hyp = split_r_err_pc_hyp (p, split, restrs)
+	err_hyp = split_r_err_pc_hyp (p, split, restrs, tags = tags)
 	hyps = [err_hyp] + hyps
 	checks = []
 	for i in range (n):

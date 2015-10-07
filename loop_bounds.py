@@ -351,6 +351,9 @@ def serialise_bound (addr, bound_info):
       return [hex (addr), str (bound), kind]
 
 def save_bound (glob, split_bin_addr, call_ctxt, prob_hash, prev_bounds, bound):
+    f_names = [trace_refute.get_body_addrs_fun (x)
+      for x in [split_bin_addr] + call_ctxt]
+    comment = '# bound for loop in <%s>:' % ' -> '.join (f_names)
     ss = ['LoopBound'] + serialise_bound (split_bin_addr, bound)
     if glob:
       ss[0] = 'GlobalLoopBound'
@@ -364,6 +367,7 @@ def save_bound (glob, split_bin_addr, call_ctxt, prob_hash, prev_bounds, bound):
         ss += serialise_bound (split, bound)
     s = ' '.join (ss)
     f = open ('%s/LoopBounds.txt' % target_objects.target_dir, 'a')
+    f.write (comment + '\n')
     f.write (s + '\n')
     f.close ()
     trace ('Found bound %s for 0x%x in context %s.\n' % (bound, split_bin_addr, 
@@ -480,7 +484,7 @@ def search_bin_bound (p, restrs, hyps, split):
 
     [c_tag] = c_tags
 
-    return getBinaryBoundFromC (p, c_tag, asm_split, restrs, hyps)
+    return getBinaryBoundFromC (p, c_tag, split, restrs, hyps)
 
 def rab_test ():
     [split_bin_addr] = get_loop_heads (functions['resolveAddressBits'])
@@ -503,7 +507,6 @@ def search_bound (p, restrs, hyps, split):
       return (bound, 'NaiveBinSearch')
 
     l_hyps = get_linear_series_hyps (p, split, restrs, hyps)
-    hyps = hyps + l_hyps
 
     rep = rep_graph.mk_graph_slice (p, fast = True)
 
@@ -513,7 +516,7 @@ def search_bound (p, restrs, hyps, split):
         visit = ((split, vc_offs (2)), ) + restrs
         continue_to_split_guess = rep.get_pc ((split, visit))
         return rep.test_hyp_whyps (syntax.mk_not (continue_to_split_guess),
-          [hyp] + l_hyps)
+          [hyp] + l_hyps + hyps)
 
     # findLoopBoundBS always checks to at least 16
     min_bound = 16
@@ -597,9 +600,10 @@ def old_searchBound (p, restrs, hyps, split):
 def getBinaryBoundFromC (p, c_tag, asm_split, restrs, hyps):
     c_heads = [h for h in search.init_loops_to_split (p, restrs)
       if p.node_tags[h][0] == c_tag]
-    c_bounds = [(split, search_bound (p, (), hyps, split))
+    c_bounds = [(p.loop_id (split), search_bound (p, (), hyps, split))
       for split in c_heads]
-    if set (c_bounds) <= set ([None]):
+    if not [b for (n, b) in c_bounds if b]:
+      trace ('no C bounds found (%s).' % c_bounds)
       return None
 
     asm_tag = p.node_tags[asm_split][0]
@@ -609,21 +613,25 @@ def getBinaryBoundFromC (p, c_tag, asm_split, restrs, hyps):
     j_seq_opts = [(0, 1), (0, 2), (1, 1)]
     tags = [p.node_tags[asm_split][0], c_tag]
     split = search.find_split (rep, asm_split, restrs, hyps, i_seq_opts,
-        j_seq_opts, 5, tags = [asm_tag, c_tag])
+      j_seq_opts, 5, tags = [asm_tag, c_tag])
     if not split or split[0] != 'Split':
-        return None
+      trace ('no split found (%s).' % repr (split))
+      return None
     (_, split) = split
     rep = rep_graph.mk_graph_slice (p)
     checks = check.split_checks (p, (), hyps, split, tags = [asm_tag, c_tag])
     groups = check.proof_check_groups (checks)
     for group in groups:
-        if not check.test_hyp_group (rep, group):
-            return None
+      if not check.test_hyp_group (rep, group):
+        trace ('split check failed!')
+        return None
     (as_details, c_details, _, n, _) = split
     (c_split, (seq_start, step), _) = c_details
-    bound = dict (c_bounds).get (p.loop_id (c_split))
-    if not bound:
+    c_bound = dict (c_bounds).get (p.loop_id (c_split))
+    if not c_bound:
+      trace ('key split was not bounded (%r, %r).' % (c_split, c_bounds))
       return None
+    (c_bound, _) = c_bound
     max_it = (c_bound - seq_start) / step
     assert max_it > n, (max_it, n)
     (_, (seq_start, step), _) = as_details

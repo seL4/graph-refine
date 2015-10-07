@@ -248,7 +248,16 @@ def build_compound_problem_with_links (call_stack, f):
 	call_tags = zip (tag_pairs[:-1], tag_pairs[1:])
 	call_hyps = [get_call_link_hyps (p, addr_map[n], from_tp, to_tp)
 		for (n, (from_tp, to_tp)) in zip (call_stack, call_tags)]
-	return (p, hyps + [h for hs in call_hyps for h in hs], addr_map)
+	wcet_hyps = []
+	from rep_graph import eq_hyp
+	for (entry, tag, _, inputs) in p.entries:
+		entry_vis = ((entry, ()), tag)
+		for f in target_objects.hooks ('extra_wcet_assertions'):
+			for assn in f (inputs):
+				wcet_hyps.append (eq_hyp ((assn, entry_vis),
+					(syntax.true_term, entry_vis)))
+	return (p, hyps + [h for hs in call_hyps for h in hs]
+		+ wcet_hyps, addr_map)
 
 def refute_function_arcs (call_stack, arcs):
 	f = identify_function (call_stack,
