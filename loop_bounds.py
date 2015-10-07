@@ -350,12 +350,18 @@ def serialise_bound (addr, bound_info):
       assert str (kind) == kind
       return [hex (addr), str (bound), kind]
 
-def save_bound (split_bin_addr, call_ctxt, prob_hash, prev_bounds, bound):
+def save_bound (glob, split_bin_addr, call_ctxt, prob_hash, prev_bounds, bound):
     ss = ['LoopBound'] + serialise_bound (split_bin_addr, bound)
+    if glob:
+      ss[0] = 'GlobalLoopBound'
     ss += [str (len (call_ctxt))] + map (hex, call_ctxt)
-    ss += [str (prob_hash), str (len (prev_bounds))]
-    for (split, bound) in prev_bounds:
-      ss += serialise_bound (split, bound)
+    ss += [str (prob_hash)]
+    if glob:
+      assert prev_bounds == None
+    else:
+      ss += [str (len (prev_bounds))]
+      for (split, bound) in prev_bounds:
+        ss += serialise_bound (split, bound)
     s = ' '.join (ss)
     f = open ('%s/LoopBounds.txt' % target_objects.target_dir, 'a')
     f.write (s + '\n')
@@ -384,17 +390,23 @@ def load_bounds ():
     from syntax import parse_int, parse_list
     for l in ls:
       bits = l.split ()
-      if bits[:1] != ['LoopBound']:
+      if bits[:1] not in [['LoopBound'], ['GlobalLoopBound']]:
         continue
       (n, (addr, bound)) = parse_bound (bits, 1)
       def parse_ctxt_id (bits, n):
         return (n + 1, syntax.parse_int (bits[n]))
       (n, ctxt) = parse_list (parse_ctxt_id, bits, n)
       prob_hash = parse_int (bits[n])
-      (n, prev_bounds) = parse_list (parse_bound, bits, n + 1)
-      assert n == len (bits), bits
-      known = known_bounds.setdefault (addr, [])
-      known.append ((ctxt, prob_hash, prev_bounds, bound))
+      n += 1
+      if bits[0] == 'LoopBound':
+        (n, prev_bounds) = parse_list (parse_bound, bits, n)
+        assert n == len (bits), bits
+        known = known_bounds.setdefault (addr, [])
+        known.append ((ctxt, prob_hash, prev_bounds, bound))
+      else:
+        assert n == len (bits), bits
+        known = known_bounds.setdefault ((addr, 'Global'), [])
+        known.append ((ctxt, prob_hash, bound))
     known_bounds['Loaded'] = True
 
 def get_bound_ctxt (split, call_ctxt):
@@ -439,7 +451,7 @@ def get_bound_ctxt (split, call_ctxt):
     bound = search_bin_bound (p, restrs, hyps, split)
     known = known_bounds.setdefault (split_bin_addr, [])
     known.append ((call_ctxt, p_h, prev_bounds, bound))
-    save_bound (split_bin_addr, call_ctxt, p_h, prev_bounds, bound)
+    save_bound (False, split_bin_addr, call_ctxt, p_h, prev_bounds, bound)
     return bound
 
 def problem_hash (p):
@@ -715,11 +727,32 @@ def phyBounds(p_bounds, heads, phy_already=False, p = None):
       ret[n] = max ([p_bounds[x] for x in p_bounds if phyAddr(x) == n ])
     return ret
 
+functions_hash = [None]
+
+def get_functions_hash ():
+    if functions_hash[0] != None:
+      return functions_hash[0]
+    h = hash (tuple (sorted ([(f, hash (functions[f])) for f in functions])))
+    functions_hash[0] = h
+    return h
+
 def get_bound_super_ctxt (split, call_ctxt):
+    if not known_bounds:
+      load_bounds ()
+    for (ctxt2, fn_hash, bound) in known_bounds.get ((split, 'Global'), []):
+      if ctxt2 == call_ctxt and fn_hash == get_functions_hash ():
+        return bound
+
+    bound = get_bound_super_ctxt_inner (split, call_ctxt)
+    known = known_bounds.setdefault ((split, 'Global'), [])
+    known.append ((call_ctxt, get_functions_hash (), bound))
+    save_bound (True, split, call_ctxt, get_functions_hash (), None, bound)
+    return bound
+
+def get_bound_super_ctxt_inner (split, call_ctxt):
     first_f = trace_refute.identify_function ([], (call_ctxt + [split])[:1])
     call_sites = all_call_sites (first_f)
-    if len (call_sites) == 0:
-      return (0, 'NotCallable')
+
     if len (call_ctxt) < 3 and len (call_sites) == 1:
       return get_bound_super_ctxt (split, list (call_sites) + call_ctxt)
 
@@ -728,6 +761,10 @@ def get_bound_super_ctxt (split, call_ctxt):
       return bound
 
     if len (call_ctxt) >= 3:
+      return None
+
+    if len (call_sites) == 0:
+      # either entry point or nonsense
       return None
 
     anc_bounds = [get_bound_ctxt (split, [call_site] + call_ctxt)

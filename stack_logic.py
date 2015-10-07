@@ -192,7 +192,9 @@ def get_extra_sp_defs (rep, tag):
 	# FIXME how to parametrise this?
 	sp = mk_var ('r13', syntax.word32T)
 	defs = {}
-	for ((n, vc), (inputs, outputs, _)) in rep.funcs.iteritems ():
+	items = [(n_vc, x) for (n_vc, x) in rep.funcs.iteritems ()
+		if logic.is_int (n_vc[0])]
+	for ((n, vc), (inputs, outputs, _)) in items:
 		if rep.p.node_tags[n][0] == tag:
 			inp_sp = solver.smt_expr (sp, inputs, rep.solv)
 			inp_sp = solver.parse_s_expression (inp_sp)
