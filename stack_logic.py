@@ -1057,7 +1057,8 @@ def mk_stack_pairings (pairing_tups, stack_bounds_fname = None,
 		pre_pairings[c_f] = pair
 		pre_pairings[asm_f] = pair
 	
-	fn_hash = hash (tuple ([hash (functions[f]) for f in functions]))
+	fn_hash = hash (tuple (sorted ([(f, hash (functions[f]))
+		for f in functions])))
 	prev_hash = read_fn_hash (stack_bounds_fname)
 	if prev_hash == fn_hash:
 		f = open (stack_bounds_fname)
