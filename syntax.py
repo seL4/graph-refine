@@ -697,8 +697,11 @@ class Function:
 		self.nodes = {}
 
 	def __hash__ (self):
+		en = self.entry
+		if not en:
+			en = -1
 		return hash (tuple ([self.name, tuple (self.inputs),
-				tuple (self.outputs), self.entry])
+				tuple (self.outputs), en])
 			+ tuple (sorted (self.nodes.iteritems ())))
 
 	def reachable_nodes (self, simplify = False):
