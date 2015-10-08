@@ -8,6 +8,7 @@ from rep_graph import mk_graph_slice, VisitCount, to_smt_expr
 from search import eval_model_expr
 import target_objects
 import trace_refute
+import stack_logic
 
 #tryFun must take exactly 1 argument
 def downBinSearch(minimum, maximum, tryFun):
@@ -44,11 +45,7 @@ def addr_of_node (preds, n):
   return n
 
 def all_asm_functions ():
-    asm_fs = set ([pair.funs['ASM'] for f in target_objects.pairings
-      for pair in target_objects.pairings[f]])
-    for f in list (asm_fs):
-      asm_fs.update (functions[f].function_calls ())
-    return asm_fs
+    return stack_logic.get_functions_with_tag ('ASM')
 
 call_site_set = {}
 

@@ -997,15 +997,27 @@ def deserialise_stack_bounds (lines):
 		bounds[fname] = bound
 	return bounds
 
+def get_functions_with_tag (tag):
+	visit = set ([pre_pairings[f][tag] for f in pre_pairings
+		if tag in pre_pairings[f]])
+	visit.update ([pair.funs[tag] for f in pairings
+		for pair in pairings[f] if tag in pair.funs])
+	funs = set (visit)
+	while visit:
+		f = visit.pop ()
+		funs.add (f)
+		visit.update (set (functions[f].function_calls ()) - funs)
+	return funs
+
 def compute_stack_bounds (quiet = False):
 	prev_tracer = target_objects.tracer[0]
 	if quiet:
 		target_objects.tracer[0] = lambda s, n: ()
 
-	c_fs = set ([pre_pairings[f]['C'] for f in pre_pairings])
+	c_fs = get_functions_with_tag ('C')
 	idents = get_recursion_identifiers (c_fs)
 	asm_idents = convert_recursion_idents (idents)
-	asm_fs = set ([pre_pairings[f]['ASM'] for f in pre_pairings])
+	asm_fs = get_functions_with_tag ('ASM')
 	printout ('Computed recursion limits.')
 
 	bounds = compute_asm_stack_bounds (asm_idents, asm_fs)

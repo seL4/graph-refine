@@ -56,14 +56,12 @@ def is_addr (n):
 	return n % 4 == 0
 
 def setup_body_addrs ():
-	asm_fs = set ([pair.funs['ASM'] for f in pairings
-		for pair in pairings[f]
-		if 'ASM' in pair.tags])
-	for f in asm_fs:
-		fun = functions[f]
-		for n in fun.nodes:
+	for f in stack_logic.get_functions_with_tag ('ASM'):
+		for n in functions[f].nodes:
 			if is_addr (n):
 				body_addrs[n] = f
+	# just in case there aren't any
+	body_addrs['Loaded'] = True
 
 def get_body_addrs_fun (n):
 	"""get the function a given body address is within."""
