@@ -366,8 +366,8 @@ def stack_virtualise_node (node, sp_offs):
 	else:
 		assert not "node kind understood", node.kind
 
-def mk_get_local_offs (sp_reps):
-	stack = mk_var ('stack', syntax.builtinTs['Mem'])
+def mk_get_local_offs (p, tag, sp_reps):
+	(stack, _) = get_stack_sp (p, tag)
 	def mk_local (n, kind, off, k):
 		(v, off2) = sp_reps[n][k]
 		ptr = syntax.mk_plus (v, syntax.mk_word32 (off + off2))
@@ -429,7 +429,7 @@ def get_loop_virtual_stack_analysis (p, tag):
 			(k, off) = ptr_offs[n][ptr]
 			upd_offsets.setdefault (loop, set ())
 			upd_offsets[loop].add ((k, off))
-	loc_offs = mk_get_local_offs (rep_offs)
+	loc_offs = mk_get_local_offs (p, tag, rep_offs)
 
 	adj_nodes = {}
 	for n in ns:

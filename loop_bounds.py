@@ -349,7 +349,7 @@ def serialise_bound (addr, bound_info):
 
 def save_bound (glob, split_bin_addr, call_ctxt, prob_hash, prev_bounds, bound):
     f_names = [trace_refute.get_body_addrs_fun (x)
-      for x in [split_bin_addr] + call_ctxt]
+      for x in call_ctxt + [split_bin_addr]]
     comment = '# bound for loop in <%s>:' % ' -> '.join (f_names)
     ss = ['LoopBound'] + serialise_bound (split_bin_addr, bound)
     if glob:

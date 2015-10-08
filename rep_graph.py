@@ -976,6 +976,7 @@ class GraphSlice:
 		return self.test_hyp_whyps (self.interpret_hyp (hyp), hyps)
 
 	def test_hyp_imps (self, imps):
+		last_hyp_imps[0] = imps
 		if imps == []:
 			return True
 		common_hyps = set.intersection (* [set (hyps)
@@ -992,6 +993,7 @@ class GraphSlice:
 
 last_test = [0]
 last_failed_test = [0]
+last_hyp_imps = [0]
 
 def to_smt_expr_under_op (expr, env, solv):
 	if expr.kind == 'Op':
