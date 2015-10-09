@@ -350,7 +350,8 @@ def serialise_bound (addr, bound_info):
 def save_bound (glob, split_bin_addr, call_ctxt, prob_hash, prev_bounds, bound):
     f_names = [trace_refute.get_body_addrs_fun (x)
       for x in call_ctxt + [split_bin_addr]]
-    comment = '# bound for loop in <%s>:' % ' -> '.join (f_names)
+    loop_name = '<%s>' % ' -> '.join (f_names)
+    comment = '# bound for loop in %s:' % loop_name
     ss = ['LoopBound'] + serialise_bound (split_bin_addr, bound)
     if glob:
       ss[0] = 'GlobalLoopBound'
@@ -367,8 +368,8 @@ def save_bound (glob, split_bin_addr, call_ctxt, prob_hash, prev_bounds, bound):
     f.write (comment + '\n')
     f.write (s + '\n')
     f.close ()
-    trace ('Found bound %s for 0x%x in context %s.\n' % (bound, split_bin_addr, 
-      call_ctxt))
+    trace ('Found bound %s for 0x%x in %s.' % (bound, split_bin_addr,
+      loop_name))
 
 def parse_bound (ss, n):
     addr = syntax.parse_int (ss[n])
