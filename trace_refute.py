@@ -15,6 +15,7 @@ import rep_graph
 import search
 import logic
 import check
+import stack_logic
 
 from target_objects import functions, trace, pairings, symbols
 import target_objects
@@ -123,7 +124,6 @@ def build_compound_problem (fnames):
 
 def get_vis (p, n, tag = None):
 	# assuming no loops
-	import stack_logic
 	(n, vc) = stack_logic.default_n_vc (p, n)
 	if not tag:
 		tag = p.node_tags[n][0]
@@ -152,7 +152,6 @@ def find_actual_call_node (p, n):
 	return None
 
 def adj_eq_seq_for_asm_fun_link (fname):
-	import stack_logic
 	cc = stack_logic.get_asm_calling_convention (fname)
 	if not cc:
 		return None
