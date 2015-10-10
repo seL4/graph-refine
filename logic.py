@@ -864,6 +864,45 @@ def tarjan1 (graph, v, data, stack, stack_set, comps):
 				comp.append (x)
 			comps.append ((v2, comp))
 
+def get_one_loop_splittable (p, loop_set):
+	"""discover a component of a strongly connected
+	component which, when removed, disconnects the component.
+	complex loops lack such a split point."""
+	candidate_splittables = set (loop_set)
+	graph = dict ([(x, [y for y in p.nodes[x].get_conts ()
+		if y in loop_set]) for x in loop_set])
+	while candidate_splittables:
+		n = candidate_splittables.pop ()
+		graph2 = dict ([(x, [y for y in graph[x] if y != n])
+			for x in graph])
+		comps = logic.tarjan (graph2, [n])
+		if not [comp for comp in comps if comp[1]]:
+			return n
+		loop2 = find_loop_avoiding (graph, loop_set,
+			candidate_splittables)
+		candidate_splittables = set.intersection (loop2,
+			candidate_splittables)
+	return None
+
+def find_loop_avoiding (graph, loop, avoid):
+	n = (list (loop - avoid) + list (loop))[0]
+	arc = [n]
+	visited = set ([n])
+	while True:
+		cs = set (graph[n])
+		acs = cs - avoid
+		vcs = set.intersection (cs, visited)
+		if vcs:
+			n = vcs.pop ()
+			break
+		elif acs:
+			n = acs.pop ()
+		else:
+			n = cs.pop ()
+		visited.add (n)
+		arc.append (n)
+	[i] = [i for (i, n2) in enumerate (arc) if n2 == n]
+	return set (arc[i:])
 # non-equality relations in proof hypotheses are recorded as a pretend
 # equality and reverted to their 'real' meaning here.
 def mk_stack_wrapper (stack_ptr, stack, excepts):
