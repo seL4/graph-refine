@@ -45,18 +45,24 @@ def build_problem (pairing, force_inline = None):
 
 	return p
 
-def inline_completely_unmatched (p, ref_tags = None):
+def inline_completely_unmatched (p, ref_tags = None, skip_underspec = False):
 	if ref_tags == None:
 		ref_tags = p.pairing.tags
 	while True:
-		ns = [n for n in p.nodes
+		ns = [(n, skip_underspec
+                                and not functions[p.nodes[n].fname].entry)
+			for n in p.nodes
 			if p.nodes[n].kind == 'Call'
 			if not [pair for pair
 				in pairings.get (p.nodes[n].fname, [])
 				if pair.tags == ref_tags]]
-		for n in ns:
-			inline_at_point (p, n)
-		if not ns:
+		for (n, skip) in ns:
+			if skip:
+				trace ('Skipped inlining underspecified %s.'
+                                        % p.nodes[n].fname)
+			else:
+				inline_at_point (p, n)
+		if not [n for (n, skip) in ns if not skip]:
 			return
 
 def inline_reachable_unmatched_C (p, force_inline = None):
@@ -66,16 +72,17 @@ def inline_reachable_unmatched_C (p, force_inline = None):
 	inline_reachable_unmatched (p, 'C', compare_tag, force_inline)
 
 def inline_reachable_unmatched (p, inline_tag, compare_tag,
-		force_inline = None):
+		force_inline = None, skip_underspec = False):
 	funs = [pair.funs['C']
 		for n in p.nodes
 		if p.nodes[n].kind == 'Call'
-		if p.node_tags[n][0] != 'C'
-		for pair in pairings[p.nodes[n].fname]
+		if p.node_tags[n][0] == compare_tag
+		for pair in pairings.get (p.nodes[n].fname, [])
 		if 'C' in pair.tags]
 
 	rep = mk_graph_slice (p,
-		consider_inline_c (funs, force_inline))
+		consider_inline_c (funs, inline_tag, force_inline,
+			skip_underspec))
 	opts = vc_double_range (3, 3)
 	while True:
 		try:
@@ -87,8 +94,8 @@ def inline_reachable_unmatched (p, inline_tag, compare_tag,
 				except rep.TooGeneral:
 					pass
 
-			rep.get_node_pc_env (('Ret', limits), 'C')
-			rep.get_node_pc_env (('Err', limits), 'C')
+			rep.get_node_pc_env (('Ret', limits), inline_tag)
+			rep.get_node_pc_env (('Err', limits), inline_tag)
 			break
 		except rep_graph.InlineEvent:
 			continue

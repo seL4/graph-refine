@@ -92,12 +92,14 @@ def build_compound_problem (fnames):
 	p.do_analysis ()
 
 	# FIXME: the inlining is heuristic and belongs in 'search'
-	check.inline_completely_unmatched (p, ref_tags = ['ASM', 'C'])
+	check.inline_completely_unmatched (p, ref_tags = ['ASM', 'C'],
+		skip_underspec = True)
 	
 	# now do any C inlining
 	for (tags, _) in fun_tag_pairs:
 		assert set (tags) == set (['ASM', 'C']), tags
-		check.inline_reachable_unmatched (p, tags['C'], tags['ASM'])
+		check.inline_reachable_unmatched (p, tags['C'], tags['ASM'],
+			skip_underspec = True)
 
 	p.pad_merge_points ()
 	p.do_analysis ()
