@@ -70,11 +70,11 @@ def simplify_expr_whyps (sexpr, rep, hyps, cache = None, extra_defs = {}):
 		sexpr = extra_defs[sexpr]
 	if sexpr[0] == 'ite':
 		(_, cond, x, y) = sexpr
-		cond = solver.mk_smt_expr (solver.flat_s_expression (cond),
+		cond_exp = solver.mk_smt_expr (solver.flat_s_expression (cond),
 			syntax.boolT)
-		if rep.test_hyp_whyps (cond, hyps, cache = cache):
+		if rep.test_hyp_whyps (cond_exp, hyps, cache = cache):
 			return x
-		elif rep.test_hyp_whyps (syntax.mk_not (cond), hyps,
+		elif rep.test_hyp_whyps (syntax.mk_not (cond_exp), hyps,
 				cache = cache):
 			return y
 		x = simplify_expr_whyps (x, rep, hyps, cache = cache,
