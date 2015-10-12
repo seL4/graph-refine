@@ -765,7 +765,10 @@ def get_bound_super_ctxt (split, call_ctxt):
       if ctxt2 == call_ctxt and fn_hash == get_functions_hash ():
         return bound
 
-    bound = get_bound_super_ctxt_inner (split, call_ctxt)
+    try:
+      bound = get_bound_super_ctxt_inner (split, call_ctxt)
+    except problem.Abort, e:
+      bound = None
     known = known_bounds.setdefault ((split, 'Global'), [])
     known.append ((call_ctxt, get_functions_hash (), bound))
     save_bound (True, split, call_ctxt, get_functions_hash (), None, bound)
@@ -1154,10 +1157,7 @@ def get_all_loop_heads ():
 def search_all_loops ():
     all_loops = get_all_loop_heads ()
     for loop in all_loops:
-      try:
-        get_bound_super_ctxt (loop, [])
-      except problem.Abort, e:
-        continue
+      get_bound_super_ctxt (loop, [])
 
 main = search_all_loops
 
