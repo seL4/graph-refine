@@ -415,14 +415,13 @@ def get_bound_ctxt (split, call_ctxt):
     trace ('Getting bound for 0x%x in context %s.' % (split, call_ctxt))
     (p, hyps, addr_map) = get_call_ctxt_problem (split, call_ctxt)
 
-    split_bin_addr = split
-
+    orig_split = split
     split = p.loop_id (addr_map[split_bin_addr])
-    assert split, (split_bin_addr, call_ctxt)
-    prior = get_prior_loop_heads (p, split)
-    assert split_bin_addr == min ([addr for addr in addr_map
-        if p.loop_id (addr_map[addr]) == split]), split_bin_addr
+    assert split, (orig_split, call_ctxt)
+    split_bin_addr = min ([addr for addr in addr_map
+        if p.loop_id (addr_map[addr]) == split])
 
+    prior = get_prior_loop_heads (p, split)
     restrs = ()
     prev_bounds = []
     for split2 in prior:
