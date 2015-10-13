@@ -564,7 +564,7 @@ def avail_val (vs, typ):
 			return mk_var (nm, typ2)
 	return logic.default_val (typ)
 
-def inline_at_point (p, n):
+def inline_at_point (p, n, do_analysis = True):
 	node = p.nodes[n]
 	if node.kind != 'Call':
 		return
@@ -588,7 +588,12 @@ def inline_at_point (p, n):
 	out_vs = [mk_var (vs[v], typ) for (v, typ) in fun.outputs]
 	p.nodes[ex] = Node ('Basic', node.cont, azip (node.rets, out_vs))
 
-	p.do_analysis ()
+	p.cached_analysis.clear ()
+ 
+	if do_analysis:
+		p.do_analysis ()
+	else:
+		p.do_loop_analysis ()
 
 	trace ('Problem size now %d' % len(p.nodes))
 	sys.stdin.flush ()
@@ -596,8 +601,6 @@ def inline_at_point (p, n):
 	if trace_inlines:
 		trace_inlines[0] (p)
 
-	p.cached_analysis.clear ()
- 
 	return ns.values ()
 
 def consider_inline_c1 (p, n, c_funs, inline_tag, force_inline, skip_underspec):

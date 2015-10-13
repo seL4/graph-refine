@@ -61,8 +61,9 @@ def inline_completely_unmatched (p, ref_tags = None, skip_underspec = False):
 				trace ('Skipped inlining underspecified %s.'
                                         % p.nodes[n].fname)
 			else:
-				inline_at_point (p, n)
+				inline_at_point (p, n, do_analysis = False)
 		if not [n for (n, skip) in ns if not skip]:
+			p.do_analysis ()
 			return
 
 def inline_reachable_unmatched_C (p, force_inline = None):
