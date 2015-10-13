@@ -764,6 +764,14 @@ def get_bound_super_ctxt (split, call_ctxt):
       if ctxt2 == call_ctxt and fn_hash == get_functions_hash ():
         return bound
 
+    f = trace_refute.get_body_addrs_fun (split)
+    p = functions[f].as_problem (problem.Problem)
+    p.do_loop_analysis ()
+    min_addr = min ([n for n in p.loop_body (split)
+      if trace_refute.is_addr (n)])
+    if min_addr != split:
+      return get_bound_super_ctxt (min_addr, call_ctxt)
+
     try:
       bound = get_bound_super_ctxt_inner (split, call_ctxt)
     except problem.Abort, e:
