@@ -552,6 +552,8 @@ def contextual_conds (nodes, preds):
 	visit = [n for n in nodes if not (preds[n])]
 	while visit:
 		n = visit.pop ()
+		if n not in nodes:
+			continue
 		in_arc_conds = [arc_conds.get ((pre, n), set ())
 			for pre in preds[n]]
 		if not in_arc_conds:

@@ -512,6 +512,13 @@ class GraphSlice:
 		if pc_envs == []:
 			return None
 
+		if n == 'Err':
+			# we'll never care about variable values here
+			# and there are sometimes a LOT of arcs to Err
+			# so we save a lot of merge effort
+			pc_envs = [(to_smt_expr (pc, env, self.solv), {})
+				for (pc, env) in pc_envs]
+
 		(pc, env, large) = merge_envs_pcs (pc_envs, self.solv)
 
 		if large or len (smt_expr (pc, env, self.solv)) > 80:

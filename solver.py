@@ -1375,13 +1375,22 @@ def merge_envs (envs, solv):
 		env[var] = v
 	return env
 
+def fold_assoc_balanced (f, xs):
+	if len (xs) >= 4:
+		i = len (xs) / 2
+		lhs = fold_assoc_balanced (f, xs[:i])
+		rhs = fold_assoc_balanced (f, xs[i:])
+		return f (lhs, rhs)
+	else:
+		return foldr1 (f, xs)
+
 def merge_envs_pcs (pc_envs, solv):
 	pc_envs = [(pc, env) for (pc, env) in pc_envs if pc != false_term]
 	if pc_envs == []:
 		path_cond = false_term
 	else:
 		pcs = list (set ([pc for (pc, _) in pc_envs]))
-		path_cond = foldr1 (mk_or, pcs)
+		path_cond = fold_assoc_balanced (mk_or, pcs)
 	env = merge_envs (pc_envs, solv)
 	
 	return (path_cond, env, len (pc_envs) > 1)

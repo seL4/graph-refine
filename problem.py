@@ -147,7 +147,6 @@ class Problem:
 		self.cached_analysis.clear ()
 		self.compute_preds ()
 		self.do_loop_analysis ()
-		self.compute_var_dependencies ()
 
 	def do_loop_analysis (self):
 		entries = [e for (e, tag, nm, args) in self.entries]

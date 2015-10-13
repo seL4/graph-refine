@@ -746,7 +746,6 @@ class Function:
 		p = Problem(None, 'Function (%s)' % self.name)
 		p.clone_function (self, name)
 		p.compute_preds ()
-		p.compute_var_dependencies ()
 		return p
 
 	def function_calls (self):
@@ -1203,11 +1202,11 @@ def mk_ctz (x):
 		mk_minus (mk_word32 (x.typ.num - 1),
 			mk_clz (mk_bwand (x, mk_uminus (x)))))
 
-def foldr1 (f, xs, offs = 0):
-	if len(xs) == offs + 1:
-		return xs[offs]
-	else:
-		return f(xs[offs], foldr1 (f, xs, offs + 1))
+def foldr1 (f, xs):
+	x = xs[-1]
+	for i in reversed (range (len (xs) - 1)):
+		x = f (xs[i], x)
+	return x
 
 def mk_word32 (x):
 	import logic
