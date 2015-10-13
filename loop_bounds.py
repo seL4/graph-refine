@@ -416,7 +416,7 @@ def get_bound_ctxt (split, call_ctxt):
     (p, hyps, addr_map) = get_call_ctxt_problem (split, call_ctxt)
 
     orig_split = split
-    split = p.loop_id (addr_map[split_bin_addr])
+    split = p.loop_id (addr_map[split])
     assert split, (orig_split, call_ctxt)
     split_bin_addr = min ([addr for addr in addr_map
         if p.loop_id (addr_map[addr]) == split])
