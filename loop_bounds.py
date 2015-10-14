@@ -37,7 +37,10 @@ def upDownBinSearch (minimum, maximum, tryFun):
         return downBinSearch (minimum, upperBound, tryFun)
       else:
         upperBound *= 2
-    return downBinSearch (minimum, maximum, tryFun)
+    if tryFun (maximum):
+      return downBinSearch (minimum, maximum, tryFun)
+    else:
+      return None
 
 def addr_of_node (preds, n):
   while not trace_refute.is_addr (n):
@@ -609,8 +612,11 @@ def getBinaryBoundFromC (p, c_tag, asm_split, restrs, hyps):
     i_seq_opts = [(0, 1), (1, 1), (2, 1)]
     j_seq_opts = [(0, 1), (0, 2), (1, 1)]
     tags = [p.node_tags[asm_split][0], c_tag]
-    split = search.find_split (rep, asm_split, restrs, hyps, i_seq_opts,
-      j_seq_opts, 5, tags = [asm_tag, c_tag])
+    try:
+      split = search.find_split (rep, asm_split, restrs, hyps, i_seq_opts,
+        j_seq_opts, 5, tags = [asm_tag, c_tag])
+    except solver.SolverFailure, e:
+      return None
     if not split or split[0] != 'Split':
       trace ('no split found (%s).' % repr (split))
       return None
@@ -618,10 +624,13 @@ def getBinaryBoundFromC (p, c_tag, asm_split, restrs, hyps):
     rep = rep_graph.mk_graph_slice (p)
     checks = check.split_checks (p, (), hyps, split, tags = [asm_tag, c_tag])
     groups = check.proof_check_groups (checks)
-    for group in groups:
-      if not check.test_hyp_group (rep, group):
-        trace ('split check failed!')
-        return None
+    try:
+      for group in groups:
+        if not check.test_hyp_group (rep, group):
+          trace ('split check failed!')
+          return None
+    except solver.SolverFailure, e:
+      return None
     (as_details, c_details, _, n, _) = split
     (c_split, (seq_start, step), _) = c_details
     c_bound = dict (c_bounds).get (p.loop_id (c_split))

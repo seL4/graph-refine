@@ -108,7 +108,10 @@ def build_compound_problem (fnames):
 	for (tags, pair) in fun_tag_pairs:
 		(inp_eqs, _) = pair.eqs
 		free_hyps += check.inst_eqs (p, (), inp_eqs, tags)
-		err_vis = get_vis (p, 'Err', tag = tags['C'])
+		err_vis_opts = rep_graph.vc_options ([0, 1, 2], [1])
+		err_vis_vc = tuple ([(n, err_vis_opts) for n in p.loop_heads ()
+			if p.node_tags[n][0] == tags['C']])
+		err_vis = (('Err', err_vis_vc), tags['C'])
 		free_hyps.append (rep_graph.pc_false_hyp (err_vis))
 
 	addr_map = {}

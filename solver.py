@@ -472,7 +472,13 @@ class ConversationProblem (Exception):
 		self.prompt = prompt
 		self.response = response
 
-def get_s_expression (stdout, prompt):
+def get_s_expression (stream, prompt):
+	try:
+		return get_s_expression_inner (stream, prompt)
+	except IOError, e:
+		raise ConversationProblem (prompt, 'IOError')
+
+def get_s_expression_inner (stdout, prompt):
 	"""retreives responses from a solver until parens match"""
 	responses = [stdout.readline ().strip ()]
 	if not responses[0].startswith ('('):
@@ -601,8 +607,11 @@ class Solver:
 		if replay:
 			for line in msg.splitlines():
 				trace ('to smt%s %s' % (self.name_ext, line))
-		self.write (msg)
-		response = self.online_solver.stdout.readline().strip()
+		try:
+			self.write (msg)
+			response = self.online_solver.stdout.readline().strip()
+		except IOError, e:
+			raise ConversationProblem (msg, 'IOError')
 		if response != 'success':
 			raise ConversationProblem (msg, response)
 		if replay:
@@ -634,8 +643,11 @@ class Solver:
 		return get_s_expression (self.online_solver.stdout, prompt)
 
 	def prompt_s_expression_inner (self, prompt):
-		self.write (prompt)
-		return self.get_s_expression (prompt)
+		try:
+			self.write (prompt)
+			return self.get_s_expression (prompt)
+		except IOError, e:
+			raise ConversationProblem (prompt, 'IOError')
 
 	def prompt_s_expression (self, prompt):
 		return self.solver_loop (lambda:
@@ -647,7 +659,7 @@ class Solver:
 			self.send_inner ('(assert %s)' % hyp, replay = False,
 				is_model = False)
 		response = self.prompt_s_expression_inner ('(check-sat)')
-		if response not in set (['sat', 'unknown', 'unsat']):
+		if response not in set (['sat', 'unknown', 'unsat', '']):
 			raise ConversationProblem ('(check-sat)', response)
 
 		all_ok = True
@@ -780,9 +792,13 @@ class Solver:
 			trace ('testing group of %d hyps:' % len (hyps))
 			for (hyp, _) in raw_hyps:
 				trace ('  ' + hyp)
-			(response, m, ucs, succ) = self.solver_loop (lambda:
-				self.hyps_sat_raw_inner (hyps,
-					model != None, unsat_core != None))
+			l = lambda: self.hyps_sat_raw_inner (hyps,
+                                        model != None, unsat_core != None)
+			try:
+				(response, m, ucs, succ) = self.solver_loop (l)
+			except ConversationProblem, e:
+				response = 'ConversationProblem'
+				succ = False
 
 		if force_slow or not succ or response not in ['sat', 'unsat']:
 			if not force_slow:
@@ -1042,7 +1058,10 @@ class Solver:
 		trace ('fixed model!')
 
 	def fetch_model (self, model):
-		self.write (self.fetch_model_request ())
+		try:
+			self.write (self.fetch_model_request ())
+		except IOError, e:
+			raise ConversationProblem ('fetch-model', 'IOError')
 		return self.fetch_model_response (model)
 
 	def get_unsat_core (self):
