@@ -31,6 +31,23 @@ def parse_num_list (s):
 		return []
 	return map (int, inner.split(','))
 
+def parse_num_arrow_list (s):
+	s = s.strip()
+	assert s[0] == '[', s
+	assert s[-1] == ']', s
+	inner = s[1:-1].strip ()
+	if not inner:
+		return []
+	bits = inner.split(',')
+	res = []
+	for bit in bits:
+		if '<-' in bit:
+			[l, r] = bit.split('<-')
+			res.append ((int (l), int(r)))
+		else:
+			res.append ((int (bit), 0))
+	return res
+
 def parse_ctxt_arcs (f):
 	ctxt = None
 	fc_len = len ('Funcall context')
@@ -176,6 +193,16 @@ def adj_eq_seq_for_asm_fun_link (fname):
 		return seq[:stack_idx] + seq[stack_idx + 1:] + stk_eqs
 	return adj
 
+def get_unique_call_site (p, fname, tag):
+	ns = [n for n in p.nodes if p.nodes[n].kind == 'Call'
+		if p.nodes[n].fname == fname
+		if p.node_tags[n][0] == tag]
+	if len (ns) == 1:
+		[n] = ns
+		return n
+	else:
+		return None
+
 def get_call_link_hyps (p, n, (from_tags, from_pair), (to_tags, to_pair)):
 	n = find_actual_call_node (p, n)
 	fname = p.nodes[n].fname
@@ -185,14 +212,10 @@ def get_call_link_hyps (p, n, (from_tags, from_pair), (to_tags, to_pair)):
 		adjust_eq_seq = adj_eq_seq_for_asm_fun_link (fname))
 
 	c_fname = to_pair.funs['C']
-	ns = [n for n in p.nodes if p.nodes[n].kind == 'Call'
-		if p.nodes[n].fname == c_fname
-		if p.node_tags[n][0] == from_tags['C']]
-	if len (ns) == 1:
-		[cn] = ns
+	cn = get_unique_call_site (p, c_fname, from_tags['C'])
+	if cn != None:
 		vis = get_vis (p, cn)
 		hyps += rep_graph.mk_function_link_hyps (p, vis, to_tags['C'])
-
 	return hyps
 
 def refute_minimise_vis_hyps (rep, free_hyps, call_hyps, vis_pcs):
@@ -203,18 +226,21 @@ def refute_minimise_vis_hyps (rep, free_hyps, call_hyps, vis_pcs):
 
 	if not test (call_hyps, vis_pcs):
 		return None
-	for i in range (len (call_hyps)):
-		if test (call_hyps [ - i : ], vis_pcs):
+	for i in range (1, len (call_hyps)):
+		vis_pcs2 = [(h, (addr, j)) for (h, (addr, j)) in vis_pcs
+			if j < i]
+		if test (call_hyps [ - i : ], vis_pcs2):
 			call_hyps = call_hyps [ - i : ]
+			vis_pcs = vis_pcs2
 			break
-	i = 0
-	while i < len (vis_pcs):
-		while i < len (vis_pcs) and test (call_hyps,
-				vis_pcs[:i] + vis_pcs[i + 1 :]):
-			vis_pcs = vis_pcs[:i] + vis_pcs[i + 1 :]
-		i += 1
 
-	return (call_hyps, vis_pcs)
+	vis_pcs.sort (cmp = lambda (h, (addr, i)), (h2, (addr2, j)): j - i)
+	kept = []
+	for i in range (len (vis_pcs)):
+		if not test (call_hyps, kept + vis_pcs[i + 1 :]):
+			kept.append (vis_pcs[i])
+
+	return (call_hyps, kept)
 
 verdicts = {}
 
@@ -261,40 +287,112 @@ def build_compound_problem_with_links (call_stack, f):
 	return (p, hyps + [h for hs in call_hyps for h in hs]
 		+ wcet_hyps, addr_map)
 
-def refute_function_arcs (call_stack, arcs):
+def all_reachable (rep, addrs):
+	assert set (addrs) <= set (rep.p.nodes)
+	return all ([rep.get_reachable (addrs[i], addrs[j]) or
+			rep.get_reachable (addrs[j], addrs[i])
+		for i in range (len (addrs))
+		for j in range (i + 1, len (addrs))])
+
+def call_stack_parent_arc_extras (stack, ctxt_arcs, max_length):
+	rng = range (1, len (stack))[ -3 : ]
+	arc_extras = []
+	for i in rng:
+		prev_stack = stack[:i]
+		f = body_addrs[stack[i]]
+		p = functions[f].as_problem (problem.Problem)
+		rep = rep_graph.mk_graph_slice (p)
+		arcs = ctxt_arcs[tuple (prev_stack)]
+		arcs = [a for a in arcs if all_reachable (rep, a + [stack[i]])]
+		arcs = sorted ([(len (a), a) for a in arcs])
+		if arcs:
+			(_, arc) = arcs[-1]
+			arc_extras.extend ([(addr, len (stack) - i)
+				for addr in arc])
+	return arc_extras 
+
+def add_arc_extras (arc, extras):
+	return [(addr, 0) for addr in arc] + extras
+
+last_refute_attempt = [None]
+
+has_complex_loop_cache = {}
+
+def has_complex_loop (fname):
+	print fname
+	if fname in has_complex_loop_cache:
+		return has_complex_loop_cache[fname]
+	p = functions[fname].as_problem (problem.Problem)
+	def get_loops_within (ns):
+		graph = dict ([(n, p.nodes[n].get_conts ()) for n in ns])
+		graph['ENTRYPOINT'] = list (ns)
+		for n in ns:
+			for c in p.nodes[n].get_conts ():
+				graph.setdefault (c, [])
+		res = logic.tarjan (graph, ['ENTRYPOINT'])
+		return [(head, tail) for (head, tail) in res if tail]
+	loops = get_loops_within (p.nodes)
+	for (head, tail) in loops:
+		assert head not in set (tail)
+		if get_loops_within (tail):
+			has_complex_loop_cache[fname] = True
+			return True
+	has_complex_loop_cache[fname] = False
+	return False
+
+def refute_function_arcs (call_stack, arcs, ctxt_arcs):
+	last_refute_attempt[0] = (call_stack, arcs, ctxt_arcs)
 	f = identify_function (call_stack,
-		[addr for arc in arcs for addr in arc])
+		[(addr, 0) for arc in arcs for addr in arc])
+
+	# ignore complex loops
+	if has_complex_loop (f):
+		print 'has loop: %s, skipping' % f
+		return
+
+	stack = list (call_stack [ -3: ])
+	for (i, addr) in reversed (list (enumerate (stack))):
+		if has_complex_loop (body_addrs[addr]):
+			stack = stack [ i + 1 : ]
+			break
 
 	# how much stack to use?
-	stack = list (call_stack [ -3: ])
+	arc_extras = call_stack_parent_arc_extras (call_stack, ctxt_arcs,
+		len (stack))
 
 	arcs = [arc for arc in arcs
-		if previous_verdict (call_stack, f, arc) == None]
+		if previous_verdict (stack, f,
+			add_arc_extras (arc, arc_extras)) == None]
 	if not arcs:
 		return
 
-	(p, hyps, addr_map) = build_compound_problem_with_links (call_stack, f)
+	funs = [body_addrs[addr] for addr in stack] + [f]
+	(p, hyps, addr_map, tag_pairs) = build_compound_problem (funs)
 	rep = rep_graph.mk_graph_slice (p)
+	call_tags = zip (tag_pairs[:-1], tag_pairs[1:])
+	call_hyps = [get_call_link_hyps (p, addr_map[n], from_tp, to_tp)
+		for (n, (from_tp, to_tp)) in zip (stack, call_tags)]
 
 	for arc in arcs:
-		if previous_verdict (call_stack, f, arc) != None:
+		arc2 = add_arc_extras (arc, arc_extras)
+		if previous_verdict (stack, f, arc2) != None:
 			continue
-		print 'fresh %s arc %s: %s' % (f, call_stack, arc)
-		vis_pcs = [(get_pc_hyp_local (rep, addr_map[addr]), addr)
-			for addr in arc]
+		print 'fresh %s arc %s: %s' % (f, stack, arc)
+		vis_pcs = [(get_pc_hyp_local (rep, addr_map[addr]), (addr, i))
+			for (addr, i) in arc2]
 		vis_pcs = dict (vis_pcs).items ()
 
 		res = refute_minimise_vis_hyps (rep, hyps, call_hyps, vis_pcs)
 		if res == None:
 			verdicts.setdefault (f, [])
-			verdicts[f].append ((stack, list (arc), 'possible'))
+			verdicts[f].append ((stack, list (arc2), 'possible'))
 			continue
 
 		(used_call_hyps, used_vis_pcs) = res
-		stack = stack [ - len (used_call_hyps) : ]
-		used_vis = [addr for (_, addr) in used_vis_pcs]
+		stack2 = stack [ - len (used_call_hyps) : ]
+		used_vis = [(addr, i) for (_, (addr, i)) in used_vis_pcs]
 		verdicts.setdefault (f, [])
-		verdicts[f].append ((stack, used_vis, 'impossible'))
+		verdicts[f].append ((stack2, used_vis, 'impossible'))
 		new_refutes[f] = True
 		print 'added %s refutation %s: %s' % (f, stack, used_vis)
 
@@ -302,7 +400,9 @@ def serialise_verdicts (fname):
 	f = open (fname, 'w')
 	for (_, vs) in verdicts.iteritems ():
 		for (stack, visits, verdict) in vs:
-			f.write ('%s: %s: %s\n' % (list (stack), list (visits),
+			visit_str = '[%s]' % (','.join (['%d<-%d' % (addr, i)
+				for (addr, i) in visits]))
+			f.write ('%s: %s: %s\n' % (list (stack), visit_str,
 				verdict))
 	f.close ()
 
@@ -311,11 +411,11 @@ def load_verdicts (fname):
 	for l in f:
 		bits = l.split(':')
 		if len (bits) < 3:
-			bits = set ([bit for bit in bits if bit.strip ()])
+			bits = set ([bit for bit in bits if bit.strip()])
 			assert not bits, bits
 		[stack, visits, verdict] = bits
 		stack = parse_num_list (stack)
-		visits = parse_num_list (visits)
+		visits = parse_num_arrow_list (visits)
 		verdict = verdict.strip ()
 		assert verdict in ['possible', 'impossible'], verdict
 		fn = identify_function (stack, visits)
@@ -325,9 +425,9 @@ def load_verdicts (fname):
 
 last_report = [0]
 
-def refute (inp_fname, out_fname, prev_fnames):
+def refute (inp_fname, out_fname, prev_fname):
 	f = open (inp_fname)
-	arcs = parse_ctxt_arcs (f)
+	ctxt_arcs = parse_ctxt_arcs (f)
 	f.close ()
 	body_addrs.clear ()
 	setup_body_addrs ()
@@ -337,9 +437,9 @@ def refute (inp_fname, out_fname, prev_fnames):
 		load_verdicts (fn)
 	report = {}
 	last_report[0] = report
-	for (ctxt, arcs) in arcs.iteritems ():
+	for (ctxt, arcs) in ctxt_arcs.iteritems ():
 		try:
-			refute_function_arcs (ctxt, arcs)
+			refute_function_arcs (ctxt, arcs, ctxt_arcs)
 			report[ctxt] = 'Success'
 		except problem.Abort:
 			report[ctxt] = 'ProofAbort'
@@ -349,6 +449,11 @@ def refute (inp_fname, out_fname, prev_fnames):
 			(etype, evalue, tb) = exception
 			ss = traceback.format_exception (etype, evalue, tb)
 			report[ctxt] = '\n'.join (['EXCEPTION'] + ss)
+			print 'EXCEPTION in handling %s' % list (ctxt)
+			for s in ss[:3]:
+				print s
+			if len (ss) > 3:
+				print '...'
 	serialise_verdicts (out_fname)
 	print 'Found new refutations: %s' % bool (new_refutes)
 	return (bool (new_refutes), report)
