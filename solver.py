@@ -299,6 +299,7 @@ def smt_expr (expr, env, solv):
 
 def smt_expr_memacc (m, p, typ, solv):
 	if m[0] == 'SplitMem':
+		p = solv.cache_large_expr (p, 'memacc_pointer', syntax.word32T)
 		(_, split, top, bot) = m
 		top_acc = smt_expr_memacc (top, p, typ, solv)
 		bot_acc = smt_expr_memacc (bot, p, typ, solv)
@@ -314,13 +315,19 @@ def smt_expr_memacc (m, p, typ, solv):
 
 def smt_expr_memupd (m, p, v, typ, solv):
 	if m[0] == 'SplitMem':
+		p = solv.cache_large_expr (p, 'memupd_pointer', syntax.word32T)
+		v = solv.cache_large_expr (v, 'memupd_val', typ)
 		(_, split, top, bot) = m
+		memT = syntax.builtinTs['Mem']
+		top = solv.cache_large_expr (top, 'split_mem_top', memT)
 		top_upd = smt_expr_memupd (top, p, v, typ, solv)
+		bot = solv.cache_large_expr (bot, 'split_mem_bot', memT)
 		bot_upd = smt_expr_memupd (bot, p, v, typ, solv)
 		top = '(ite (bvule %s %s) %s %s)' % (split, p, top_upd, top)
 		bot = '(ite (bvule %s %s) %s %s)' % (split, p, bot, bot_upd)
 		return ('SplitMem', split, top, bot)
 	elif typ.num == 8:
+		p = solv.cache_large_expr (p, 'memupd_pointer', syntax.word32T)
 		p_align = '(bvand %s #xfffffffd)' % p
 		solv.note_model_expr ('(load-word32 %s %s)' % (m, p_align),
 			syntax.word32T)
@@ -522,6 +529,7 @@ class Solver:
 		self.name_ext = ''
 		self.pvalids = {}
 		self.ptrs = {}
+		self.cached_exprs = {}
 		self.defs = {}
 		self.doms = set ()
 		self.model_vars = set ()
@@ -1121,6 +1129,16 @@ class Solver:
 		assert self.check_hyp_raw ('(= (bvclz_%d %s) %s)' %
 			(n, smt_num (num, n), smt_num (clz, n))) == 'unsat'
 
+	def cache_large_expr (self, s, name, typ):
+		if s in self.cached_exprs:
+			return self.cached_exprs[s]
+		if len (s) < 80:
+			return s
+		name2 = self.add_def (name, mk_smt_expr (s, typ), {})
+		self.cached_exprs[s] = name2
+		self.cached_exprs[(name2, 'IsCachedExpr')] = True
+		return name2
+
 	def note_ptr (self, p_s):
 		if p_s in self.ptrs:
 			p = self.ptrs[p_s]
@@ -1194,6 +1212,8 @@ class Solver:
 			self.get_imm_basis_mems (m, accum)
 		elif type (m) == tuple:
 			assert not 'mem construction understood', m
+		elif (m, 'IsCachedExpr') in self.cached_exprs:
+			self.get_imm_basis_mems (self.defs[m], accum)
 		else:
 			assert type (m) == str
 			accum.add (m)

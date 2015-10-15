@@ -325,17 +325,26 @@ extra_loop_consts = [2 ** 16]
 
 call_ctxt_problems = []
 
-def get_call_ctxt_problem (split, call_ctxt):
-  from trace_refute import identify_function, build_compound_problem_with_links
-  f = identify_function (call_ctxt, [split])
-  for (ctxt2, p, hyps, addr_map) in call_ctxt_problems:
-    if ctxt2 == (call_ctxt, f):
-      return (p, hyps, addr_map)
+avoid_C_information = [False]
 
-  (p, hyps, addr_map) = build_compound_problem_with_links (call_ctxt, f)
-  call_ctxt_problems.append(((call_ctxt, f), p, hyps, addr_map))
-  del call_ctxt_problems[: -20]
-  return (p, hyps, addr_map)
+def get_call_ctxt_problem (split, call_ctxt):
+    from trace_refute import identify_function, build_compound_problem_with_links
+    f = identify_function (call_ctxt, [split])
+    for (ctxt2, p, hyps, addr_map) in call_ctxt_problems:
+      if ctxt2 == (call_ctxt, f):
+        return (p, hyps, addr_map)
+
+    (p, hyps, addr_map) = build_compound_problem_with_links (call_ctxt, f)
+    if avoid_C_information[0]:
+      hyps = [h for h in hyps if not has_C_information (p, h)]
+    call_ctxt_problems.append(((call_ctxt, f), p, hyps, addr_map))
+    del call_ctxt_problems[: -20]
+    return (p, hyps, addr_map)
+
+def has_C_information (p, hyp):
+    for (n_vc, tag) in hyp.visits ():
+      if not p.hook_tag_hints.get (tag, None) == 'ASM':
+        return True
 
 known_bound_restr_hyps = {}
 
@@ -469,6 +478,9 @@ def search_bin_bound (p, restrs, hyps, split):
       return bound
 
     # try to use a bound inferred from C
+    if avoid_C_information[0]:
+      # OK told not to
+      return None
     if get_prior_loop_heads (p, split):
       # too difficult for now
       return None
