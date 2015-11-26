@@ -148,7 +148,7 @@ class Problem:
 		self.compute_preds ()
 		self.do_loop_analysis ()
 
-	def do_loop_analysis (self):
+	def do_loop_analysis (self,skipInnerLoopCheck=False):
 		entries = [e for (e, tag, nm, args) in self.entries]
 		self.loop_data = {}
 		self.loop_splittables = {}
@@ -165,8 +165,8 @@ class Problem:
 			if not tail and head not in graph[head]:
 				continue
 			trace ('Loop (%d, %s)' % (head, tail))
-
-			check_no_inner_loop (head, tail, graph, self)
+			if not skipInnerLoopCheck:
+				check_no_inner_loop (head, tail, graph, self)
 
 			loop_set = set (tail)
 			loop_set.add (head)
