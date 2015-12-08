@@ -425,7 +425,7 @@ def load_verdicts (fname):
 
 last_report = [0]
 
-def refute (inp_fname, out_fname, prev_fname):
+def refute (inp_fname, out_fname, prev_fnames):
 	f = open (inp_fname)
 	ctxt_arcs = parse_ctxt_arcs (f)
 	f.close ()
