@@ -204,12 +204,21 @@ def smt_expr (expr, env, solv):
 		assert expr.typ.kind == 'Word' and expr.typ == v.typ
 		ex = smt_expr (v, env, solv)
 		return '(bvclz_%d %s)' % (expr.typ.num, ex)
-	elif expr.is_op (['PValid', 'PGlobalValid', 'PWeakValid']):
-		[htd, typ_expr, p] = expr.vals
+	elif expr.is_op (['PValid', 'PGlobalValid',
+			'PWeakValid', 'PArrayValid']):
+		if expr.name == 'PArrayValid':
+			[htd, typ_expr, p, num] = expr.vals
+			num = to_smt_expr (num, env, solv)
+		else:
+			[htd, typ_expr, p] = expr.vals
 		assert typ_expr.kind == 'Type'
 		typ = typ_expr.val
 		if expr.name == 'PGlobalValid':
 			typ = get_global_wrapper (typ)
+		if expr.name == 'PArrayValid':
+			typ = ('Array', typ, num)
+		else:
+			typ = ('Type', typ)
 		assert htd.kind == 'Var'
 		htd_s = env[(htd.name, htd.typ)]
 		p_s = smt_expr (p, env, solv)
@@ -1159,6 +1168,7 @@ class Solver:
 		if '.rodata' in sections:
 			[rodata_data, rodata_addr, rodata_typ] = rodata
 			get_global_wrapper (rodata_typ)
+			rodata_typ = ('Type', rodata_typ)
 			rodata_addr_s = smt_expr (rodata_addr, {}, None)
 			if (htd_s not in pvalids and (typ, p_s)
 					!= (rodata_typ, rodata_addr_s)):
@@ -1168,7 +1178,7 @@ class Solver:
 
 		p = self.note_ptr (p_s)
 
-		trace ('adding pvalid with type %s' % typ)
+		trace ('adding pvalid with type %s' % (typ, ))
 
 		if htd_s in pvalids and (typ, p, kind) in pvalids[htd_s]:
 			return pvalids[htd_s][(typ, p, kind)]
@@ -1201,7 +1211,7 @@ class Solver:
 
 			trace ('Now %d related pvalids' % len(pvalids[htd_s]))
 			return var
-	
+
 	def get_imm_basis_mems (self, m, accum):
 		if m[0] == 'ite':
 			(_, c, l, r) = m

@@ -200,7 +200,7 @@ The operators are:
     + MemAcc (args [m :: Mem, ptr :: Word 32])
     + MemUpdate (args, [m :: Mem, ptr :: Word 32, v :: any type])
   - Pointer-validity operators:
-    + PValid, PWeakValid, PAlignValid, PGlobalValid
+    + PValid, PWeakValid, PAlignValid, PGlobalValid, PArrayValid
   - Miscellaneous:
     + MemDom, HTDUpdate
     + IfThenElse (args [b :: bool, x :: any type T, y :: T])
@@ -219,7 +219,9 @@ PWeakValid asserts that the type could be valid (it is aligned and within the
 range of available addresses in the heap-type-description) and is needed only
 in rare circumstances. PAlignValid omits the HTD argument and asserts only that
 the pointer is appropriately aligned and that the object does not start at or
-wrap around the 0 address.
+wrap around the 0 address. PArrayValid takes an additional argument (HTD,
+Type, Word 32, Word 32) where the final argument specifies the number of
+entries in an array.
 
 The MemDom operator takes argument types [Word 32, Dom] and returns the boolean
 of whether this pointer is in this domain.
@@ -871,6 +873,7 @@ ops = {'Plus':2, 'Minus':2, 'Times':2, 'Modulus':2,
 	'MemUpdate':3, 'MemAcc':2, 'IfThenElse':3, 'ArrayIndex':2,
 	'ArrayUpdate':3, 'MemDom':2,
 	'PValid':3, 'PWeakValid':3, 'PAlignValid':2, 'PGlobalValid':3,
+	'PArrayValid':4,
 	'HTDUpdate':5, 'WordArrayAccess':2, 'WordArrayUpdate':3,
 	'ROData':1, 'StackWrapper':2}
 

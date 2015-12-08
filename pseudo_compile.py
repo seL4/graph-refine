@@ -246,7 +246,7 @@ def compile_accs (replaces, expr):
 		[typ, p] = expr.vals
 		p = compile_accs (replaces, p)
 		assert typ.kind == 'Type'
-		return logic.mk_align_valid_ineq (typ.val, p)
+		return logic.mk_align_valid_ineq (('Type', typ.val), p)
 	elif expr.kind == 'Op':
 		vals = [compile_accs (replaces, v) for v in expr.vals]
 		return Expr ('Op', expr.typ, expr.name, vals = vals)

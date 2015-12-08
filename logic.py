@@ -362,72 +362,109 @@ def accumulator_closed_form (expr, (nm, typ)):
 		trace ('no accumulator %s' % ((expr, nm, typ), ))
 	return (None, None)
 
-def pvalid_assertion1 ((typ, k, p, pv), (typ2, k2, p2, pv2)):
-	if typ == typ2:
-		cond = mk_eq (p, p2)
-	elif typ in typ2.subtypes ():
-		assert typ2 not in typ.subtypes ()
-		offs = mk_minus (p, p2)
-		cond = get_styp_condition (offs, typ, typ2)
-		if not cond:
-			# this happens because of variation between abstract
-			# and concrete types
-			cond = false_term
-	elif typ2 in typ.subtypes ():
-		offs = mk_minus (p2, p)
-		cond = get_styp_condition (offs, typ2, typ)
-		if not cond:
-			cond = false_term
+def end_addr (p, typ):
+	if typ[0] == 'Array':
+		(_, typ, n) = typ
+		sz = mk_times (mk_word32 (typ.size ()), n)
 	else:
-		cond = false_term
-	out1 = mk_less (mk_plus (p, mk_word32 (typ.size () - 1)), p2)
-	out2 = mk_less (mk_plus (p2, mk_word32 (typ2.size () - 1)), p)
-	return mk_implies (mk_and (pv, pv2), foldr1 (mk_or, [cond, out1, out2]))
+		assert typ[0] == 'Type', typ
+		(_, typ) = typ
+		sz = mk_word32 (typ.size ())
+	return mk_plus (p, mk_minus (sz, mk_word32 (1)))
+
+def pvalid_assertion1 ((typ, k, p, pv), (typ2, k2, p2, pv2)):
+	"""first pointer validity assertion: incompatibility.
+	pvalid1 & pvalid2 --> non-overlapping OR somehow-contained.
+	typ/typ2 is ('Type', syntax.Type) or ('Array', Type, Expr) for
+	dynamically sized arrays.
+	"""
+	offs1 = mk_minus (p, p2)
+	cond1 = get_styp_condition (offs1, typ, typ2, strict = False)
+	offs2 = mk_minus (p2, p)
+	cond2 = get_styp_condition (offs2, typ2, typ, strict = False)
+	
+	out1 = mk_less (end_addr (p, typ), p2)
+	out2 = mk_less (end_addr (p2, typ2), p)
+	return mk_implies (mk_and (pv, pv2), foldr1 (mk_or,
+		[cond1, cond2, out1, out2]))
 
 def pvalid_assertion2 ((typ, k, p, pv), (typ2, k2, p2, pv2)):
-	if typ == typ2:
-		return mk_implies (mk_eq (p, p2), mk_eq (pv, pv2))
-	elif typ in typ2.subtypes ():
-		assert typ2 not in typ.subtypes ()
-		offs = mk_minus (p, p2)
-		cond = get_styp_condition (offs, typ, typ2)
-		if cond == None:
-			return true_term
-		return mk_implies (mk_and (cond, pv2), pv)
-	elif typ2 in typ.subtypes ():
-		offs = mk_minus (p2, p)
-		cond = get_styp_condition (offs, typ2, typ)
-		if cond == None:
-			return true_term
-		return mk_implies (mk_and (cond, pv), pv2)
-	else:
-		return true_term
+	"""second pointer validity assertion: implication.
+	pvalid1 & strictly-contained --> pvalid2
+	"""
+	offs1 = mk_minus (p, p2)
+	cond1 = get_styp_condition (offs1, typ, typ2)
+	imp1 = mk_implies (mk_and (cond1, pv2), pv)
+	offs2 = mk_minus (p2, p)
+	cond2 = get_styp_condition (offs2, typ2, typ)
+	imp2 = mk_implies (mk_and (cond2, pv), pv2)
+	return mk_and (imp1, imp2)
 
 def sym_distinct_assertion ((typ, p, pv), (start, end)):
 	out1 = mk_less (mk_plus (p, mk_word32 (typ.size () - 1)), mk_word32 (start))
 	out2 = mk_less (mk_word32 (end), p)
 	return mk_implies (pv, mk_or (out1, out2))
 
-def get_styp_condition (offs, inner_typ, outer_typ):
-	if inner_typ == outer_typ:
-		return mk_eq (offs, mk_word32 (0))
-	
-	if outer_typ.kind == 'Struct':
-		conds = [get_styp_condition(mk_minus (offs, mk_word32 (offs2)),
-				inner_typ, sf_typ) for (_, offs2, sf_typ)
-			in structs[outer_typ.name].fields.itervalues()]
-		conds = [cond for cond in conds if cond]
+def norm_array_type (t):
+	if t[0] == 'Type' and t[1].kind == 'Array':
+		(_, atyp) = t
+		return ('Array', atyp.el_typ_symb, mk_word32 (atyp.num))
+	else:
+		return t
+
+stored_styp_conditions = {}
+
+def get_styp_condition (offs, inner_typ, outer_typ, strict = True):
+	r = get_styp_condition_inner1 (inner_typ, outer_typ, strict = strict)
+	if not r:
+		return false_term
+	else:
+		return r (offs)
+
+def get_styp_condition_inner1 (inner_typ, outer_typ, strict = True):
+	inner_typ = norm_array_type (inner_typ)
+	outer_typ = norm_array_type (outer_typ)
+	k = (inner_typ, outer_typ, strict)
+	if k in stored_styp_conditions:
+		return stored_styp_conditions[k]
+	r = get_styp_condition_inner2 (inner_typ, outer_typ, strict)
+	stored_styp_conditions[k] = r
+	return r
+
+def get_styp_condition_inner2 (inner_typ, outer_typ, strict = True):
+	if inner_typ[0] == 'Array' and outer_typ[0] == 'Array':
+		(_, ityp, inum) = inner_typ
+		(_, otyp, onum) = outer_typ
+		# array fits in another array if the starting element is
+		# a sub-element, and for the strictness constraint if it's
+		# no smaller
+		cond = get_styp_condition_inner1 (('Type', ityp), outer_typ)
+		if strict and cond:
+			return lambda offs: mk_and (cond (offs),
+				mk_less_eq (inum, onum))
+		return cond
+	elif inner_typ == outer_typ:
+		return lambda offs: mk_eq (offs, mk_word32 (0))
+	elif outer_typ[0] == 'Type' and outer_typ[1].kind == 'Struct':
+		conds = [(get_styp_condition_inner1 (inner_typ,
+				('Type', sf_typ)), mk_word32 (offs2))
+			for (_, offs2, sf_typ)
+			in structs[outer_typ[1].name].fields.itervalues()]
+		conds = [cond for cond in conds if cond[0]]
 		if conds:
-			return foldr1 (mk_or, conds)
+			return lambda offs: foldr1 (mk_or,
+				[c (mk_minus (offs, offs2))
+					for (c, offs2) in conds])
 		else:
 			return None
-	elif outer_typ.kind == 'Array':
-		cond1 = mk_less (offs, mk_word32 (outer_typ.size ()))
-		el = outer_typ.el_typ_symb
-		offs2 = mk_modulus (offs, mk_word32 (el.size ()))
-		cond2 = get_styp_condition (offs2, inner_typ, el)
-		if cond2:
-			return mk_and (cond1, cond2)
+	elif outer_typ[0] == 'Array':
+		(_, el_typ, n) = outer_typ
+		cond = get_styp_condition_inner1 (inner_typ, ('Type', el_typ))
+		el_size = mk_word32 (el_typ.size ())
+		size = mk_times (n, el_size)
+		if cond:
+			return lambda offs: mk_and (mk_less (offs, size),
+				cond (mk_modulus (offs, el_size)))
 		else:
 			return None
 	else:
@@ -456,8 +493,15 @@ def var_not_in_expr (var, expr):
 	return all_vars_have_prop (expr, lambda v: v != v2)
 
 def mk_align_valid_ineq (typ, p):
-	align = typ.align ()
-	size = typ.size ()
+	if typ[0] == 'Type':
+		(_, typ) = typ
+		align = typ.align ()
+		size = mk_word32 (typ.size ())
+	else:
+		assert typ[0] == 'Array', typ
+		(kind, typ, num) = typ
+		align = typ.align ()
+		size = mk_times (mk_word32 (typ.size ()), num)
 	assert align in [1, 4]
 	w0 = mk_word32 (0)
 	if align == 4:
@@ -465,7 +509,7 @@ def mk_align_valid_ineq (typ, p):
 	else:
 		align_req = []
 	return foldr1 (mk_and, align_req + [mk_not (mk_eq (p, w0)),
-		mk_less_eq (p, mk_word32 (- size))])
+		mk_less_eq (p, mk_uminus (size))])
 
 
 # generic operations on function/problem graphs
