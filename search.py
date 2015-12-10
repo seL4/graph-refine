@@ -12,6 +12,7 @@ import check
 from check import restr_others, loops_to_split, ProofNode
 from rep_graph import (mk_graph_slice, vc_num, vc_offs, vc_upto,
 	vc_double_range, VisitCount, vc_offset_upto)
+import rep_graph
 from syntax import (mk_and, mk_cast, mk_implies, mk_not, mk_uminus, mk_var,
 	foldr1, boolT, word32T, word8T, builtinTs, true_term, false_term,
 	mk_word32, mk_word8, mk_times, Expr, Type, mk_or, mk_eq, mk_memacc)
@@ -632,8 +633,8 @@ def find_case_split (p, head, restrs, hyps, tags = None):
 	# are there multiple paths to the loop head 'head' and can we
 	# restrict to one of them?
 	preds = set ()
-	frontier = [n2 for n2 in p.preds[head]
-		if p.loop_id (n2) != head]
+	frontier = list (set ([n2 for n in p.loop_body (head)
+		for n2 in p.preds[n] if p.loop_id (n2) != head]))
 	while frontier:
 		n2 = frontier.pop ()
 		if n2 in preds:
@@ -645,22 +646,27 @@ def find_case_split (p, head, restrs, hyps, tags = None):
 			if n3 in preds or n3 == head])) > 1
 		if n2 not in p.loop_data]
 
+	trace ('find_case_split: possible divs %s.' % divs)
+
 	rep = mk_graph_slice (p)
 	err_restrs = restr_others (p, restrs, 2)
 	if tags:
 		l_tag, r_tag = tags
 	else:
 		l_tag, r_tag = p.pairing.tags
-	nrerr_pc = mk_not (rep.get_pc (('Err', err_restrs), tag = r_tag))
+	hvis_restrs = tuple ([(head, rep_graph.vc_num (0))]) + restrs
+	
+	lhyps = hyps + [rep_graph.pc_false_hyp ((('Err', err_restrs), r_tag)),
+		rep_graph.pc_true_hyp (((head, hvis_restrs),
+			p.node_tags[head][0]))]
 
 	# for this to be a usable case split, both paths must be possible
 	for div in divs:
 		assert p.nodes[div].kind == 'Cond'
 		(_, env) = rep.get_node_pc_env ((div, restrs))
 		c = to_smt_expr (p.nodes[div].cond, env, rep.solv)
-		if (rep.test_hyp_whyps (mk_implies (nrerr_pc, c), hyps)
-			or rep.test_hyp_whyps (mk_implies (nrerr_pc,
-				mk_not (c)), hyps)):
+		if (rep.test_hyp_whyps (c, lhyps)
+				or rep.test_hyp_whyps (mk_not (c), lhyps)):
 			continue
 		trace ("attempting case split at %d" % div)
 		sides = [n for n in p.nodes[div].get_conts ()
