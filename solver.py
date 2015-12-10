@@ -478,10 +478,16 @@ preamble = mem_word32_preamble
 smt_convs = {'MemSort': '(Array (_ BitVec 30) (_ BitVec 32))',
 	'MemDomSort': '(Array (_ BitVec 32) (_ BitVec 1))'}
 
-def set_timeout (n):
-	if n == None:
-		return lambda: ()
-	return lambda: resource.setrlimit(resource.RLIMIT_CPU, (n, n))
+def preexec (timeout):
+	def ret ():
+		# setting the session ID on a fork allows us to clean up
+		# the resulting process group, useful if running multiple
+		# solvers in parallel.
+		os.setsid ()
+		if timeout != None:
+			resource.setrlimit(resource.RLIMIT_CPU,
+				(timeout, timeout))
+	return ret
 
 class ConversationProblem (Exception):
 	def __init__ (self, prompt, response):
@@ -584,7 +590,7 @@ class Solver:
 			solver = fast_solver
 		self.online_solver = subprocess.Popen (solver[1],
 			stdin = subprocess.PIPE, stdout = subprocess.PIPE,
-			preexec_fn = set_timeout (solver[2]))
+			preexec_fn = preexec (solver[2]))
 
 		self.written = []
 
@@ -889,7 +895,7 @@ class Solver:
 		
 		solver = subprocess.Popen (solver[1],
 			stdin = fd, stdout = subprocess.PIPE,
-			preexec_fn = set_timeout (timeout))
+			preexec_fn = preexec (timeout))
 		os.close (fd)
 
 		return solver.stdout
@@ -1344,7 +1350,7 @@ class Solver:
 			for (s, is_model) in ss if is_model])
 		process = subprocess.Popen (solver[1],
 			stdin = subprocess.PIPE, stdout = subprocess.PIPE,
-			preexec_fn = set_timeout (solver[2]))
+			preexec_fn = preexec (solver[2]))
 		for s in model:
 			process.stdin.write (s + '\n')
 		asserts = list (asserts)
