@@ -547,25 +547,15 @@ def test_hyp_group (rep, group):
 	names = set ([name for (_, _, name) in group])
 
 	trace ('Testing group of hyps: %s' % list (names), push = 1)
-	res = rep.test_hyp_imps (imps)
+	(res, i) = rep.test_hyp_imps (imps)
 	trace ('Group result: %r' % res, push = -1)
-	return res
-
-def find_failed_test (rep, group):
-	trace ('Finding failed test from hyp group.', push = 1)
-	while len (group) > 1:
-		split = len (group) / 2
-		if test_hyp_group (rep, group[:split]):
-			group = group[split:]
-		else:
-			group = group[:split]
-	[(hyps, hyp, name)] = group
-	if rep.test_hyp_imp (hyps, hyp):
-		trace ('Group failure spurious! (%s)' % name, push = -1)
-		return None
+	if i:
+		elts = [(hyps, hyp, name) for (hyps, hyp, name) in group
+			if (hyps, hyp) = i]
+		assert elts, (res, i, imps)
+		return (res, elts.pop ())
 	else:
-		trace ('Found failed test in group: %s' % name, push = -1)
-		return (hyps, hyp, name)
+		return (res, None)
 
 def failed_test_sets (p, checks):
 	failed = []
@@ -575,7 +565,8 @@ def failed_test_sets (p, checks):
 		sets[name].append ((hyps, hyp))
 	for name in sets:
 		rep = rep_graph.mk_graph_slice (p)
-		if not rep.test_hyp_imps (sets[name]):
+		(res, _) = rep.test_hyp_imps (sets[name])
+		if not res:
 			failed.append (name)
 	return failed
 
@@ -591,17 +582,13 @@ def check_proof (p, proof, use_rep = None):
 		else:
 			rep = use_rep
 
-		res = test_hyp_group (rep, group)
-		if res:
+		(verdict, elt) = test_hyp_group (rep, group)
+		if verdict:
 			continue
-		failed = find_failed_test (rep, group)
-		if failed:
-			# hypothetically the checks might pass one at a time
-			# having failed together for some performance reason
-			last_failed_check[0] = failed
-			(hyps, hyp, name) = failed
-			trace ('%s: proof failed!' % name)
-			return False
+		(hyps, hyp, name) = elt
+		last_failed_check[0] = elt
+		trace ('%s: proof failed!' % name)
+		return False
 	if save_checked_proofs[0]:
 		save = save_checked_proofs[0]
 		save (p, proof)

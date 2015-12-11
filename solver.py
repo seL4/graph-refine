@@ -537,6 +537,7 @@ class Solver:
 		self.init_replay = []
 		self.unsat_cores = produce_unsat_cores
 		self.online_solver = None
+		self.parallel_slow_solvers = []
 
 		self.names_used = {}
 		self.names_used_order = []
@@ -948,6 +949,37 @@ class Solver:
 			self.check_model ([h for (h, _) in hyps], model)
 
 		return response
+
+	def add_parallel_slow_solver (self, k, hyps, use_this_solver = None):
+		cmds = ['(assert %s)' % hyp for (hyp, _) in hyps
+                        ] + ['(check-sat)']
+
+		solver = self.slow_solver
+		if use_this_solver:
+			solver = use_this_solver
+		output = self.exec_slow_solver (cmds, timeout = solver[2],
+			use_this_solver = solver)
+		self.parallel_solvers.append ((k, hyps, output, solver))
+
+	def add_parallel_test_hyp (self, k, hyp, env):
+		hyp = smt_expr (hyp, env, self)
+		hyps = split_hyp (hyp)
+		self.add_parallel_slow_solver (k, hyps)
+
+	def wait_parallel_solver (self):
+		assert self.parallel_solvers
+		rlist = [output.fileno ()
+			for (_, _, output, _) in self.parallel_solvers]
+		(rlist, _, _) = os.select.select (rlist, [], [])
+		num = rlist.pop ()
+		[(k, hyps, output, solver)] = [(h, o, s) for (h, o, s)
+			in self.parallel_solvers if o.fileno () == num]
+		response = output.readline ().strip ()
+		output.close ()
+		if response not in ['sat', 'unsat']:
+			trace ('SMT conversation problem in parallel solver')
+		trace ('Got %r from %s in parallel.' % (response, solver[0]))
+		return (k, hyps, response)
 
 	def slow_solver_multisat (self, hyps, model = None, timeout = 300):
 		trace ('multisat check.')

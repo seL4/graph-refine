@@ -991,14 +991,24 @@ class GraphSlice:
 	def test_hyp_imps (self, imps):
 		last_hyp_imps[0] = imps
 		if imps == []:
-			return True
-		common_hyps = set.intersection (* [set (hyps)
-			for (hyps, _) in imps])
-		interp_imps = [self.interpret_hyp_imps (list (set (hyps)
-				- common_hyps), self.interpret_hyp (hyp))
+			return (True, None)
+		interp_imps = [self.interpret_hyp_imps (hyps,
+				self.interpret_hyp (hyp))
 			for (hyps, hyp) in imps]
-		rhs = foldr1 (mk_and, interp_imps)
-		return self.test_hyp_whyps (rhs, common_hyps)
+		all_imp = mk_not (foldr1 (mk_and, interp_imps))
+		self.solv.add_parallel_test_hyp (-1, all_imp, {})
+		for (i, hyp) in enumerate (interp_imps):
+			self.solv.add_parallel_test_hyp (i, mk_not (hyp), {})
+			(k, _, res) = self.solv.wait_parallel_solver ()
+			if k == -1:
+				if res == 'unsat':
+# FIXME XXX don't just leave the other solvers there
+					return (True, None)
+				(k, _, res) = self.solv.wait_parallel_solver ()
+			assert k == i, (k, i)
+			if res != 'unsat':
+				return (False, imps[k])
+		return (True, None)
 
 	def replay_requests (self, reqs):
 		for ((n, vc), tag) in reqs:
