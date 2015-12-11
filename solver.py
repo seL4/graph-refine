@@ -91,8 +91,8 @@ def load_solver_set ():
 		for (nm, fast, args, timeout) in solvers if fast]
 	slow_solvers = [(nm, args, timeout)
 		for (nm, fast, args, timeout) in solvers if not fast]
-	assert fast_solvers
-	assert slow_solvers
+	assert fast_solvers, solvers
+	assert slow_solvers, solvers
 	# todo: support more solvers running in parallel
 	return (fast_solvers[0], slow_solvers[0])
 
@@ -558,6 +558,9 @@ class Solver:
 
 		self.pvalid_doms = None
 
+		self.fast_solver = fast_solver
+		self.slow_solver = slow_solver
+
 		self.send('(set-option :print-success true)')
 		self.send('(set-logic QF_AUFBV)')
 		self.send('(set-option :produce-models true)')
@@ -587,7 +590,7 @@ class Solver:
 		if use_this_solver:
 			solver = use_this_solver
 		else:
-			solver = fast_solver
+			solver = self.fast_solver
 		self.online_solver = subprocess.Popen (solver[1],
 			stdin = subprocess.PIPE, stdout = subprocess.PIPE,
 			preexec_fn = preexec (solver[2]))
@@ -823,12 +826,14 @@ class Solver:
 				response = 'ConversationProblem'
 				succ = False
 
-		if force_slow or not succ or response not in ['sat', 'unsat']:
+		if ((force_slow or not succ or response not in ['sat', 'unsat'])
+				and self.slow_solver):
 			if not force_slow:
-				trace ('failed to get result from %s' % fast_solver[0])
-			trace ('running %s' % slow_solver[0])
+				trace ('failed to get result from %s'
+					% self.fast_solver[0])
+			trace ('running %s' % self.slow_solver[0])
 			self.close ()
-			response = self.slow_solver (raw_hyps, model = model,
+			response = self.use_slow_solver (raw_hyps, model = model,
 				unsat_core = unsat_core)
 		elif m:
 			model.clear ()
@@ -884,9 +889,11 @@ class Solver:
 
 	def exec_slow_solver (self, input_msgs, timeout = None,
 			use_this_solver = None):
-		solver = slow_solver
+		solver = self.slow_solver
 		if use_this_solver:
 			solver = use_this_solver
+		if not solver:
+			return 'no-slow-solver'
 
 		(fd, name) = tempfile.mkstemp (suffix='.txt', prefix='temp-input')
 		tmpfile_write = open (name, 'w')
@@ -900,7 +907,7 @@ class Solver:
 
 		return solver.stdout
 
-	def slow_solver (self, hyps, model = None, unsat_core = None,
+	def use_slow_solver (self, hyps, model = None, unsat_core = None,
 			use_safe_solver = None):
 		start = time.time ()
 
@@ -910,7 +917,7 @@ class Solver:
 		if model != None:
 			cmds.append (self.fetch_model_request ())
 
-		solver = slow_solver
+		solver = self.slow_solver
 
 		output = self.exec_slow_solver (cmds, timeout = solver[2],
 			use_this_solver = solver)
@@ -920,7 +927,7 @@ class Solver:
 			assert self.fetch_model_response (model,
 				stream = output)
 		if unsat_core != None and response == 'unsat':
-			trace ('WARNING no unsat core from %s' % slow_solver[0])
+			trace ('WARNING no unsat core from %s' % solver[0])
 			unsat_core.extend ([tag for (_, tag) in hyps])
 
 		output.close ()

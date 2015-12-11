@@ -982,6 +982,12 @@ class GraphSlice:
 	def test_hyp_imp (self, hyps, hyp):
 		return self.test_hyp_whyps (self.interpret_hyp (hyp), hyps)
 
+	def test_hyp_imp_catch (self, hyps, hyp):
+		try:
+			return self.test_hyp_imp (hyps, hyp)
+		except solver.SolverFailure, e:
+			return False
+
 	def test_hyp_imps (self, imps):
 		last_hyp_imps[0] = imps
 		if imps == []:
