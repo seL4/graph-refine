@@ -549,13 +549,10 @@ def test_hyp_group (rep, group):
 	trace ('Testing group of hyps: %s' % list (names), push = 1)
 	(res, i) = rep.test_hyp_imps (imps)
 	trace ('Group result: %r' % res, push = -1)
-	if i:
-		elts = [(hyps, hyp, name) for (hyps, hyp, name) in group
-			if (hyps, hyp) = i]
-		assert elts, (res, i, imps)
-		return (res, elts.pop ())
-	else:
+	if res:
 		return (res, None)
+	else:
+		return (res, group[i])
 
 def failed_test_sets (p, checks):
 	failed = []

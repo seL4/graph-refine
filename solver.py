@@ -48,6 +48,41 @@ limit, after which the offline solver will be run.
 Currently only the first online and first offline solver will be run.
 """
 
+solverlist_file = ['.solverlist']
+
+class SolverImpl:
+	def __init__ (self, name, fast, args, timeout):
+		self.fast = fast
+		self.args = args
+		self.timeout = timeout
+		self.origname = name
+		if self.fast:
+			self.name = name + ' (online)'
+		else:
+			self.name = name + ' (offline)'
+
+	def __repr__ (self):
+		return 'SolverImpl (%r, %r, %r, %r)' % (self.name,
+			self.fast, self.args, self.timeout)
+
+def parse_solver (bits):
+	mode_set = ['fast', 'slow', 'online', 'offline']
+	if len (bits) < 3 or bits[1].lower () not in mode_set:
+		print 'solver.py: solver list could not be parsed'
+		print '  in %s' % solverlist_file[0]
+		print '  reading %r' % bits
+		print solverlist_format
+		sys.exit (1)
+	name = bits[0]
+	fast = (bits[1].lower () in ['fast', 'online'])
+	args = bits[2].split ()
+	assert os.path.exists (args[0]), (args[0], bits)
+	if not fast:
+		timeout = 6000
+	else:
+		timeout = 30
+	return SolverImpl (name, fast, args, timeout)
+
 def get_solver_set ():
 	import os
 	import sys
@@ -60,43 +95,56 @@ def get_solver_set ():
 			print solverlist_format
 			sys.exit (1)
 		path = parent
+	solverlist_file[0] = os.path.join (path, '.solverlist')
 	solvers = []
-	for line in open (os.path.join (path, '.solverlist')):
+	strategy = None
+	for line in open (solverlist_file[0]):
 		line = line.strip ()
 		if not line or line.startswith ('#'):
 			continue
 		bits = [bit.strip () for bit in line.split (':', 2)]
-		mode_set = ['fast', 'slow', 'online', 'offline']
-		if len (bits) < 3 or bits[1].lower () not in mode_set:
-			print 'solver.py: .solverlist could not be parsed'
-			print '  reading %r' % bits
-			print solverlist_format
-			sys.exit (1)
-		name = bits[0]
-		fast = (bits[1].lower () in ['fast', 'online'])
-		args = bits[2].split ()
-		assert os.path.exists (args[0]), (args[0], line)
-		if not fast:
-			timeout = 6000
-			name = name + ' (offline)'
+		if bits[0] == 'strategy':
+			[_, strat] = bits
+			strategy = parse_strategy (strat)
 		else:
-			timeout = 30
-			name = name + ' (online)'
-		solvers.append ((name, fast, args, timeout))
-	return solvers
+			solvers.append (parse_solver (bits))
+	return (solvers, strategy)
+
+def parse_strategy (strat):
+	solvs = strat.split (',')
+	strategy = []
+	for solv in solvs:
+		bits = solv.split ()
+		if len (bits) != 2 or bits[1] not in ['all', 'hyp']:
+			print "solver.py: strategy element %r" % bits
+			print "found in .solverlist strategy line"
+			print "should be [solvername, 'all' or 'hyp']"
+			sys.exit (1)
+		strategy.append (tuple (bits))
+	return strategy
 
 def load_solver_set ():
-	solvers = get_solver_set ()
-	fast_solvers = [(nm, args, timeout)
-		for (nm, fast, args, timeout) in solvers if fast]
-	slow_solvers = [(nm, args, timeout)
-		for (nm, fast, args, timeout) in solvers if not fast]
+	import sys
+	(solvers, strategy) = get_solver_set ()
+	fast_solvers = [sv for sv in solvers if sv.fast]
+	slow_solvers = [sv for sv in solvers if not sv.fast]
+	slow_dict = dict ([(sv.origname, sv) for sv in slow_solvers])
+	if strategy == None:
+		strategy = [(nm, strat) for nm in slow_dict
+			for strat in ['all', 'hyp']]
+	for (nm, strat) in strategy:
+		if nm not in slow_dict:
+			print "solver.py: strategy option %r" % nm
+			print "found in .solverlist strategy line"
+			print "not an offline solver (required for parallel use)"
+			print "(known offline solvers %s)" % slow_dict.keys ()
+			sys.exit (1)
+	strategy = [(slow_dict[nm], strat) for (nm, strat) in strategy]
 	assert fast_solvers, solvers
 	assert slow_solvers, solvers
-	# todo: support more solvers running in parallel
-	return (fast_solvers[0], slow_solvers[0])
+	return (fast_solvers[0], slow_solvers[0], strategy)
 
-(fast_solver, slow_solver) = load_solver_set ()
+(fast_solver, slow_solver, strategy) = load_solver_set ()
 
 from syntax import (Expr, fresh_name, builtinTs, true_term, false_term,
   foldr1, mk_or, boolT, word32T, word8T, mk_implies, Type, get_global_wrapper)
@@ -537,7 +585,7 @@ class Solver:
 		self.init_replay = []
 		self.unsat_cores = produce_unsat_cores
 		self.online_solver = None
-		self.parallel_slow_solvers = []
+		self.parallel_solvers = {}
 
 		self.names_used = {}
 		self.names_used_order = []
@@ -561,6 +609,7 @@ class Solver:
 
 		self.fast_solver = fast_solver
 		self.slow_solver = slow_solver
+		self.strategy = strategy
 
 		self.send('(set-option :print-success true)')
 		self.send('(set-logic QF_AUFBV)')
@@ -592,9 +641,9 @@ class Solver:
 			solver = use_this_solver
 		else:
 			solver = self.fast_solver
-		self.online_solver = subprocess.Popen (solver[1],
+		self.online_solver = subprocess.Popen (solver.args,
 			stdin = subprocess.PIPE, stdout = subprocess.PIPE,
-			preexec_fn = preexec (solver[2]))
+			preexec_fn = preexec (solver.timeout))
 
 		self.written = []
 
@@ -831,8 +880,8 @@ class Solver:
 				and self.slow_solver):
 			if not force_slow:
 				trace ('failed to get result from %s'
-					% self.fast_solver[0])
-			trace ('running %s' % self.slow_solver[0])
+					% self.fast_solver.name)
+			trace ('running %s' % self.slow_solver.name)
 			self.close ()
 			response = self.use_slow_solver (raw_hyps, model = model,
 				unsat_core = unsat_core)
@@ -901,12 +950,12 @@ class Solver:
 		self.write_solv_script (tmpfile_write, input_msgs)
 		tmpfile_write.close ()
 		
-		solver = subprocess.Popen (solver[1],
+		proc = subprocess.Popen (solver.args,
 			stdin = fd, stdout = subprocess.PIPE,
 			preexec_fn = preexec (timeout))
 		os.close (fd)
 
-		return solver.stdout
+		return (proc, proc.stdout)
 
 	def use_slow_solver (self, hyps, model = None, unsat_core = None,
 			use_safe_solver = None):
@@ -920,15 +969,15 @@ class Solver:
 
 		solver = self.slow_solver
 
-		output = self.exec_slow_solver (cmds, timeout = solver[2],
-			use_this_solver = solver)
+		(_, output) = self.exec_slow_solver (cmds,
+			timeout = solver.timeout, use_this_solver = solver)
 
 		response = output.readline ().strip ()
 		if model != None and response == 'sat':
 			assert self.fetch_model_response (model,
 				stream = output)
 		if unsat_core != None and response == 'unsat':
-			trace ('WARNING no unsat core from %s' % solver[0])
+			trace ('WARNING no unsat core from %s' % solver.name)
 			unsat_core.extend ([tag for (_, tag) in hyps])
 
 		output.close ()
@@ -938,7 +987,7 @@ class Solver:
 
 		end = time.time ()
 		trace ('Got %r from %s after %ds.' % (response,
-			solver[0], int (end - start)))
+			solver.name, int (end - start)))
 		# adjust to save difficult problems
 		cutoff_time = save_solv_example_time[0]
 		if cutoff_time != -1 and end - start > cutoff_time:
@@ -950,36 +999,95 @@ class Solver:
 
 		return response
 
-	def add_parallel_slow_solver (self, k, hyps, use_this_solver = None):
-		cmds = ['(assert %s)' % hyp for (hyp, _) in hyps
-                        ] + ['(check-sat)']
+	def add_parallel_solver (self, k, hyps, use_this_solver = None):
+		cmds = ['(assert %s)' % hyp for hyp in hyps] + ['(check-sat)']
 
+		for hyp in hyps:
+			trace ('  %s' % hyp)
+		trace ('  --> parallel')
+
+		if k in self.parallel_solvers:
+			raise IndexError ('duplicate parallel solver ID', k)
 		solver = self.slow_solver
 		if use_this_solver:
 			solver = use_this_solver
-		output = self.exec_slow_solver (cmds, timeout = solver[2],
-			use_this_solver = solver)
-		self.parallel_solvers.append ((k, hyps, output, solver))
-
-	def add_parallel_test_hyp (self, k, hyp, env):
-		hyp = smt_expr (hyp, env, self)
-		hyps = split_hyp (hyp)
-		self.add_parallel_slow_solver (k, hyps)
+		(proc, output) = self.exec_slow_solver (cmds,
+			timeout = solver.timeout, use_this_solver = solver)
+		self.parallel_solvers[k] = (hyps, proc, output, solver)
 
 	def wait_parallel_solver (self):
+		import select
 		assert self.parallel_solvers
-		rlist = [output.fileno ()
-			for (_, _, output, _) in self.parallel_solvers]
-		(rlist, _, _) = os.select.select (rlist, [], [])
-		num = rlist.pop ()
-		[(k, hyps, output, solver)] = [(h, o, s) for (h, o, s)
-			in self.parallel_solvers if o.fileno () == num]
+		fds = dict ([(output.fileno (), k) for (k, (_, _, output, _))
+			in self.parallel_solvers.iteritems ()])
+		(rlist, _, _) = select.select (fds.keys (), [], [])
+		k = fds[rlist.pop ()]
+		(hyps, proc, output, solver) = self.parallel_solvers[k]
+		del self.parallel_solvers[k]
 		response = output.readline ().strip ()
 		output.close ()
 		if response not in ['sat', 'unsat']:
 			trace ('SMT conversation problem in parallel solver')
-		trace ('Got %r from %s in parallel.' % (response, solver[0]))
+		trace ('Got %r from %s in parallel.' % (response, solver.name))
 		return (k, hyps, response)
+
+	def close_parallel_solvers (self, ks = None):
+		import signal
+		if ks == None:
+			ks = self.parallel_solvers.keys ()
+		else:
+			ks = [k for k in ks if k in self.parallel_solvers]
+		solvs = [(proc, output) for (_, proc, output, _)
+			in [self.parallel_solvers[k] for k in ks]]
+		for k in ks:
+			del self.parallel_solvers[k]
+		procs = [proc for (proc, _) in solvs]
+		outputs = [output for (_, output) in solvs]
+		for proc in procs:
+			os.killpg (proc.pid, signal.SIGTERM)
+		for output in outputs:
+			output.close ()
+		for proc in procs:
+			os.killpg (proc.pid, signal.SIGKILL)
+			proc.wait ()
+
+	def parallel_test_hyps (self, hyps, env):
+		"""test a series of keyed hypotheses [(k1, h1), (k2, h2) ..etc]
+		either returns (True, -) all hypotheses true
+		or (False, ki) i-th hypothesis unprovable"""
+		assert not self.parallel_solvers
+		if not hyps:
+			return (True, None)
+		all_hyps = foldr1 (syntax.mk_and, [h for (k, h) in hyps])
+		def spawn ((k, hyp), stratkey):
+			goal = smt_expr (syntax.mk_not (hyp), env, self)
+			[self.add_parallel_solver ((solver.name, strat, k),
+					[goal], use_this_solver = solver)
+				for (solver, strat) in self.strategy
+				if strat == stratkey]
+		spawn ((None, all_hyps), 'all')
+		spawn (hyps[0], 'hyp')
+		solved = 0
+		while True:
+			((nm, strat, k), _, res) = self.wait_parallel_solver ()
+			if strat == 'all' and res == 'unsat':
+				trace ('  -- hyps all confirmed by %s' % nm)
+				break
+			elif strat == 'hyp' and res != 'unsat':
+				trace ('  -- hyp refuted by %s' % nm)
+				break
+			if strat == 'hyp':
+				ks = [(solver.name, strat, k)
+					for (solver, strat) in self.strategy]
+				self.close_parallel_solvers (ks)
+				solved += 1
+				if solved < len (hyps):
+					spawn (hyps[solved], 'hyp')
+				else:
+					trace ('  - hyps confirmed individually')
+					break
+		self.close_parallel_solvers ()
+		return (res == 'unsat', k)
 
 	def slow_solver_multisat (self, hyps, model = None, timeout = 300):
 		trace ('multisat check.')
@@ -989,7 +1097,7 @@ class Solver:
 			cmds.extend (['(assert %s)' % hyp, '(check-sat)'])
 			if model != None:
 				cmds.append (self.fetch_model_request ())
-		output = self.exec_slow_solver (cmds, timeout = timeout)
+		(_, output) = self.exec_slow_solver (cmds, timeout = timeout)
 
 		assert hyps
 		for (i, hyp) in enumerate (hyps):

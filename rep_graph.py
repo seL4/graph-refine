@@ -945,7 +945,7 @@ class GraphSlice:
 		imp = concl
 		for h in hyps:
 			imp = mk_implies (self.interpret_hyp (h), imp)
-		return imp
+		return logic.strengthen_hyp (imp)
 
 	def test_hyp_whyps (self, hyp, hyps, cache = None, fast = False,
 			model = None):
@@ -956,7 +956,6 @@ class GraphSlice:
 		last_test[0] = (hyp, hyps, list (self.pc_env_requests))
 
 		expr = self.interpret_hyp_imps (hyps, hyp)
-		expr = logic.strengthen_hyp (expr)
 
 		trace ('Testing hyp whyps', push = 1)
 		trace ('requests = %s' % self.pc_env_requests)
@@ -992,23 +991,11 @@ class GraphSlice:
 		last_hyp_imps[0] = imps
 		if imps == []:
 			return (True, None)
-		interp_imps = [self.interpret_hyp_imps (hyps,
+		interp_imps = list (enumerate ([self.interpret_hyp_imps (hyps,
 				self.interpret_hyp (hyp))
-			for (hyps, hyp) in imps]
-		all_imp = mk_not (foldr1 (mk_and, interp_imps))
-		self.solv.add_parallel_test_hyp (-1, all_imp, {})
-		for (i, hyp) in enumerate (interp_imps):
-			self.solv.add_parallel_test_hyp (i, mk_not (hyp), {})
-			(k, _, res) = self.solv.wait_parallel_solver ()
-			if k == -1:
-				if res == 'unsat':
-# FIXME XXX don't just leave the other solvers there
-					return (True, None)
-				(k, _, res) = self.solv.wait_parallel_solver ()
-			assert k == i, (k, i)
-			if res != 'unsat':
-				return (False, imps[k])
-		return (True, None)
+			for (hyps, hyp) in imps]))
+		self.solv.add_pvalid_dom_assertions ()
+		return self.solv.parallel_test_hyps (interp_imps, {})
 
 	def replay_requests (self, reqs):
 		for ((n, vc), tag) in reqs:
