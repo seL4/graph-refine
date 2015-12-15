@@ -24,8 +24,6 @@ The .solverlist format is one solver per line, e.g.
 # SONOLAR is the strongest offline solver in our experiments.
 SONOLAR: offline: /home/tsewell/bin/sonolar --input-format=smtlib2
 # CVC4 is useful in online and offline mode.
-# Note that ONLY ONE offline solver is used!
-# The second CVC4 line is redundant in this example.
 CVC4: online: /home/tsewell/bin/cvc4 --incremental --lang smt --tlimit=5000
 CVC4: offline: /home/tsewell/bin/cvc4 --lang smt
 # Z3 is a useful online solver. Use of Z3 in offline mode is not recommended,
@@ -33,10 +31,12 @@ CVC4: offline: /home/tsewell/bin/cvc4 --lang smt
 Z3 4.3: online: /home/tsewell/dev/z3-dist/build/z3 -t:2 -smt2 -in
 # Z3 4.3: offline: /home/tsewell/dev/z3-dist/build/z3 -smt2 -in
 
+N.B. only ONE online solver is needed, so Z3 is redundant in the above.
+
 Each non-comment line is ':' separated, with this pattern:
 name : online/offline/fast/slow : command
 
-The name is used to identify the solver in output. The second token specifies
+The name is used to identify the solver. The second token specifies
 the solver mode. Solvers in "fast" or "online" mode must support all
 interactive SMTLIB2 features including push/pop. With "slow" or "offline" mode
 the solver will be executed once per query, and push/pop will not be used.
@@ -45,7 +45,14 @@ The remainder of each line is a shell command that executes the solver in
 SMTLIB2 mode. For online solvers it is typically worth setting a resource
 limit, after which the offline solver will be run.
 
-Currently only the first online and first offline solver will be run.
+The first online solver will be used. The offline solvers will be used in
+parallel, by default. The set to be used in parallel can be controlled with
+a strategy line e.g.:
+strategy: SONOLAR all, SONOLAR hyp, CVC4 hyp
+
+This specifies that SONOLAR and CVC4 should both be run on each hypothesis. In
+addition SONOLAR will be applied to try to solve all related hypotheses at
+once, which may be faster than solving them one at a time.
 """
 
 solverlist_file = ['.solverlist']
