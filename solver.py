@@ -661,6 +661,7 @@ class Solver:
 			self.send (msg, replay=False)
 
 	def close (self):
+		self.close_parallel_solvers ()
 		if self.online_solver:
 			self.online_solver.stdin.close()
 			self.online_solver.stdout.close()
