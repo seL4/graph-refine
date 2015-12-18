@@ -340,6 +340,15 @@ class Problem:
 		return set ([self.nodes[n].fname
 			for n in self.nodes if self.nodes[n].kind == 'Call'])
 
+	def get_extensions (self):
+		if 'extensions' in self.cached_analysis:
+			return self.cached_analysis['extensions']
+		extensions = set ()
+		for node in self.nodes.itervalues ():
+			extensions.update (syntax.get_extensions (node))
+		self.cached_analysis['extensions'] = extensions
+		return extensions
+
 def deserialise (name, lines):
 	assert lines[0] == 'Problem', lines[0]
 	assert lines[-1] == 'EndProblem', lines[-1]

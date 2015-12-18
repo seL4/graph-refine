@@ -200,18 +200,7 @@ def smt_typ (typ):
 		return '(Array (_ BitVec %d) (_ BitVec %d))' % tuple (typ.nums)
 	return smt_typ_builtins[typ.name]
 
-smt_ops = {'Plus':'bvadd', 'Minus':'bvsub', 'Times':'bvmul', 'Modulus':'bvurem',
-	'DividedBy':'bvudiv', 'BWAnd':'bvand', 'BWOr':'bvor', 'BWXOR':'bvxor',
-	'And':'and',
-	'Or':'or', 'Implies':'=>', 'Equals':'=', 'Less':'bvult',
-	'LessEquals':'bvule', 'SignedLess':'bvslt', 'SignedLessEquals':'bvsle',
-	'ShiftLeft':'bvshl', 'ShiftRight':'bvlshr', 'SignedShiftRight':'bvashr',
-	'Not':'not', 'BWNot':'bvnot',
-	'True':'true', 'False':'false',
-	'UnspecifiedPrecond': 'unspecified-precond',
-	'IfThenElse':'ite', 'MemDom':'mem-dom',
-	'ROData': 'rodata', 'ImpliesROData': 'implies-rodata',
-	'WordArrayAccess':'select', 'WordArrayUpdate':'store'}
+smt_ops = syntax.ops_to_smt
 
 def smt_num (num, bits):
 	if num < 0:
@@ -255,6 +244,21 @@ def smt_expr (expr, env, solv):
 			else:
 				return '((_ sign_extend %d) %s)' % (
 					expr.typ.num - v.typ.num, ex)
+	elif expr.is_op (['ToFloatingPoint', 'ToFloatingPointSigned',
+			'ToFloatingPointUnsigned', 'FloatingPointCast']):
+		ks = [v.typ.kind for v in expr.vals]
+		expected_ks = {'ToFloatingPoint': ['Word'],
+			'ToFloatingPointSigned': ['Builtin', 'Word'],
+			'ToFloatingPointUnsigned': ['Builtin', 'Word'],
+			'FloatingPointCast': ['FloatingPoint']}
+		expected_ks = expected_ks[expr.name]
+		assert ks == expected_ks, (ks, expected_ks)
+		oname = 'to_fp'
+		if expr.name == 'ToFloatingPointUnsigned':
+			expr.name == 'to_fp_unsigned'
+		op = '(_ %s %d %d)' % tuple ([oname + expr.typ.nums])
+		vs = [smt_expr (v, env, solv) for v in expr.vals]
+		return '(%s %s)' % (op, ' '.join (vs))
 	elif expr.is_op ('CountLeadingZeroes'):
 		[v] = expr.vals
 		assert expr.typ.kind == 'Word' and expr.typ == v.typ

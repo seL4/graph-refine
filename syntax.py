@@ -142,17 +142,22 @@ variable environment of that function. Its return parameters are saved to the
 list of variables given.
 
 The <type> clauses are in one of these formats:
-Word <int>
+Word <int>  -- BitVec <int> is a synonym
 Array <type> <int>
 Struct "struct name"
 Ptr <type>
-Or one of the builtin types as a single token:
-  'Bool Mem Dom HTD PMS UNIT Type'
+One of the builtin types as a single token:
+  'Bool Mem Dom HTD PMS UNIT Type RoundingMode'
+FloatingPoint <int> <int>
 
 These types encode a machine word with the given number of bits, an array of
 some type, a struct previously defined by a Struct clause, or a pointer to
 another type. The Array, Struct and Ptr types are provided only for use in
-pointer validity assertions, which are discussed below.
+pointer validity assertions, which are discussed below. The FloatingPoint type
+exactly mirrors the SMTLIB2 (_ FloatingPoint eb sb) type, and is available as
+an optional extension. Using the FloatingPoint and RoundingMode types in any
+problem changes the SMT theory needed and may limit which solvers and features
+can be used.
 
 Of the builtin types, booleans are standard, UNIT is the singleton type, and
 memory is a 32-bit to 8-bit mapping. We aim to include 64-bit support soon. The
@@ -178,35 +183,48 @@ The special Symbol clauses are used to denote in source languages the values
 symbols will have in the binaries. They are replaced by specific numerals in
 a first pass.
 
-The operators are:
+Many of the builtin operators are equivalent to SMTLIB2 operators, and are also
+available with their SMTLIB2 names. The operators are:
   - Binary arithmetic operators on words:
-    + Plus, Minus, Times, Modulus, DividedBy, BWAnd, BWOr, BWXOR,
-      ShiftLeft, ShiftRight
+    + Plus/bvadd, Minus/bvsub, Times/bvmul, Modulus/bvurem, DividedBy/bvudiv,
+      BWAnd/bvand, BWOr/bvor, BWXOR/bvxor,
+      ShiftLeft/bvshl, ShiftRight/bvlshr, SignedShiftRight/bvashr
   - Binary operators on booleans:
-    + And, Or, Implies
+    + And/and, Or/or, Implies
   - Unary operators on bools:
-    + Not
+    + Not/not
   - Booleans (nullary operators, i.e. constants):
-    + True, False
+    + True/true, False/false
   - Equals relation in any type:
     + Equals
   - Comparison relations on words (result is bool):
-    + Less, LessEquals, SignedLess, SignedLessEquals
+    + Less/bvult, LessEquals/bvule, SignedLess/bvslt, SignedLessEquals/bvsle
   - Unary operators on words:
-    + BWNot, CountLeadingZeroes
+    + BWNot/bvnot, CountLeadingZeroes
   - Cast operators on words - result type may be different to argument type:
     + WordCast, WordCastSigned
   - Memory operations:
-    + MemAcc (args [m :: Mem, ptr :: Word 32])
-    + MemUpdate (args, [m :: Mem, ptr :: Word 32, v :: any type])
+    + MemAcc (args [m :: Mem, ptr :: Word 32]) any word type
+    + MemUpdate (args, [m :: Mem, ptr :: Word 32, v :: any word type])
   - Pointer-validity operators:
     + PValid, PWeakValid, PAlignValid, PGlobalValid, PArrayValid
   - Miscellaneous:
     + MemDom, HTDUpdate
-    + IfThenElse (args [b :: bool, x :: any type T, y :: T])
+    + IfThenElse/ite (args [b :: bool, x :: any type T, y :: T])
+  - FloatingPoint operations from the SMTLIB2 floating point specification:
+    + roundNearestTiesToEven/RNE, roundNearestTiesToAway/RNA,
+      roundTowardPositive/RTP, roundTowardNegative/RTN,
+      roundTowardZero/RTZ
+    + fp.abs, fp.neg, fp.add, fp.sub, fp.mul, fp.div, fp.fma, fp.sqrt,
+      fp.rem, fp.roundToIntegral, fp.min, fp.max, fp.leq, fp.lt,
+      fp.geq, fp.gt, fp.eq, fp.isNormal, fp.IsSubnormal, fp.isZero,
+      fp.isInfinite, fp.isNaN, fp.isNegative, fp.isPositive
+    + ToFloatingPoint, ToFloatingPointSigned, ToFloatingPointUnsigned,
+      FloatingPointCast
 
-Most of these operators are self explanatory, and have obvious equivalents in
-C or in the SMT theories of bitvectors (word ops) and of arrays (Mem and Dom).
+Operators with SMTLIB2 equivalents have the same semantics. Mem and Dom
+operations are wrap the SMTLIB2 BitVec Array type with more convenient
+operations.
 
 Memory accesses and updates can operate on various word types.
 
@@ -227,6 +245,12 @@ The MemDom operator takes argument types [Word 32, Dom] and returns the boolean
 of whether this pointer is in this domain.
 
 The IfThenElse operator takes a bool and any two arguments of the same type.
+
+The FloatingPoint operators are mostly taken from the SMTLIB2 floating
+point standard. The conversions ToFloatingPoint ([Word] to FP),
+ToFloatingPointSigned and ToFloatingPointUnsigned ([RoundingMode, Word] to FP)
+and FloatingPointCast (FP to FP) represent the variants of to_fp in the SMTLIB2
+standard.
 """
 
 class Type:
@@ -239,7 +263,7 @@ class Type:
 		if kind in ['Array', 'Ptr']:
 			self.el_typ_symb = el_typ
 			self.el_typ = concrete_type (el_typ)
-		if kind == 'WordArray':
+		if kind in ['WordArray', 'FloatingPoint']:
 			self.nums = [int (name), int (el_typ)]
 	
 	def __repr__ (self):
@@ -250,8 +274,9 @@ class Type:
 			return 'Type ("Word", %r)' % self.num
 		elif self.kind == 'Ptr':
 			return 'Type ("Ptr", %r)' % self.el_typ_symb
-		elif self.kind == 'WordArray':
-			return 'Type ("WordArray", %r, %r)' % tuple (self.nums)
+		elif self.kind in ('WordArray', 'FloatingPoint'):
+			return 'Type (%r, %r, %r)' % tuple ([self.kind]
+				+ self.nums)
 		else:
 			return 'Type (%r, %r)' % (self.kind, self.name)
 
@@ -263,7 +288,7 @@ class Type:
 		if self.kind in ['Array', 'Word']:
 			if self.num != other.num:
 				return False
-		elif self.kind == 'WordArray':
+		elif self.kind in ['WordArray', 'FloatingPoint']:
 			if self.nums != other.nums:
 				return False
 		else:
@@ -301,7 +326,12 @@ class Type:
 		elif self.kind == 'Array':
 			return self.el_typ.size() * self.num
 		elif self.kind == 'Word':
-			return {32 : 4, 8 : 1}[self.num]
+			assert self.num % 8 == 0, self
+			return self.num / 8
+		elif self.kind == 'FloatingPoint':
+			sz = sum (self.nums)
+			assert sz % 8 == 0, self
+			return sz / 8
 		elif self.kind == 'Ptr':
 			return 4
 		else:
@@ -312,8 +342,8 @@ class Type:
 			return structs[self.name].align
 		elif self.kind == 'Array':
 			return self.el_typ.align ()
-		elif self.kind == 'Word':
-			return {32 : 4, 8 : 1}[self.num]
+		elif self.kind in ('Word', 'FloatingPoint'):
+			return self.size ()
 		elif self.kind == 'Ptr':
 			return 4
 		else:
@@ -323,8 +353,8 @@ class Type:
 		if self.kind == 'Word':
 			xs.append ('Word')
 			xs.append (str (self.num))
-		elif self.kind == 'WordArray':
-			xs.append ('WordArray')
+		elif self.kind in ('WordArray', 'FloatingPoint'):
+			xs.append (self.kind)
 			xs.extend ([str (n) for n in self.nums])
 		elif self.kind == 'Builtin':
 			xs.append (self.name)
@@ -815,10 +845,10 @@ def parse_int (s):
 		return int (s)
 
 def parse_typ(bits, n, symbolic_types = False):
-	if bits[n] == 'Word':
+	if bits[n] == 'Word' or bits[n] == 'BitVec':
 		return (n + 2, Type('Word', parse_int (bits[n + 1])))
-	elif bits[n] == 'WordArray':
-		return (n + 3, Type('WordArray',
+	elif bits[n] == 'WordArray' or bits[n] == 'FloatingPoint':
+		return (n + 3, Type(bits[n],
 			parse_int (bits[n + 1]), parse_int (bits[n + 2])))
 	elif bits[n] in builtinTs:
 		return (n + 1, builtinTs[bits[n]])
@@ -875,7 +905,35 @@ ops = {'Plus':2, 'Minus':2, 'Times':2, 'Modulus':2,
 	'PValid':3, 'PWeakValid':3, 'PAlignValid':2, 'PGlobalValid':3,
 	'PArrayValid':4,
 	'HTDUpdate':5, 'WordArrayAccess':2, 'WordArrayUpdate':3,
-	'ROData':1, 'StackWrapper':2}
+	'ROData':1, 'StackWrapper':2,
+	'ToFloatingPoint':1, 'ToFloatingPointSigned':2,
+	'ToFloatingPointUnsigned':2, 'FloatingPointCast':1, 
+}
+
+ops_to_smt = {'Plus':'bvadd', 'Minus':'bvsub', 'Times':'bvmul', 'Modulus':'bvurem',
+	'DividedBy':'bvudiv', 'BWAnd':'bvand', 'BWOr':'bvor', 'BWXOR':'bvxor',
+	'And':'and',
+	'Or':'or', 'Implies':'=>', 'Equals':'=', 'Less':'bvult',
+	'LessEquals':'bvule', 'SignedLess':'bvslt', 'SignedLessEquals':'bvsle',
+	'ShiftLeft':'bvshl', 'ShiftRight':'bvlshr', 'SignedShiftRight':'bvashr',
+	'Not':'not', 'BWNot':'bvnot',
+	'True':'true', 'False':'false',
+	'UnspecifiedPrecond': 'unspecified-precond',
+	'IfThenElse':'ite', 'MemDom':'mem-dom',
+	'ROData': 'rodata', 'ImpliesROData': 'implies-rodata',
+	'WordArrayAccess':'select', 'WordArrayUpdate':'store'}
+
+ex_smt_ops = """roundNearestTiesToEven RNE roundNearestTiesToAway RNA
+    roundTowardPositive RTP roundTowardNegative RTN
+    roundTowardZero RTZ
+    fp.abs fp.ne fp.add fp.sub fp.mul fp.div fp.fma fp.sqrt fp.rem
+    fp.roundToInteral fp.min fp.max fp.leq fp.lt fp.eq fp.t fp.eq
+    fp.isNormal fp.IsSubnormal fp.isZero fp.isInfinite fp.isNaN
+    fp.isNeative fp.isPositive""".split ()
+
+ops_to_smt.update (dict ([(smt, smt) for s in ex_smt_ops]))
+
+smt_to_ops = dict ([(smt, oper) for (oper, smt) in ops_to_smt.iteritems ()])
 
 def parse_struct_elem (bits, n):
 	name = bits[n]
@@ -892,7 +950,7 @@ def parse_expr (bits, n):
 	if bits[n] == 'Array':
 		(n, typ) = parse_typ (bits, n + 1)
 		assert typ.kind == 'Array'
-		(n, xs) = parse_list(parse_expr, bits, n)
+		(n, xs) = parse_list (parse_expr, bits, n)
 		assert len(xs) == typ.num
 		return (n, Expr ('Array', typ, vals = xs))
 	elif bits[n] == 'Field':
@@ -913,7 +971,7 @@ def parse_expr (bits, n):
 			field = (name, typ2), val = val))
 	elif bits[n] == 'StructCons':
 		(n, typ) = parse_typ (bits, n + 1)
-		(n, xs) = parse_list(parse_struct_elem, bits, n)
+		(n, xs) = parse_list (parse_struct_elem, bits, n)
 		return (n, Expr ('StructCons', typ, vals = dict(xs)))
 	elif bits[n] == 'Num':
 		v = parse_int (bits[n + 1])
@@ -921,9 +979,11 @@ def parse_expr (bits, n):
 		return (n, Expr ('Num', typ, val = v))
 	elif bits[n] == 'Op':
 		op = bits[n + 1]
+		op = smt_to_ops.get (op, op)
+		assert op in ops, op
 		(n, typ) = parse_typ (bits, n + 2)
 		(n, xs) = parse_list (parse_expr, bits, n)
-		assert len(xs) == ops[op]
+		assert len (xs) == ops[op]
 		return (n, Expr ('Op', typ, name = op, vals = xs))
 	elif bits[n] == 'Type':
 		(n, typ) = parse_typ (bits, n + 1, symbolic_types = True)
@@ -1131,6 +1191,15 @@ def check_funs (functions, verbose = False):
 					assert get_lval_typ(lv) == get_expr_typ(v)
 			elif node.kind == 'Cond':
 				assert get_expr_typ(node.cond) == boolT
+
+def get_extensions (v):
+	extensions = set ()
+	rm = builtinTs['RoundingMode']
+	def visitor (expr):
+		if expr.typ == rm or expr.typ.kind == 'FloatingPoint':
+			extensions.add ('FloatingPoint')
+	v.gen_visit (lambda l: (), visitor)
+	return extensions
 
 # =========================================
 # common constructors for basic expressions
