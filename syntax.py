@@ -931,7 +931,7 @@ ex_smt_ops = """roundNearestTiesToEven RNE roundNearestTiesToAway RNA
     fp.isNormal fp.IsSubnormal fp.isZero fp.isInfinite fp.isNaN
     fp.isNeative fp.isPositive""".split ()
 
-ops_to_smt.update (dict ([(smt, smt) for s in ex_smt_ops]))
+ops_to_smt.update (dict ([(smt, smt) for smt in ex_smt_ops]))
 
 smt_to_ops = dict ([(smt, oper) for (oper, smt) in ops_to_smt.iteritems ()])
 

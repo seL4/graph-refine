@@ -662,11 +662,13 @@ def find_case_split (p, head, restrs, hyps, tags = None):
 
 	# for this to be a usable case split, both paths must be possible
 	for div in divs:
+		dhyps = lhyps + [rep_graph.pc_true_hyp (((div, restrs),
+			p.node_tags[div][0]))]
 		assert p.nodes[div].kind == 'Cond'
 		(_, env) = rep.get_node_pc_env ((div, restrs))
 		c = to_smt_expr (p.nodes[div].cond, env, rep.solv)
-		if (rep.test_hyp_whyps (c, lhyps)
-				or rep.test_hyp_whyps (mk_not (c), lhyps)):
+		if (rep.test_hyp_whyps (c, dhyps)
+				or rep.test_hyp_whyps (mk_not (c), dhyps)):
 			continue
 		trace ("attempting case split at %d" % div)
 		sides = [n for n in p.nodes[div].get_conts ()
@@ -878,8 +880,7 @@ def build_proof_rec_with_restrs (split_points, kind, searcher, p, restrs, hyps):
 	limit = find_split_limit (p, sp, restrs, use_hyps, kind)
 	# double-check this limit with a rep constructed without the 'fast' flag
 	limit = find_split_limit (p, sp, restrs, use_hyps, kind,
-		hints = [limit], use_rep = mk_graph_slice (p),
-		bound = limit + 3)
+		hints = [limit, limit + 1], use_rep = mk_graph_slice (p))
 	if kind == 'Number':
 		vc_opts = vc_upto (limit + 1)
 	else:
