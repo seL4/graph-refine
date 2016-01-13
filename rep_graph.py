@@ -970,7 +970,11 @@ class GraphSlice:
 
 		self.solv.add_pvalid_dom_assertions ()
 
-		result = self.solv.test_hyp (expr, {}, model = model)
+		if model == None:
+			(result, _) = self.solv.parallel_test_hyps (
+				[(None, expr)], {})
+		else:
+			result = self.solv.test_hyp (expr, {}, model = model)
 		trace ('Result: %s' % result, push = -1)
 		if cache != None:
 			cache[expr_s] = result
@@ -980,12 +984,6 @@ class GraphSlice:
 
 	def test_hyp_imp (self, hyps, hyp):
 		return self.test_hyp_whyps (self.interpret_hyp (hyp), hyps)
-
-	def test_hyp_imp_catch (self, hyps, hyp):
-		try:
-			return self.test_hyp_imp (hyps, hyp)
-		except solver.SolverFailure, e:
-			return False
 
 	def test_hyp_imps (self, imps):
 		last_hyp_imps[0] = imps

@@ -858,10 +858,10 @@ class Solver:
 		self.send ('(define-fun implies-rodata ((m %s)) Bool %s)' % (
 			smt_typ (builtinTs['Mem']), imp_ro_def))
 
-	def check_hyp_raw (self, hyp, model = None, force_slow = False):
+	def check_hyp_raw (self, hyp, model = None, force_solv = False):
 		return self.hyps_sat_raw ([('(not %s)' % hyp, None)],
 			model = model, unsat_core = None,
-			force_slow = force_slow)
+			force_solv = force_solv)
 
 	def next_hyp (self, (hyp, tag), hyp_dict):
 		self.num_hyps += 1
@@ -870,14 +870,15 @@ class Solver:
 		return '(! %s :named %s)' % (hyp, name)
 
 	def hyps_sat_raw (self, hyps, model = None, unsat_core = None,
-			force_slow = False, recursion = False):
+			force_solv = False, recursion = False):
 		assert self.unsat_cores or unsat_core == None
 
 		hyp_dict = {}
 		raw_hyps = [(hyp2, tag) for (hyp, tag) in hyps
 			for hyp2 in split_hyp (hyp)]
 		hyps = [self.next_hyp (h, hyp_dict) for h in raw_hyps]
-		if not force_slow:
+		succ = False
+		if force_solv != 'Slow':
 			trace ('testing group of %d hyps:' % len (hyps))
 			for (hyp, _) in raw_hyps:
 				trace ('  ' + hyp)
@@ -887,11 +888,10 @@ class Solver:
 				(response, m, ucs, succ) = self.solver_loop (l)
 			except ConversationProblem, e:
 				response = 'ConversationProblem'
-				succ = False
 
-		if ((force_slow or not succ or response not in ['sat', 'unsat'])
-				and self.slow_solver):
-			if not force_slow:
+		if ((not succ or response not in ['sat', 'unsat'])
+				and self.slow_solver and force_solv != 'Fast'):
+			if force_solv != 'Slow':
 				trace ('failed to get result from %s'
 					% self.fast_solver.name)
 			trace ('running %s' % self.slow_solver.name)
@@ -1068,6 +1068,9 @@ class Solver:
 		"""test a series of keyed hypotheses [(k1, h1), (k2, h2) ..etc]
 		either returns (True, -) all hypotheses true
 		or (False, ki) i-th hypothesis unprovable"""
+		hyps = [(k, hyp) for (k, hyp) in hyps
+			if not self.test_hyp (hyp, env, force_solv = 'Fast',
+				catch = True)]
 		assert not self.parallel_solvers
 		if not hyps:
 			return (True, None)
@@ -1078,7 +1081,8 @@ class Solver:
 					[goal], use_this_solver = solver)
 				for (solver, strat) in self.strategy
 				if strat == stratkey]
-		spawn ((None, all_hyps), 'all')
+		if len (hyps) > 1:
+			spawn ((None, all_hyps), 'all')
 		spawn (hyps[0], 'hyp')
 		solved = 0
 		while True:
@@ -1255,13 +1259,22 @@ class Solver:
 			raise ConversationProblem ('(get-unsat-core)', res)
 		return res
 
-	def check_hyp (self, hyp, env, model = None, force_slow = False):
+	def check_hyp (self, hyp, env, model = None, force_solv = False):
 		hyp = smt_expr (hyp, env, self)
 		return self.check_hyp_raw (hyp, model = model,
-			force_slow = force_slow)
+			force_solv = force_solv)
 
-	def test_hyp (self, hyp, env, model = None):
-		return self.check_hyp (hyp, env, model = model) == 'unsat'
+	def test_hyp (self, hyp, env, model = None, force_solv = False,
+			catch = False):
+		if catch:
+			try:
+				return self.check_hyp (hyp, env, model = model,
+					force_solv = force_solv) == 'unsat'
+			except SolverFailure, e:
+				return False
+		else:
+			return self.check_hyp (hyp, env, model = model,
+				force_solv = force_solv) == 'unsat'
 
 	def assert_fact_smt (self, fact, unsat_tag = None):
 		if unsat_tag and self.unsat_cores:
@@ -1742,25 +1755,25 @@ pvalid_type_map = {}
 #def compile_struct_pvalid ():
 #def compile_pvalids ():
 	
-def quick_test (force_slow = False):
+def quick_test (force_solv = False):
 	"""quick test that the solver supports the needed features."""
-	fs = force_slow
+	fs = force_solv
 	solv = Solver ()
 	solv.assert_fact (true_term, {})
-	assert solv.check_hyp (false_term, {}, force_slow = fs) == 'sat'
-	assert solv.check_hyp (true_term, {}, force_slow = fs) == 'unsat'
+	assert solv.check_hyp (false_term, {}, force_solv = fs) == 'sat'
+	assert solv.check_hyp (true_term, {}, force_solv = fs) == 'unsat'
 	v = syntax.mk_var ('v', word32T)
 	z = syntax.mk_word32 (0)
 	env = {('v', word32T): solv.add_var ('v', word32T)}
 	solv.assert_fact (syntax.mk_eq (v, z), env)
 	m = {}
 	assert solv.check_hyp (false_term, {}, model = m,
-		force_slow = fs) == 'sat'
+		force_solv = fs) == 'sat'
 	assert m == {'v': z}, m
 
 def test ():
 	quick_test ()
-	quick_test (force_slow = True)
+	quick_test (force_solv = 'Slow')
 	print 'Solver self-test successful'
 
 if __name__ == "__main__":
