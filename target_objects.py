@@ -73,9 +73,10 @@ def trace (s, push = 0):
 	tracer[0](str (s), push)
 
 
-def load_target ():
-	import sys
-	args = list (sys.argv)
+def load_target (args = None):
+	if args == None:
+		import sys
+		args = list (sys.argv)
 	if len (args) <= 1:
 		import os.path
 		objname = os.path.basename (args[0])
