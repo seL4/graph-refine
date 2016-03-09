@@ -459,8 +459,7 @@ def refute (inp_fname, out_fname, prev_fnames):
 	return (bool (new_refutes), report)
 
 if __name__ == '__main__':
-	import sys
-	args = target_objects.load_target ()
+	args = target_objects.load_target_args ()
 	prevs = [arg[5:] for arg in args if arg.startswith ('prev:')]
 	args = [arg for arg in args if 'prev:' not in arg]
 	if len (args) < 2:

@@ -72,8 +72,16 @@ tracer = [default_tracer]
 def trace (s, push = 0):
 	tracer[0](str (s), push)
 
+def load_target (target, target_args = []):
+	if __package__:
+		pck = sys.modules[__package__]
+		pck.__path__.append (target)
+	else:
+		import sys
+		sys.path.append (target)
+	import target
 
-def load_target (args = None):
+def load_target_args (args):
 	if args == None:
 		import sys
 		args = list (sys.argv)
@@ -91,19 +99,11 @@ def load_target (args = None):
 		assert not 'Target specified'
 	else:
 		target = args[1]
-		target_script = '%s/target.py' % target
 		target_dir.set_dir (target)
 		target_args.extend ([arg[7:] for arg in args
 			if arg.startswith ('target:')])
 		args = [arg for arg in args[2:]
 			if not arg.startswith ('target:')]
-		if __package__:
-			pck = sys.modules[__package__]
-			pck.__path__.append (target)
-		else:
-			import sys
-			sys.path.append (target)
-		import target
+		load_target (target, target_args)
 		return args
-
 

@@ -1191,7 +1191,7 @@ main = search_all_loops
 
 if __name__ == '__main__':
     import sys
-    args = target_objects.load_target ()
+    args = target_objects.load_target_args ()
     search_all_loops ()
 
 

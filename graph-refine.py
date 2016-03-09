@@ -29,7 +29,7 @@ import time
 import sys
 
 if __name__ == '__main__':
-	args = target_objects.load_target ()
+	args = target_objects.load_target_args ()
 
 def toplevel_check (pair, check_loops = True, report = False, count = None):
 	printout ('Testing Function pair %s' % pair)
