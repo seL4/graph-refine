@@ -76,11 +76,12 @@ def load_target (target, target_args = None):
 	target_dir.set_dir (target)
 	if target_args != None:
 		target_args.extend (target_args)
-	if __package__:
-		pck = sys.modules[__package__]
+	package = '.'.join (__name__.split ('.')[:-1])
+	import sys
+	if package:
+		pck = sys.modules[package]
 		pck.__path__.append (target)
 	else:
-		import sys
 		sys.path.append (target)
 	import target
 
