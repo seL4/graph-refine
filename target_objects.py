@@ -72,7 +72,10 @@ tracer = [default_tracer]
 def trace (s, push = 0):
 	tracer[0](str (s), push)
 
-def load_target (target, target_args = []):
+def load_target (target, target_args = None):
+	target_dir.set_dir (target)
+	if target_args != None:
+		target_args.extend (target_args)
 	if __package__:
 		pck = sys.modules[__package__]
 		pck.__path__.append (target)
@@ -81,7 +84,7 @@ def load_target (target, target_args = []):
 		sys.path.append (target)
 	import target
 
-def load_target_args (args):
+def load_target_args (args = None):
 	if args == None:
 		import sys
 		args = list (sys.argv)
@@ -99,11 +102,10 @@ def load_target_args (args):
 		assert not 'Target specified'
 	else:
 		target = args[1]
-		target_dir.set_dir (target)
-		target_args.extend ([arg[7:] for arg in args
-			if arg.startswith ('target:')])
+		t_args = [arg[7:] for arg in args
+			if arg.startswith ('target:')]
 		args = [arg for arg in args[2:]
 			if not arg.startswith ('target:')]
-		load_target (target, target_args)
+		load_target (target, t_args)
 		return args
 
