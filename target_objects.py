@@ -97,7 +97,13 @@ def load_target (args = None):
 			if arg.startswith ('target:')])
 		args = [arg for arg in args[2:]
 			if not arg.startswith ('target:')]
-		execfile (target_script, {})
+		if __package__:
+			pck = sys.modules[__package__]
+			pck.__path__.append (target)
+		else:
+			import sys
+			sys.path.append (target)
+		import target
 		return args
 
 
