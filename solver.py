@@ -74,6 +74,7 @@ class SolverImpl:
 
 def parse_solver (bits):
 	import os
+	import sys
 	mode_set = ['fast', 'slow', 'online', 'offline']
 	if len (bits) < 3 or bits[1].lower () not in mode_set:
 		print 'solver.py: solver list could not be parsed'
