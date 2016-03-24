@@ -30,11 +30,11 @@ DECOMP_DIR?=${HOL4_ROOT}/examples/machine-code/graph
 # standard configuration
 UMM_TYPES=umm_types.txt
 ARCH=arm
-ARMV=armv6
-PLAT=imx31
-CPU=arm1136jf-s
+ARMV=armv7-a
+PLAT=imx6
+CPU=cortex-a9
 FASTPATH=yes
-CONFIG_DOMAIN_SCHEDULE=${CSPEC_PATH}/config.c
+CONFIG_DOMAIN_SCHEDULE=${CSPEC_PATH}/config_arm.c
 
 # optional configuration
 
