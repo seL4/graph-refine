@@ -478,7 +478,8 @@ def check_split_induct_step_group (rep, restrs, hyps, split, tags = None):
 		tags = tags)
 	groups = proof_check_groups (checks)
 	for group in groups:
-		if not test_hyp_group (rep, group):
+		(verdict, _) = test_hyp_group (rep, group)
+		if not verdict:
 			return False
 	return True
 
@@ -668,7 +669,7 @@ def check_proof_report_rec (p, restrs, hyps, proof, step_num, ctxt, inducts):
 		groups = proof_check_groups (checks)
 		for group in groups:
 			rep = rep_graph.mk_graph_slice (p)
-			res = test_hyp_group (rep, group)
+			(res, _) = test_hyp_group (rep, group)
 			if not res:
 				printout ('    .. failed to prove this.')
 				sys.stdout.flush ()

@@ -482,8 +482,10 @@ def proof_failed_groups (p = None, proof = None):
 	failed = []
 	for group in groups:
 		rep = rep_graph.mk_graph_slice (p)
-		if not check.test_hyp_group (rep, group):
+		(res, el) = check.test_hyp_group (rep, group)
+		if not res:
 			failed.append (group)
+			print 'Failed element: %s' % el
 	failed_nms = set ([s for group in failed for (_, _, s) in group])
 	print 'Failed: %s' % failed_nms
 	return failed

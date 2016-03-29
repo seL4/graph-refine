@@ -245,7 +245,8 @@ def get_linear_series_hyps (p, split,restrs,hyps):
 
         groups = check.proof_check_groups (checks)
         for group in groups:
-            if not check.test_hyp_group (rep, group):
+            (res, _) = check.test_hyp_group (rep, group)
+            if not res:
                 return False
         return True
 
@@ -638,8 +639,10 @@ def getBinaryBoundFromC (p, c_tag, asm_split, restrs, hyps):
     groups = check.proof_check_groups (checks)
     try:
       for group in groups:
-        if not check.test_hyp_group (rep, group):
+        (res, el) = check.test_hyp_group (rep, group)
+        if res:
           trace ('split check failed!')
+          trace ('failed at %s' % el)
           return None
     except solver.SolverFailure, e:
       return None
