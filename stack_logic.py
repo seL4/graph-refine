@@ -1092,7 +1092,29 @@ def asm_stack_rep_hook (p, (nm, typ), kind, n):
 	
 	return ('SplitMem', sp)
 
+reg_aliases = {'r11': ['fp'], 'r14': ['lr'], 'r13': ['sp']}
+
+def inst_const_rets (node):
+	assert "instruction'" in node.fname
+	bits = set ([s.lower () for s in node.fname.split ('_')])
+	fun = functions[node.fname]
+	def is_const (nm, typ):
+		if typ in [builtinTs['Mem'], builtinTs['Dom']]:
+			return True
+		if typ != word32T:
+			return False
+		return not (nm in bits or [al for al in reg_aliases.get (nm, [])
+				if al in bits])
+	is_consts = [is_const (nm, typ) for (nm, typ) in fun.outputs]
+	input_set = set ([v for arg in node.args
+		for v in syntax.get_expr_var_set (arg)])
+	return [mk_var (nm, typ)
+		for ((nm, typ), const) in azip (node.rets, is_consts)
+		if const and (nm, typ) in input_set]
+
 def node_const_rets (node):
+	if "instruction'" in node.fname:
+		return inst_const_rets (node)
 	if node.fname not in pre_pairings:
 		return None
 	if pre_pairings[node.fname]['ASM'] != node.fname:
