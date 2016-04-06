@@ -483,6 +483,21 @@ class Expr:
 	def gen_visit (self, visit_lval, visit_rval):
 		self.visit (visit_rval)
 
+	def subst (self, substor):
+		ret = False
+		if self.kind == 'Op':
+			subst_vals = subst_list (substor, self.vals)
+			if subst_vals:
+				self = Expr ('Op', self.typ, name = self.name,
+					vals = subst_vals)
+				ret = True
+		sub = substor (self)
+		if sub != None:
+			return sub
+		if ret:
+			return self
+		return
+
 	def add_const_ranges (self, ranges):
 		def visit (expr):
 			if expr.kind == 'ConstGlobal':
@@ -563,6 +578,17 @@ def tuplify (x):
 
 def hash_tuplify (* xs):
 	return hash (tuplify (xs))
+
+def subst_list (substor, xs):
+	ys = [x.subst (substor) for x in xs]
+	if [y for y in ys if y != None]:
+		xs = list (xs)
+		for (i, y) in enumerate (ys):
+			if y != None:
+				xs[i] = y
+		return xs
+	else:
+		return
 
 class Node:
 	def __init__ (self, kind, conts, args):
@@ -656,6 +682,25 @@ class Node:
 	def gen_visit (self, visit_lval, visit_rval):
 		self.visit (visit_lval, visit_rval)
 
+	def subst_exprs (self, substor):
+		if self.kind == 'Basic':
+			rvs = subst_list (substor, [v for (lv, v) in self.upds])
+			if rvs == None:
+				return None
+			return Node ('Basic', self.cont,
+				zip ([lv for (lv, v) in self.upds], rvs))
+		elif self.kind == 'Cond':
+			r = self.cond.subst (substor)
+			if r == None:
+				return None
+			return Node ('Cond', [self.left, self.right], r)
+		elif self.kind == 'Call':
+			args = subst_list (substor, self.args)
+			if args == None:
+				return None
+			return Node ('Call', self.cont, (self.fname,
+				args, self.rets))
+
 	def get_mem_accesses (self):
 		accesses = []
 		def visit (expr):
@@ -687,36 +732,41 @@ class Node:
 def rename_lval ((name, typ), renames):
 	return (renames.get (name, name), typ)
 
-def rename_expr (expr, renames):
-	if expr.kind in ['Op', 'Array']:
-		vals = [rename_expr (v, renames) for v in expr.vals]
-		if expr.kind == 'Op':
-			name = expr.name
+standard_expr_kinds = set (['Symbol', 'ConstGlobal', 'Var', 'Op', 'Num',
+	'Type'])
+
+def rename_expr_substor (renames):
+	def ren (expr):
+		if expr.kind == 'Var' and expr.name in renames:
+			return mk_var (renames[expr.name], expr.typ)
+		elif expr.kind not in standard_expr_kinds:
+			assert not 'expr kind known', expr
 		else:
-			name = None
-		return Expr (expr.kind, expr.typ, name = name, vals = vals)
-	elif expr.kind == 'Var':
-		return mk_var (renames.get (expr.name, expr.name), expr.typ)
-	else:
-		if expr.kind not in {'Symbol':True, 'ConstGlobal':True,
-				'Num':True, 'Type':True}:
-			assert not 'expr kind known', self
+			return
+	return ren
+
+def rename_expr (expr, renames):
+	r = expr.subst (rename_expr_substor (renames))
+	if r == None:
 		return expr
+	else:
+		return r
 
 def copy_rename (node, renames):
 	(vs, ns) = renames
 	nf = lambda n: ns.get (n, n)
+	n2 = node.subst_exprs (rename_expr_substor (vs))
+	if n2 != None:
+		node = n2
 	if node.kind == 'Call':
-		return Node ('Call', nf (node.cont), (node.fname,
-			[rename_expr (e, vs) for e in node.args],
-			[rename_lval (l, vs) for l in node.rets]))
+		return Node ('Call', nf (node.cont), (node.fname, node.args,
+                              [rename_lval (l, vs) for l in node.rets]))
 	elif node.kind == 'Basic':
 		return Node ('Basic', nf (node.cont),
-			[(rename_lval (lv, vs), rename_expr (v, vs))
-				for (lv, v) in node.upds])
+			[(rename_lval (lv, vs), v) for (lv, v) in node.upds])
 	elif node.kind == 'Cond':
-		return Node ('Cond', [nf (node.left), nf (node.right)], 
-			rename_expr(node.cond, vs))
+		return Node ('Cond', [nf (node.left), nf (node.right)],
+			node.cond)
 	else:
 		assert not 'node kind understood', node.kind
 
