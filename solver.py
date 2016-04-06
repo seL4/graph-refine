@@ -210,7 +210,7 @@ def smt_num (num, bits):
 		prefix = '#x'
 	else:
 		digs = bits
-		rep = '{:b}'.format (num)
+		rep = '{x:b}'.format (x = num)
 		prefix = '#b'
 	rep = rep[-digs:]
 	rep = ('0' * (digs - len(rep))) + rep
