@@ -137,7 +137,8 @@ def build_compound_problem (fnames):
 			continue
 		if type (p.node_tags[n][1]) == tuple:
 			(fname, data) = p.node_tags[n][1]
-			if logic.is_int (data) and is_addr (data):
+			if (logic.is_int (data) and is_addr (data)
+					and not fname.startswith ("instruction'")):
 				assert data not in addr_map, data
 				addr_map[data] = n
 
