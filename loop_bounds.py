@@ -640,7 +640,7 @@ def getBinaryBoundFromC (p, c_tag, asm_split, restrs, hyps):
     try:
       for group in groups:
         (res, el) = check.test_hyp_group (rep, group)
-        if res:
+        if not res:
           trace ('split check failed!')
           trace ('failed at %s' % el)
           return None
