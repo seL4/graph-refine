@@ -9,9 +9,8 @@
 # code and classes for controlling SMT solvers, including 'fast' solvers,
 # which support SMTLIB2 push/pop and are controlled by pipe, and heavyweight
 # 'slow' solvers which are run once per problem on static input files.
-
+import signal
 # todo: support a collection of solvers running in parallel
-
 solverlist_missing = """
 This tool requires the use of an SMT solver.
 
@@ -56,7 +55,6 @@ once, which may be faster than solving them one at a time.
 """
 
 solverlist_file = ['.solverlist']
-
 class SolverImpl:
 	def __init__ (self, name, fast, args, timeout):
 		self.fast = fast
