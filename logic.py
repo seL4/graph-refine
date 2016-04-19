@@ -509,7 +509,8 @@ def mk_align_valid_ineq (typ, p):
 	else:
 		align_req = []
 	return foldr1 (mk_and, align_req + [mk_not (mk_eq (p, w0)),
-		mk_less_eq (p, mk_uminus (size))])
+		mk_implies (mk_less (w0, size),
+			mk_less_eq (p, mk_uminus (size)))])
 
 
 # generic operations on function/problem graphs
