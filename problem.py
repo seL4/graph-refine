@@ -292,6 +292,37 @@ class Problem:
 		save_graph (self.nodes, fname, cols = cols,
 			node_tags = self.node_tags)
 
+	def save_graph_summ (self, fname):
+		node_ids = {}
+		def is_triv (n):
+			if n not in self.nodes:
+				return False
+			node = self.nodes[n]
+			if node.kind == 'Basic':
+				return (True, node.cont)
+			elif node.kind == 'Cond' and node.right == 'Err':
+				return (True, node.left)
+			else:
+				return False
+		for n in self.nodes:
+			if n in node_ids:
+				continue
+			ns = []
+			while is_triv (n):
+				ns.append (n)
+				n = is_triv (n)[1]
+			for n2 in ns:
+				node_ids[n2] = n
+		nodes = {}
+		for n in self.nodes:
+			if is_triv (n):
+				continue
+			nodes[n] = syntax.copy_rename (self.nodes[n],
+				({}, node_ids))
+		cols = mk_graph_cols (self.node_tags)
+		save_graph (nodes, fname, cols = cols,
+			node_tags = self.node_tags)
+
 	def serialise (self):
 		ss = ['Problem']
 		for (n, tag, fname, inputs) in self.entries:
