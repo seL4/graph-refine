@@ -20,7 +20,7 @@ def parseSymTab():
         break
     #the rest should be symbols
     #should look like <address> <flags> <section> <alignment/size> <name>
-    #for "common" symbol it's alignment and for other it is size, seems like we don't need to distinguish the two 
+    #for "common" symbol it's alignment and for other it is size, seems like we don't need to distinguish the two
     objdump_symbol_re = re.compile(
      r'^([a-f0-9]+) (.*) +([a-zA-Z0-9_*.]+)\t([a-f0-9]+)\s+([a-zA-Z0-9_. -]+)$')
     while True:
@@ -53,7 +53,7 @@ def parseTxt ():
       header2 = re.search('Disassembly of section \..*:',line)
       if header != None or header2 != None:
         continue
-      #ndsk_boot is a strange function only used in bootstrapping, ask tom about it
+      #ndsk_boot is a strange function only used in bootstrapping
       ndks = re.search('.*ndks_boot.*',line)
       if ndks != None:
          skip_next_line = True
@@ -94,14 +94,14 @@ def parseTxt ():
            line_addr = int(match.group('line_addr'),16)
            elf_fun.lines[line_addr] = line
            #remove everything after ;
-           
+
            line = line.split(';')[0]
            line = line.rstrip(' \t\n\r')
            ef.lines[line_addr] = line
            ef.addrs_to_f[line_addr] = curr_func_name
 
 #is the mnemonic b ? bl, bx etc don't count
-#used to detech tail call
+#used to detect tail call
 def isDirectBranch(addr):
   inst = elfFile().lines[addr]
   match = re.search(r'[a-f0-9]+:\s*[a-f0-9]+\s+(b|bx)\s+.*',inst)

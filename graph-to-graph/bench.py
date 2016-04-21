@@ -56,7 +56,7 @@ def runExtract(program_n_flags,cwd=None):
     return retval, out, err
 
 #given the imm, call chronos and cplex to return (wcet,chronos_out,chornos_err)
-def getWcetFromImm(imm_file_name):
+def getWcetFromImm(imm_file_name, generateILPOnly= False):
     print 'running chronos...'
     ret,out,err = runExtract([chronos_executable, imm_file_name])
     print 'chronos completed'
@@ -66,6 +66,9 @@ def getWcetFromImm(imm_file_name):
     else:
         pass
         print 'Chronos succeeded'
+    if generateILPOnly:
+        print "ILP file generated"
+        return None
     return  float(cplex.cplexSolve(imm_file_name+'.ilp')),out,err
 
 
@@ -106,10 +109,8 @@ def analyseFunction(f,asm_fs,dir_name,gen_heads,load_counts,emit_graphs, stopAtI
     emitter.emitTopLevelFunction()
 
     imm_file_name = emitter.imm_file_name
-    if stopAtILP:
-      print "ILP file generated"
-      return None
-    ret_g = getWcetFromImm(imm_file_name)
+
+    ret_g = getWcetFromImm(imm_file_name, stopAtILP)
     if not ret_g:
       return None
     wcet, out_chronos_gg,err_chronos_gg = ret_g

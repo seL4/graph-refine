@@ -34,7 +34,7 @@ def printHelp():
 
 if __name__ == '__main__':
     if len(sys.argv) < 4:
-      print_help()
+      printHelp()
       sys.exit(-1)
     else:
       entry_point_function = sys.argv[2]
