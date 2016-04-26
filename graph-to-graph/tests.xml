@@ -60,7 +60,7 @@
         python graph_to_graph.py ../graph-refine-internal/2.1-example handleSyscall --l
         </test>
         
-        <test name="DeriveLoopBounds" cwd= "./" cpu-timeout="1000">
+        <test name="DeriveLoopBounds" cwd= "./" cpu-timeout="100">
         python convert_loop_bounds.py ../graph-refine-internal/2.1-example
         </test>
     </sequence>

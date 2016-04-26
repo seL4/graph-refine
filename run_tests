@@ -17,8 +17,8 @@ DIR="$(cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd)"
 
 # Run the tests from the script directory.
 cd ${DIR}
-mkdir -p .junit_reports
-python ../l4v/misc/regression/run_tests.py --junit-report=.junit-reports/regression.xml --v
+mkdir -p .junit-reports
+python ../l4v/misc/regression/run_tests.py --junit-report=.junit-reports/regression.xml
 
 # JUnit parser requires class names
 sed -i -e 's/<testcase classname=""/<testcase classname="wcet_prepared_regression"/g' .junit-reports/regression.xml

@@ -132,8 +132,8 @@ def findNEdgesTo (imm_fun):
         nodes[node.call_edge.targ].n_edges_to += 1
         nodes[node.call_edge.targ].edges_to.append(n)
         if not node.is_tail_call:
-          #if node.call_ret_edge.targ not in nodes:
-          #  print 'n: %x' % n
+          if node.call_ret_edge.targ not in nodes:
+            print 'call returning to: %x, from call site %x' % (node.call_ret_edge.targ, n)
           nodes[node.call_ret_edge.targ].n_edges_to += 1
           nodes[node.call_ret_edge.targ].edges_to.append(node.call_edge.targ)
 
