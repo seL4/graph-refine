@@ -13,6 +13,7 @@ from graph_refine.target_objects import functions
 import graph_refine.problem as problem
 import imm_utils
 import sys
+
 #extract all loop heads from loops_by_fs
 def loopHeadsFromLBFS(lbfs):
     ret = []
@@ -28,6 +29,7 @@ def convert_loop_bounds(target_dir_name):
     lbfs = context['loops_by_fs']
     bin_heads = loopHeadsFromLBFS(lbfs)
     lbfs = {}
+    functionsWithUnboundedLoop = set()
     #all_loop_heads = loop_bounds.get_all_loop_heads()
     print 'bin_heads: ' + str(bin_heads)
     for head in bin_heads:
@@ -38,12 +40,13 @@ def convert_loop_bounds(target_dir_name):
         try:
             ret = loop_bounds.get_bound_super_ctxt(head,[])
         except problem.Abort, e:
-            print 'failed to analyse %s, problem aborted' % f 
+            print 'failed to analyse %s, problem aborted' % f
         except:
             print "Unexpected error:", sys.exc_info()
             raise
         if ret == None or ret[1]== 'None':
             lbfs[f][head] = (2**30,'dummy: None')
+            functionsWithUnboudedLoop.add(f)
         else:
             lbfs[f][head] = ret
     imm_utils.genLoopheads(lbfs, target_objects.target_dir)
@@ -54,4 +57,5 @@ if __name__== '__main__':
         print 'target directory required'
         sys.exit(-1)
     target_dir_name = sys.argv[1]
-    convert_loop_bounds(target_dir_name)
+    ret_val = convert_loop_bounds(target_dir_name)
+
