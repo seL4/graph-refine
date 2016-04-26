@@ -55,13 +55,14 @@
   -->
 <testsuite>
 
-    <!-- Ensure that all of our XML files are strictly correct. -->
-    <test name="DummyLoopHeads" cwd= "./" cpu-timeout="120">
-    python graph_to_graph.py ../graph-refine-internal/2.1-example handleSyscall --l
-    </test>
-    
-    <test name="DeriveLoopBounds" cwd= "./" cpu-timeout="120">
-    python convert_loop_bounds.py ../graph-refine-internal/2.1-example
-    </test>
+    <sequence >
+        <test name="DummyLoopHeads" cwd= "./">
+        python graph_to_graph.py ../graph-refine-internal/2.1-example handleSyscall --l
+        </test>
+        
+        <test name="DeriveLoopBounds" cwd= "./" cpu-timeout="1000">
+        python convert_loop_bounds.py ../graph-refine-internal/2.1-example
+        </test>
+    </sequence>
 
 </testsuite>
