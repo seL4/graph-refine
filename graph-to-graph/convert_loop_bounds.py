@@ -14,6 +14,8 @@ import graph_refine.problem as problem
 import imm_utils
 import sys
 
+functionsBoundedByPreemptionOnly = set(['cancelAllIPC', 'cancelBadgedSends', 'cancelAllSignals'])
+
 #extract all loop heads from loops_by_fs
 def loopHeadsFromLBFS(lbfs):
     ret = []
@@ -46,10 +48,15 @@ def convert_loop_bounds(target_dir_name):
             raise
         if ret == None or ret[1]== 'None':
             lbfs[f][head] = (2**30,'dummy: None')
-            functionsWithUnboudedLoop.add(f)
+            functionsWithUnboundedLoop.add(f)
         else:
             lbfs[f][head] = ret
     imm_utils.genLoopheads(lbfs, target_objects.target_dir)
+    unexpectedUnboundedFuns = set([x for x in functionsWithUnboundedLoop if x not in functionsBoundedByPreemptionOnly])
+    if unexpectedUnboundedFuns:
+        print 'functions with unbounded loop and not bounded by preemption: %s' % str(unexpectedUnboundedFuns)
+        return None
+    return lbfs
 
 if __name__== '__main__':
     addr_to_bound = {}
@@ -57,5 +64,7 @@ if __name__== '__main__':
         print 'target directory required'
         sys.exit(-1)
     target_dir_name = sys.argv[1]
-    ret_val = convert_loop_bounds(target_dir_name)
+    lbfs = convert_loop_bounds(target_dir_name)
+    if lbfs is None:
+        sys.exit(-1)
 
