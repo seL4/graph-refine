@@ -10,11 +10,10 @@
 # @TAG(NICTA_BSD)
 #
 
+echo 'running run_tests script'
+
 # Fetch directory this script is stored in.
 DIR="$(cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd)"
-
-# Add repo version of Isabelle to our path.
-export PATH="${DIR}/isabelle/bin:$PATH"
 
 # Run the tests from the script directory.
 cd ${DIR}
