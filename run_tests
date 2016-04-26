@@ -18,5 +18,6 @@ export PATH="${DIR}/isabelle/bin:$PATH"
 
 # Run the tests from the script directory.
 cd ${DIR}
-python ../l4v/misc/regression/run_tests.py "$@"
+mkdir -p .junit_reports
+python ../l4v/misc/regression/run_tests.py --junit-report=.junit_reports/regression.xml
 
