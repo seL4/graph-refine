@@ -502,16 +502,15 @@ def mk_align_valid_ineq (typ, p):
 		(kind, typ, num) = typ
 		align = typ.align ()
 		size = mk_times (mk_word32 (typ.size ()), num)
-	assert align in [1, 4]
+	assert align in [1, 4, 8]
 	w0 = mk_word32 (0)
-	if align == 4:
-		align_req = [mk_eq (mk_bwand (p, mk_word32 (3)), w0)]
+	if align > 1:
+		align_req = [mk_eq (mk_bwand (p, mk_word32 (align - 1)), w0)]
 	else:
 		align_req = []
 	return foldr1 (mk_and, align_req + [mk_not (mk_eq (p, w0)),
 		mk_implies (mk_less (w0, size),
 			mk_less_eq (p, mk_uminus (size)))])
-
 
 # generic operations on function/problem graphs
 def compute_preds (nodes):
