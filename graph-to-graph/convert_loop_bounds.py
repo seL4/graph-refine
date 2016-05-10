@@ -56,7 +56,7 @@ def convert_loop_bounds(target_dir_name):
             functionsWithUnboundedLoop.add(f)
         else:
             lbfs[f][head] = ret
-        imm_utils.genLoopheads(lbfs, target_objects.target_dir)
+        imm_utils.genLoopheads(lbfs, target_objects.target_dir, incremental_head=(f,head))
     unexpectedUnboundedFuns = set([x for x in functionsWithUnboundedLoop if x not in functionsBoundedByPreemptionOnly])
     if unexpectedUnboundedFuns:
         print 'functions with unbounded loop and not bounded by preemption: %s' % str(unexpectedUnboundedFuns)

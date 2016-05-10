@@ -11,13 +11,26 @@ import re
 from elf_file import elfFile
 from addr_utils import phyAddrP
 
-#write all loop heads with current bound (can be dummy) to dir_name/loop_counts.py
-def genLoopheads(bin_loops_by_fs, dir_name):
-    h_f = open('%s/loop_counts.py' % dir_name,'w')
+def genLoopheads(bin_loops_by_fs, dir_name, incremental_head=None ):
+    '''
+    write all loop heads with current bound (can be dummy) to dir_name/loop_counts.py
+    If incremental_head is specified (as (function_name, head)), reload from loop_counts and update only that entry from bin_loops_by_fs. This allows us to manually edit loop_counts.py while the tool is running.
+    '''
+    if incremental_head is not None:
+        loop_counts_file_name = '%s/loop_counts.py' % dir_name
+        context = {}
+        execfile(loop_counts_file_name, context)
+        lbfs = context['loops_by_fs']
+        f, head = incremental_head
+        lbfs[f][head] = bin_loops_by_fs[f][head]
+    else:
+        lbfs = bin_loops_by_fs
+
+    h_f = open(loop_counts_file_name,'w')
     h_f.write('loops_by_fs = {\n')
     imm_l_f = open ('%s/imm_counts' % dir_name,'w')
-    for f in sorted(bin_loops_by_fs):
-        loops = bin_loops_by_fs[f]
+    for f in sorted(lbfs):
+        loops = lbfs[f]
         h_f.write('\'%s\': {\n' % f)
         for head in sorted(loops):
             bound,desc = loops[head]
