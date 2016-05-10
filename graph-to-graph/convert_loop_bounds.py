@@ -36,7 +36,6 @@ def convert_loop_bounds(target_dir_name):
     assert 'loops_by_fs' in context
     lbfs = context['loops_by_fs']
     bin_heads = loopHeadsFromLBFS(lbfs)
-    lbfs = {}
     functionsWithUnboundedLoop = set()
     #all_loop_heads = loop_bounds.get_all_loop_heads()
     print 'bin_heads: ' + str(bin_heads)
