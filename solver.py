@@ -1052,7 +1052,6 @@ class Solver:
 		return (k, hyps, response)
 
 	def close_parallel_solvers (self, ks = None):
-		import signal
 		if ks == None:
 			ks = self.parallel_solvers.keys ()
 		else:
