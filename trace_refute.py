@@ -426,7 +426,7 @@ def load_verdicts (fname):
 
 last_report = [0]
 
-def refute (inp_fname, out_fname, prev_fnames):
+def refute (inp_fname, out_fname, prev_fnames, instance = None):
 	f = open (inp_fname)
 	ctxt_arcs = parse_ctxt_arcs (f)
 	f.close ()
@@ -439,6 +439,10 @@ def refute (inp_fname, out_fname, prev_fnames):
 	report = {}
 	last_report[0] = report
 	for (ctxt, arcs) in ctxt_arcs.iteritems ():
+		if instance:
+			(a, b) = instance
+			if hash (('foo', tuple (ctxt))) % b != a:
+				continue
 		try:
 			refute_function_arcs (ctxt, arcs, ctxt_arcs)
 			report[ctxt] = 'Success'
@@ -462,7 +466,18 @@ def refute (inp_fname, out_fname, prev_fnames):
 if __name__ == '__main__':
 	args = target_objects.load_target_args ()
 	prevs = [arg[5:] for arg in args if arg.startswith ('prev:')]
-	args = [arg for arg in args if 'prev:' not in arg]
+	args = [arg for arg in args if not arg.startswith ('prev:')]
+	insts = [arg for arg in args if arg.startswith ('instance:')]
+	if insts:
+		args = [arg for arg in args if not arg.startswith ('instance:')]
+		assert len (insts) == 1, insts
+		[inst] = insts
+		bits = inst.split(':')
+		assert len (bits) == 3, (insts, bits)
+		[_, a, b] = bits
+		instance = (int (a), int (b))
+	else:
+		instance = None
 	if len (args) < 2:
 		print 'Usage: python trace_refute <target> <refutables> [prev:output] <output>'
 		print 'where <target> as per graph-refine, <refutables> from reconstruct.py'
@@ -471,7 +486,9 @@ if __name__ == '__main__':
 		print 'e.g. python trace_refute new-gcc-O2 new-gcc-O2/ctxt_arcs.txt prev:refutes.txt refutes.txt'
 		sys.exit (1)
 	else:
-		(new, _) = refute (args[0], args[1], prevs)
+		(new, _) = refute (args[0], args[1], prevs,
+			instance = instance)
+		import sys
 		if new:
 			sys.exit (127)
 		else:
