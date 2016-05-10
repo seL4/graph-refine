@@ -19,8 +19,14 @@ functionsBoundedByPreemptionOnly = set(['cancelAllIPC', 'cancelBadgedSends', 'ca
 #extract all loop heads from loops_by_fs
 def loopHeadsFromLBFS(lbfs):
     ret = []
+    n_ignored = 0
     for f in lbfs:
-        ret += lbfs[f].keys()
+        for head in lbfs[f]:
+            if "ignore" not in lbfs[f][head][1]:
+                ret += lbfs[f].keys()
+            else:
+                n_ignored +=1
+    print 'ignored %d loops' % n_ignored 
     return ret
 
 def convert_loop_bounds(target_dir_name):
@@ -47,11 +53,11 @@ def convert_loop_bounds(target_dir_name):
             print "Unexpected error:", sys.exc_info()
             raise
         if ret == None or ret[1]== 'None':
-            lbfs[f][head] = (2**30,'dummy: None')
+            lbfs[f][head] = (2**30,'ignore: failed')
             functionsWithUnboundedLoop.add(f)
         else:
             lbfs[f][head] = ret
-    imm_utils.genLoopheads(lbfs, target_objects.target_dir)
+        imm_utils.genLoopheads(lbfs, target_objects.target_dir)
     unexpectedUnboundedFuns = set([x for x in functionsWithUnboundedLoop if x not in functionsBoundedByPreemptionOnly])
     if unexpectedUnboundedFuns:
         print 'functions with unbounded loop and not bounded by preemption: %s' % str(unexpectedUnboundedFuns)
@@ -59,10 +65,13 @@ def convert_loop_bounds(target_dir_name):
     return lbfs
 
 if __name__== '__main__':
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("target_dir_name")
+    args = parser.parse_args()
+    target_dir_name = args.target_dir_name
+    print "target_dir_name %s" % target_dir_name
     addr_to_bound = {}
-    if (len(sys.argv) != 2):
-        print 'target directory required'
-        sys.exit(-1)
     target_dir_name = sys.argv[1]
     lbfs = convert_loop_bounds(target_dir_name)
     if lbfs is None:
