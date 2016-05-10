@@ -12,7 +12,7 @@ from elf_file import elfFile
 from addr_utils import phyAddrP
 
 #keep giving a worker loops to work on until we hit this number
-MIN_WORKER_LOAD=4
+MIN_WORKER_LOAD=6
 
 def genLoopheads(bin_loops_by_fs, dir_name, incremental_head=None ):
     '''
