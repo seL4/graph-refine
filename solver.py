@@ -372,10 +372,8 @@ def smt_expr_memacc (m, p, typ, solv):
 		top_acc = smt_expr_memacc (top, p, typ, solv)
 		bot_acc = smt_expr_memacc (bot, p, typ, solv)
 		return '(ite (bvule %s %s) %s %s)' % (split, p, top_acc, bot_acc)
-	if typ.num == 8:
-		sexp = '(load-word8 %s %s)' % (m, p)
-	elif typ.num == 32:
-		sexp = '(load-word32 %s %s)' % (m, p)
+	if typ.num in [8, 32, 64]:
+		sexp = '(load-word%d %s %s)' % (typ.num, m, p)
 	else:
 		assert not 'word load type supported'
 	solv.note_model_expr (sexp, typ)
@@ -400,9 +398,10 @@ def smt_expr_memupd (m, p, v, typ, solv):
 		solv.note_model_expr ('(load-word32 %s %s)' % (m, p_align),
 			syntax.word32T)
 		return '(store-word8 %s %s %s)' % (m, p, v)
-	elif typ.num == 32:
-		solv.note_model_expr ('(load-word32 %s %s)' % (m, p), typ)
-		return '(store-word32 %s %s %s)' % (m, p, v)
+	elif typ.num in [32, 64]:
+		solv.note_model_expr ('(load-word%d %s %s)' % (typ.num, m, p),
+			typ)
+		return '(store-word%d %s %s %s)' % (typ.num, m, p, v)
 	else:
 		assert not 'MemUpdate word width supported', typ
 
@@ -510,6 +509,15 @@ mem_word32_preamble = [
 '''(define-fun store-word32 ((m {MemSort}) (p (_ BitVec 32)) (v (_ BitVec 32)))
 	{MemSort}
 (store m ((_ extract 31 2) p) v))''',
+'''(define-fun load-word64 ((m {MemSort}) (p (_ BitVec 32)))
+	(_ BitVec 64)
+(bvor ((_ zero_extend 32) (load-word32 m p))
+	(bvshl ((_ zero_extend 32)
+		(load-word32 m (bvadd p #x00000004))) #x0000000000000020)))''',
+'''(define-fun store-word64 ((m {MemSort}) (p (_ BitVec 32)) (v (_ BitVec 64)))
+        {MemSort}
+(store-word32 (store-word32 m p ((_ extract 31 0) v))
+	(bvadd p #x00000004) ((_ extract 63 32) v)))''',
 '''(define-fun word8-shift ((p (_ BitVec 32))) (_ BitVec 32)
 (bvshl ((_ zero_extend 30) ((_ extract 1 0) p)) #x00000003))''',
 '''(define-fun word8-get ((p (_ BitVec 32)) (x (_ BitVec 32))) (_ BitVec 8)

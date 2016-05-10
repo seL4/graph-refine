@@ -626,6 +626,8 @@ def compute_immediate_stack_bounds (idents, names):
 	immed = {}
 	names = sorted (names)
 	for (i, fname) in enumerate (names):
+		printout ('Doing stack analysis for %r. (%d of %d)' % (fname,
+			i + 1, len (names)))
 		fun = functions[fname]
 		(offs, fn_offs) = guess_asm_stack_depth (fun)
 		callables = ident_callables (fname, fn_offs.keys (), idents)
@@ -635,8 +637,6 @@ def compute_immediate_stack_bounds (idents, names):
 				for ident2 in idents.get (fname2, [true_term])
 				if callables[(ident, fname2, ident2)]]
 			immed[(fname, ident)] = (offs, dict (calls))
-		printout ('Done stack analysis for %r. (%d of %d)' % (fname,
-			i + 1, len (names)))
 	last_immediate_stack_bounds[0] = immed
 	return immed
 
