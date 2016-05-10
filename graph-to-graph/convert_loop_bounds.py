@@ -30,7 +30,7 @@ def loopHeadsToWorkOn(lbfs, worker):
     print 'working on %s' % str(map(hex,ret))
     return ret
 
-def convert_loop_bounds(target_dir_name, worker_id):
+def convert_loop_bounds(target_dir_name, worker_id, cached_only):
     args = target_objects.load_target(target_dir_name)
     context = {}
     execfile('%s/loop_counts.py' % target_objects.target_dir,context)
@@ -46,7 +46,7 @@ def convert_loop_bounds(target_dir_name, worker_id):
             lbfs[f] = {}
         ret= None
         try:
-            ret = loop_bounds.get_bound_super_ctxt(head,[])
+            ret = loop_bounds.get_bound_super_ctxt(head,[],cached_only)
         except problem.Abort, e:
             print 'failed to analyse %s, problem aborted' % f
         except:
@@ -54,7 +54,11 @@ def convert_loop_bounds(target_dir_name, worker_id):
             raise
         old_worker = lbfs[f][head][2]
         if ret == None or ret[1]== 'None':
-            lbfs[f][head] = (2**30, 'ignore: failed', old_worker)
+            if cached_only:
+                comment = 'did not find cached result'
+            else:
+                comment = 'ignore: failed'
+            lbfs[f][head] = (2**30, comment, old_worker)
             functionsWithUnboundedLoop.add(f)
         else:
             lbfs[f][head] = (ret[0],ret[1], old_worker)
@@ -70,13 +74,14 @@ if __name__== '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("target_dir_name")
     parser.add_argument('worker_id', type=int, help="what bound marker is this instance responsible for, -1 means everything")
+    parser.add_argument('--cached_only', type=bool, default=False, help="Only read what's cached in LoopBounds.txt")
     args = parser.parse_args()
     worker_id = args.worker_id
     target_dir_name = args.target_dir_name
     print "I am worker %d" % worker_id
     addr_to_bound = {}
     target_dir_name = sys.argv[1]
-    lbfs = convert_loop_bounds(target_dir_name, worker_id)
+    lbfs = convert_loop_bounds(target_dir_name, worker_id, cached_only = args.cached_only)
     if lbfs is None:
         sys.exit(-1)
 
