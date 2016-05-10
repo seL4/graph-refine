@@ -140,7 +140,9 @@ class immFunc (Borg):
               if fun in elfFile().deadend_funcs:
                 continue
               loopheads.append((x, f))
-              loops_by_fs[f][x] = (2**30,'dummy') 
+              #the 0 worker_id will get ignored by genLoopHeads.
+              #FIXME: do this properly..
+              loops_by_fs[f][x] = (2**30,'dummy',0) 
         assert loopheads
         for p_nf in loopheads:
           p_n, f = p_nf

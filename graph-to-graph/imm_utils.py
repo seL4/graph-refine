@@ -11,13 +11,16 @@ import re
 from elf_file import elfFile
 from addr_utils import phyAddrP
 
+#keep giving a worker loops to work on until we hit this number
+MIN_WORKER_LOAD=4
+
 def genLoopheads(bin_loops_by_fs, dir_name, incremental_head=None ):
     '''
     write all loop heads with current bound (can be dummy) to dir_name/loop_counts.py
     If incremental_head is specified (as (function_name, head)), reload from loop_counts and update only that entry from bin_loops_by_fs. This allows us to manually edit loop_counts.py while the tool is running.
     '''
+    loop_counts_file_name = '%s/loop_counts.py' % dir_name
     if incremental_head is not None:
-        loop_counts_file_name = '%s/loop_counts.py' % dir_name
         context = {}
         execfile(loop_counts_file_name, context)
         lbfs = context['loops_by_fs']
@@ -29,20 +32,28 @@ def genLoopheads(bin_loops_by_fs, dir_name, incremental_head=None ):
     h_f = open(loop_counts_file_name,'w')
     h_f.write('loops_by_fs = {\n')
     imm_l_f = open ('%s/imm_counts' % dir_name,'w')
+    worker = 0
+    worker_load = 0
     for f in sorted(lbfs):
+        if worker_load >= MIN_WORKER_LOAD:
+            worker += 1
+            worker_load = 0
         loops = lbfs[f]
         h_f.write('\'%s\': {\n' % f)
         for head in sorted(loops):
-            bound,desc = loops[head]
+            worker_load += 1
+            bound, desc, existing_worker = loops[head]
             if bound < 2046 or desc == 'dummy':
                 #print large bounds in hex
                 s_bound = str(bound)
             else:
                 s_bound = hex(bound)
-            h_f.write(' 0x%x : ( %s, \'%s\') ,\n' % (head, s_bound, desc))
+            if incremental_head == None:
+                h_f.write(' 0x%x : ( %s, \'%s\', %s) ,\n' % (head, s_bound, desc, worker))
+            else:
+                h_f.write(' 0x%x : ( %s, \'%s\', %s) ,\n' % (head, s_bound, desc, existing_worker))
             imm_l_f.write('l 0x%x %s\n' % (head, s_bound))
         h_f.write('},\n')
-
     h_f.write('}\n')
     h_f.close()
     imm_l_f.close()

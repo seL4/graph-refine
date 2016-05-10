@@ -17,25 +17,26 @@ import sys
 functionsBoundedByPreemptionOnly = set(['cancelAllIPC', 'cancelBadgedSends', 'cancelAllSignals'])
 
 #extract all loop heads from loops_by_fs
-def loopHeadsFromLBFS(lbfs):
+def loopHeadsToWorkOn(lbfs, worker):
     ret = []
     n_ignored = 0
     for f in lbfs:
         for head in lbfs[f]:
-            if "ignore" not in lbfs[f][head][1]:
-                ret += lbfs[f].keys()
-            else:
+            if "ignore" in lbfs[f][head][1]:
                 n_ignored +=1
-    print 'ignored %d loops' % n_ignored 
+            elif (worker == -1) or (lbfs[f][head][2] == worker):
+                ret += lbfs[f].keys()
+    print 'ignored %d loops' % n_ignored
+    print 'working on %s' % str(map(hex,ret))
     return ret
 
-def convert_loop_bounds(target_dir_name):
+def convert_loop_bounds(target_dir_name, worker_id):
     args = target_objects.load_target(target_dir_name)
     context = {}
     execfile('%s/loop_counts.py' % target_objects.target_dir,context)
     assert 'loops_by_fs' in context
     lbfs = context['loops_by_fs']
-    bin_heads = loopHeadsFromLBFS(lbfs)
+    bin_heads = loopHeadsToWorkOn(lbfs, worker_id)
     functionsWithUnboundedLoop = set()
     #all_loop_heads = loop_bounds.get_all_loop_heads()
     print 'bin_heads: ' + str(bin_heads)
@@ -51,11 +52,12 @@ def convert_loop_bounds(target_dir_name):
         except:
             print "Unexpected error:", sys.exc_info()
             raise
+        old_worker = lbfs[f][head][2]
         if ret == None or ret[1]== 'None':
-            lbfs[f][head] = (2**30,'ignore: failed')
+            lbfs[f][head] = (2**30, 'ignore: failed', old_worker)
             functionsWithUnboundedLoop.add(f)
         else:
-            lbfs[f][head] = ret
+            lbfs[f][head] = (ret[0],ret[1], old_worker)
         imm_utils.genLoopheads(lbfs, target_objects.target_dir, incremental_head=(f,head))
     unexpectedUnboundedFuns = set([x for x in functionsWithUnboundedLoop if x not in functionsBoundedByPreemptionOnly])
     if unexpectedUnboundedFuns:
@@ -67,12 +69,14 @@ if __name__== '__main__':
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("target_dir_name")
+    parser.add_argument('worker_id', type=int, help="what bound marker is this instance responsible for, -1 means everything")
     args = parser.parse_args()
+    worker_id = args.worker_id
     target_dir_name = args.target_dir_name
-    print "target_dir_name %s" % target_dir_name
+    print "I am worker %d" % worker_id
     addr_to_bound = {}
     target_dir_name = sys.argv[1]
-    lbfs = convert_loop_bounds(target_dir_name)
+    lbfs = convert_loop_bounds(target_dir_name, worker_id)
     if lbfs is None:
         sys.exit(-1)
 
