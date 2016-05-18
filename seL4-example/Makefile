@@ -84,7 +84,7 @@ H4PATH=$(realpath ${HOL4_ROOT}/bin):${PATH}
 
 ASMFunctions.txt: kernel.elf.txt kernel.sigs
 	PATH=${H4PATH} build
-	PATH=${H4PATH} ${DECOMP_SCRIPT} ./kernel --ignore=fastpath_restore,slowpath
+	PATH=${H4PATH} ${DECOMP_SCRIPT} --fast ./kernel --ignore=fastpath_restore,slowpath
 	# we move the output to a new location to get around a problem where
 	# the decompiler can fail leaving an incomplete output file.
 	mv kernel_mc_graph.txt ASMFunctions.txt
