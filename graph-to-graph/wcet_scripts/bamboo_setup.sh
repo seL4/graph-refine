@@ -16,7 +16,7 @@ SETUP_ROOT=${DIR}/../../../
 
 #setup HOL4
 cd $SETUP_ROOT/HOL4
-echo 'val polymllibdir = "'$POLY../";' > ./tools-poly/poly-includes.ML
+echo 'val polymllibdir = ' $POLY '../;' > ./tools-poly/poly-includes.ML
 echo 'configuring HOL4'
 $POLY < tools/smart-configure.sml
 echo 'HOL4 configured, building ...'
