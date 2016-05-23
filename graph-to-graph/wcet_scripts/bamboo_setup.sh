@@ -21,5 +21,4 @@ echo 'val polymllibdir= "'$POLY_LIB_DIR'";' > ./tools-poly/poly-includes.ML
 echo 'configuring HOL4'
 $POLY < tools/smart-configure.sml
 echo 'HOL4 configured, building ...'
-$SETUP_ROOT/HOL4/bin/build
-
+./bin/build
