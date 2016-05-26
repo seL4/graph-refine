@@ -64,7 +64,7 @@ kernel.elf.rodata: kernel.elf
 	${OBJDUMP} -z -D -j .rodata $^ > $@
 
 kernel.elf.txt: kernel.elf
-	${OBJDUMP} -d $^ > $@
+	${OBJDUMP} -dz $^ > $@
 
 kernel.elf.symtab: kernel.elf
 	${OBJDUMP} -t $^ > $@

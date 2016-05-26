@@ -57,11 +57,11 @@
 
     <sequence >
         <test name="DummyLoopHeads" cwd= "./">
-        python graph_to_graph.py ../graph-refine-internal/2.1-example handleSyscall --l
+        python graph_to_graph.py ../seL4-example handleSyscall --l
         </test>
         
         <test name="DeriveLoopBounds" cwd= "./" cpu-timeout="100">
-        python convert_loop_bounds.py ../graph-refine-internal/2.1-example
+        python convert_loop_bounds.py ../seL4-example
         </test>
     </sequence>
 
