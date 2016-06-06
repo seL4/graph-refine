@@ -992,8 +992,16 @@ class GraphSlice:
 		interp_imps = list (enumerate ([self.interpret_hyp_imps (hyps,
 				self.interpret_hyp (hyp))
 			for (hyps, hyp) in imps]))
+		reqs = list (self.pc_env_requests)
+		last_test[0] = (self.interpret_hyp (hyp), hyps, reqs)
 		self.solv.add_pvalid_dom_assertions ()
-		return self.solv.parallel_test_hyps (interp_imps, {})
+		result = self.solv.parallel_test_hyps (interp_imps, {})
+		assert result[0] in [True, False], result
+		if result[0] == False:
+			(hyps, hyp) = imps[result[1]]
+			last_test[0] = (self.interpret_hyp (hyp), hyps, reqs)
+			last_failed_test[0] = last_test[0]
+		return result
 
 	def replay_requests (self, reqs):
 		for ((n, vc), tag) in reqs:

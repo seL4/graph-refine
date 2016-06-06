@@ -722,10 +722,12 @@ def compute_recursion_idents (group, extra_unfolds):
 	idents = {}
 	group = set (group)
 	recursion_trace.append ('Computing for group %s' % group)
+	trace ('Computing recursion idents for group %s' % group)
 	prevs = set ([f for f in functions
 		if [f2 for f2 in functions[f].function_calls () if f2 in group]])
 	for f in prevs - group:
 		recursion_trace.append ('  checking for %s' % f)
+		trace ('Checking idents for %s' % f)
 		while add_recursion_ident (f, group, idents, extra_unfolds):
 			pass
 	return idents
