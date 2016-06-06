@@ -356,9 +356,27 @@ def check_compile (func):
 				print node
 				assert not 'compiled'
 
+def subst_expr (expr):
+	if expr.kind == 'Symbol':
+		return mk_word32 (symbols[expr.name][0])
+	elif expr.is_op ('PAlignValid'):
+		[typ, p] = expr.vals
+		assert typ.kind == 'Type'
+		return logic.mk_align_valid_ineq (('Type', typ.val), p)
+	elif expr.kind in ['Op', 'Var', 'Num', 'Type']:
+		return None
+	else:
+		assert not 'expression simple-substitutable', expr
+
+def substitute_simple (func):
+	from syntax import Node
+	for (n, node) in func.nodes.items ():
+		func.nodes[n] = node.subst_exprs (subst_expr,
+			ss = set (['Symbol', 'PAlignValid']))
+
 def compile_funcs (functions):
 	for (f, func) in functions.iteritems ():
-		compile_struct_use (func)
+		substitute_simple (func)
 		check_compile (func)
 
 def combine_duplicate_nodes (nodes):

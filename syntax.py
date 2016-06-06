@@ -483,7 +483,7 @@ class Expr:
 	def gen_visit (self, visit_lval, visit_rval):
 		self.visit (visit_rval)
 
-	def subst (self, substor):
+	def subst (self, substor, ss = None):
 		ret = False
 		if self.kind == 'Op':
 			subst_vals = subst_list (substor, self.vals)
@@ -491,9 +491,10 @@ class Expr:
 				self = Expr ('Op', self.typ, name = self.name,
 					vals = subst_vals)
 				ret = True
-		sub = substor (self)
-		if sub != None:
-			return sub
+		if (ss == None or self.kind in ss):
+			r = substor (self)
+			if r != None:
+				return r
 		if ret:
 			return self
 		return
@@ -579,8 +580,8 @@ def tuplify (x):
 def hash_tuplify (* xs):
 	return hash (tuplify (xs))
 
-def subst_list (substor, xs):
-	ys = [x.subst (substor) for x in xs]
+def subst_list (substor, xs, ss = None):
+	ys = [x.subst (substor, ss = ss) for x in xs]
 	if [y for y in ys if y != None]:
 		xs = list (xs)
 		for (i, y) in enumerate (ys):
@@ -682,22 +683,23 @@ class Node:
 	def gen_visit (self, visit_lval, visit_rval):
 		self.visit (visit_lval, visit_rval)
 
-	def subst_exprs (self, substor):
+	def subst_exprs (self, substor, ss = None):
 		if self.kind == 'Basic':
-			rvs = subst_list (substor, [v for (lv, v) in self.upds])
+			rvs = subst_list (substor,
+				[v for (lv, v) in self.upds], ss = ss)
 			if rvs == None:
-				return None
+				return self
 			return Node ('Basic', self.cont,
 				zip ([lv for (lv, v) in self.upds], rvs))
 		elif self.kind == 'Cond':
-			r = self.cond.subst (substor)
+			r = self.cond.subst (substor, ss = ss)
 			if r == None:
-				return None
+				return self
 			return Node ('Cond', [self.left, self.right], r)
 		elif self.kind == 'Call':
-			args = subst_list (substor, self.args)
+			args = subst_list (substor, self.args, ss = ss)
 			if args == None:
-				return None
+				return self
 			return Node ('Call', self.cont, (self.fname,
 				args, self.rets))
 
@@ -732,8 +734,8 @@ class Node:
 def rename_lval ((name, typ), renames):
 	return (renames.get (name, name), typ)
 
-def do_subst (expr, substor):
-	r = expr.subst (substor)
+def do_subst (expr, substor, ss = None):
+	r = expr.subst (substor, ss = ss)
 	if r == None:
 		return expr
 	else:
@@ -742,25 +744,19 @@ def do_subst (expr, substor):
 standard_expr_kinds = set (['Symbol', 'ConstGlobal', 'Var', 'Op', 'Num',
 	'Type'])
 
-def rename_expr_substor (renames):
+def rename_expr (expr, renames):
 	def ren (expr):
 		if expr.kind == 'Var' and expr.name in renames:
 			return mk_var (renames[expr.name], expr.typ)
-		elif expr.kind not in standard_expr_kinds:
-			assert not 'expr kind known', expr
 		else:
 			return
-	return ren
-
-def rename_expr (expr, renames):
-	return do_subst (expr, rename_expr_substor (renames))
+	return do_subst (expr, rename_expr_substor (renames),
+		ss = set (['Var']))
 
 def copy_rename (node, renames):
 	(vs, ns) = renames
 	nf = lambda n: ns.get (n, n)
-	n2 = node.subst_exprs (rename_expr_substor (vs))
-	if n2 != None:
-		node = n2
+	node = node.subst_exprs (rename_expr_substor (vs))
 	if node.kind == 'Call':
 		return Node ('Call', nf (node.cont), (node.fname, node.args,
                               [rename_lval (l, vs) for l in node.rets]))
