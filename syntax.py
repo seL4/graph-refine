@@ -732,6 +732,13 @@ class Node:
 def rename_lval ((name, typ), renames):
 	return (renames.get (name, name), typ)
 
+def do_subst (expr, substor):
+	r = expr.subst (substor)
+	if r == None:
+		return expr
+	else:
+		return r
+
 standard_expr_kinds = set (['Symbol', 'ConstGlobal', 'Var', 'Op', 'Num',
 	'Type'])
 
@@ -746,11 +753,7 @@ def rename_expr_substor (renames):
 	return ren
 
 def rename_expr (expr, renames):
-	r = expr.subst (rename_expr_substor (renames))
-	if r == None:
-		return expr
-	else:
-		return r
+	return do_subst (expr, rename_expr_substor (renames))
 
 def copy_rename (node, renames):
 	(vs, ns) = renames

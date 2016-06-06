@@ -276,16 +276,16 @@ def var_match (var_exp, conc_exp, assigns):
 		return False
 
 def var_subst (var_exp, assigns, must_subst = True):
-	if var_exp.kind == 'Var':
-		k = (var_exp.name, var_exp.typ)
-		if must_subst or k in assigns:
-			return assigns[k]
-		return var_exp
-	elif var_exp.kind == 'Op':
-		return Expr ('Op', var_exp.typ, name = var_exp.name, vals =
-			[var_subst (v, assigns, must_subst) for v in var_exp.vals])
-	else:
-		return var_exp
+	def substor (var_exp):
+		if var_exp.kind == 'Var':
+			k = (var_exp.name, var_exp.typ)
+			if must_subst or k in assigns:
+				return assigns[k]
+			else:
+				return None
+		else:
+			return None
+	return syntax.do_subst (var_exp, substor)
 
 def recursive_term_subst (eqs, expr):
 	if expr in eqs:
