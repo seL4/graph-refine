@@ -89,12 +89,17 @@ ASMFunctions.txt: kernel.elf.txt kernel.sigs
 	# the decompiler can fail leaving an incomplete output file.
 	mv kernel_mc_graph.txt ASMFunctions.txt
 
-KERNEL_ALL_FILES= kernel_all.c_pp ${CSPEC_PATH}/kernel_all.c_pp
+L4V_KERNEL_ALL= ${CSPEC_PATH}/kernel_all.c_pp
+
+$(L4V_KERNEL_ALL): .FORCE
+	MAKEFILES= make -C ${L4V_ROOT}/spec c-kernel
+
+KERNEL_ALL_FILES= kernel_all.c_pp $(L4V_KERNEL_ALL)
 
 CFunctions.txt: $(KERNEL_ALL_FILES) ${L4V_ROOT}/tools/asmrefine/*.thy
-	MAKEFILES= make -C ${L4V_ROOT}/proof/ SimplExportOnly
 	# it's important that the parser and compiler see the same source
 	diff -qs --ignore-matching-lines='^#' ${KERNEL_ALL_FILES}
+	MAKEFILES= make -C ${L4V_ROOT}/proof/ SimplExportOnly
 	cp ${L4V_ROOT}/proof/asmrefine/CFunDump.txt CFunctions.txt
 
 GRAPH_REFINE_INPUTS= kernel.elf.rodata kernel.elf.symtab ASMFunctions.txt \
@@ -109,3 +114,5 @@ report.txt: StackBounds.txt ${GRAPH_REFINE_INPUTS}
 
 default: report.txt
 
+.PHONY: .FORCE
+.FORCE:
