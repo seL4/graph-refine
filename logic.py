@@ -738,7 +738,8 @@ def compute_var_cycle_analysis (nodes, n, loop, preds, const_vars, vs,
 			return cache[(n2, v)]
 		if n2 == n and do_cmp:
 			var_exp = mk_var (v[0], v[1])
-			return (set([v]), var_exp)
+			vs = set ([v for v in [v] if v not in const_vars])
+			return (vs, var_exp)
 		warm_cache_before (n2, v)
 		ps = [n3 for n3 in preds[n2] if n3 in loop]
 		vs = [var_eval_after (n3, v) for n3 in ps]
