@@ -744,12 +744,15 @@ def do_subst (expr, substor, ss = None):
 standard_expr_kinds = set (['Symbol', 'ConstGlobal', 'Var', 'Op', 'Num',
 	'Type'])
 
-def rename_expr (expr, renames):
+def rename_expr_substor (renames):
 	def ren (expr):
 		if expr.kind == 'Var' and expr.name in renames:
 			return mk_var (renames[expr.name], expr.typ)
 		else:
 			return
+	return ren
+
+def rename_expr (expr, renames):
 	return do_subst (expr, rename_expr_substor (renames),
 		ss = set (['Var']))
 
