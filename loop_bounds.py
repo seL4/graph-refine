@@ -360,7 +360,8 @@ def serialise_bound (addr, bound_info):
       assert str (kind) == kind
       return [hex (addr), str (bound), kind]
 
-def save_bound (glob, split_bin_addr, call_ctxt, prob_hash, prev_bounds, bound):
+def save_bound (glob, split_bin_addr, call_ctxt, prob_hash, prev_bounds, bound,
+        time = None):
     f_names = [trace_refute.get_body_addrs_fun (x)
       for x in call_ctxt + [split_bin_addr]]
     loop_name = '<%s>' % ' -> '.join (f_names)
@@ -380,6 +381,8 @@ def save_bound (glob, split_bin_addr, call_ctxt, prob_hash, prev_bounds, bound):
     f = open ('%s/LoopBounds.txt' % target_objects.target_dir, 'a')
     f.write (comment + '\n')
     f.write (s + '\n')
+    if time != None:
+        f.write ('LoopBoundTiming for %s is %s\n' % (loop_name, time))
     f.close ()
     trace ('Found bound %s for 0x%x in %s.' % (bound, split_bin_addr,
       loop_name))
@@ -424,6 +427,8 @@ def load_bounds ():
         known.append ((ctxt, prob_hash, bound))
     known_bounds['Loaded'] = True
 
+import time
+
 def get_bound_ctxt (split, call_ctxt):
     trace ('Getting bound for 0x%x in context %s.' % (split, call_ctxt))
     (p, hyps, addr_map) = get_call_ctxt_problem (split, call_ctxt)
@@ -453,6 +458,10 @@ def get_bound_ctxt (split, call_ctxt):
           split2, bound)
         known_bound_restr_hyps[k] = (restrs, hyps)
 
+    # start timing now. we miss some setup time, but it avoids double counting
+    # the recursive searches.
+    start = time.time ()
+
     p_h = problem_hash (p)
     prev_bounds = sorted (prev_bounds)
     if not known_bounds:
@@ -465,7 +474,9 @@ def get_bound_ctxt (split, call_ctxt):
     bound = search_bin_bound (p, restrs, hyps, split)
     known = known_bounds.setdefault (split_bin_addr, [])
     known.append ((call_ctxt, p_h, prev_bounds, bound))
-    save_bound (False, split_bin_addr, call_ctxt, p_h, prev_bounds, bound)
+    end = time.time ()
+    save_bound (False, split_bin_addr, call_ctxt, p_h, prev_bounds, bound,
+        time = end - start)
     return bound
 
 def problem_hash (p):
