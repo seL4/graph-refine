@@ -792,7 +792,8 @@ def get_functions_hash ():
     functions_hash[0] = h
     return h
 
-def get_bound_super_ctxt (split, call_ctxt, known_bound_only=False):
+def get_bound_super_ctxt (split, call_ctxt, no_splitting=False,
+        known_bound_only=False):
     if not known_bounds:
       load_bounds ()
     for (ctxt2, fn_hash, bound) in known_bounds.get ((split, 'Global'), []):
@@ -808,16 +809,22 @@ def get_bound_super_ctxt (split, call_ctxt, known_bound_only=False):
 
     if known_bound_only:
         return None
+    no_splitting_abort = [False]
     try:
-      bound = get_bound_super_ctxt_inner (split, call_ctxt)
+      bound = get_bound_super_ctxt_inner (split, call_ctxt,
+        no_splitting = (no_splitting, no_splitting_abort))
     except problem.Abort, e:
       bound = None
+    if no_splitting_abort[0]:
+      # don't record this bound, since it might change if splitting was allowed
+      return bound
     known = known_bounds.setdefault ((split, 'Global'), [])
     known.append ((call_ctxt, get_functions_hash (), bound))
     save_bound (True, split, call_ctxt, get_functions_hash (), None, bound)
     return bound
 
-def get_bound_super_ctxt_inner (split, call_ctxt):
+def get_bound_super_ctxt_inner (split, call_ctxt,
+      no_splitting = (False, None)):
     first_f = trace_refute.identify_function ([], (call_ctxt + [split])[:1])
     call_sites = all_call_sites (first_f)
 
@@ -828,6 +835,10 @@ def get_bound_super_ctxt_inner (split, call_ctxt):
     if bound:
       return bound
 
+    if no_splitting[0]:
+      no_splitting[1] = True
+      return None
+
     if len (call_ctxt) >= 3:
       return None
 
@@ -835,7 +846,8 @@ def get_bound_super_ctxt_inner (split, call_ctxt):
       # either entry point or nonsense
       return None
 
-    anc_bounds = [get_bound_ctxt (split, [call_site] + call_ctxt)
+    anc_bounds = [get_bound_super_ctxt (split, [call_site] + call_ctxt,
+        no_splitting = True)
       for call_site in call_sites]
     if None in anc_bounds:
       return None
