@@ -556,70 +556,48 @@ def search_bound (p, restrs, hyps, split):
 
     return None
 
-def old_searchBound (p, restrs, hyps, split):
-    results = []
-    b_searchable = False
-    ret = getOffset(split,p)
-    if ret:
-        moving_regs, offset = ret
-        print '         moving_regs are %s, offset: %d' % (moving_regs,offset)
-        exit_conds = getExitCond(split,p)
-        b_searchable = exit_conds != None and True in [canBSearch(ec,p)
-            for ec in exit_conds]
-        #if at least one of the exit conds is a less/larger than test, we can b search this
-        ret = guessBound(split,p, restrs)
-        if ret:
-            vals = ret
-            print '         vals= %s' % str(vals)
-            guesses = vals 
-            print '         guesses are %s' % str(guesses)
-
-            ret = tryGuessesInduct(guesses, split,p,offset,restrs,hyps)
-            if not ret:
-              print 'Oops !'
-            else:
-              print 'found bound: %d / 0x%x' % (ret,ret)
-              results.append((ret, 'InductGuess'))
-            print 'blindly guessing constants'
-            consts = allConstants(split,p)
-            consts += extra_loop_consts
-            const_guesses = [x/offset for x in consts]
-            const_guesses = [x for x in const_guesses if x > 30 and x < 0xf0000000]
-            print 'guesses are : %s' % str(const_guesses)
-            ret = tryGuessesInduct(consts, split,p,offset,restrs,hyps)
-            if not ret == None:
-               print 'blind constant guess worked : %d/%x' % (ret,ret)
-               results.append((ret, 'InductConstGuess'))
-            else:
-               print 'blind guesses failed'
-
-    maxi = None
-    if results:
-      # the state might not look binary-searchable, but if we
-      # find a result by decrementing our current guess, we should
-      # search lower anyway
-      (maxi, _) = min (results)
-    else:
-      print 'getting max bound for b search'
-      #firstly get a max bound
-      bound_try_seq = [0x1000,0x2000000]
-      for (i,guess) in enumerate(bound_try_seq):
-        print 'trying %x' % guess
-        valid = findLoopBoundInduct(split, p, guess, offset, restrs, hyps)
-        print 'valid: %s' % valid
-        if valid:
-          print 'Got maximum bound ! %d' % guess
-          maxi = guess
-          break
-
-    if not maxi == None:
-      print 'b searching with induction !'
-      tryFun = lambda x: findLoopBoundInduct(split, p, x, offset, restrs, hyps)
-      results.append( (downBinSearch(1, maxi, tryFun), 'DownwardInduct') )
-
-    if results:
-      return min (results)
+def function_limit (fname):
+    for hook in target_objects.hooks ('wcet_function_limits'):
+      if fname in hook:
+        return hook[fname]
     return None
+
+def limited_function_calls (fname):
+    if fname in limited_function_calls_cache:
+      return limited_function_calls_cache[fname]
+    # compute minimum over all paths through function of total number of
+    # calls to limited functions
+    data = {'Ret': {}, 'Err': None}
+    nodes = functions[fname].nodes
+    preds = logic.compute_preds (nodes)
+    frontier = [n for s in data for n in preds[s]]
+    while frontier:
+      n = frontier.pop ()
+      if n in data:
+        continue
+      succs = nodes[n].get_conts ()
+      if [n2 for n2 in succs if n2 not in data]:
+        continue
+      succs = [data[n2] for n2 in succs if data[n2] != None]
+      if len (succs) == 0:
+        res = None
+      elif len (succs) == 1:
+        res = succs[0]
+      else:
+        ks = set.intersection (* [set (m) for m in succs])
+        res = dict ([(k, min ([m[k] for m in succs])) for k in ks])
+      if nodes[n].kind == 'Call':
+        res = dict (res)
+        for (k, ncalls) in limited_function_calls (nodes[n].fname).iteritems ():
+          res[k] = ncalls + res.get (k, 0)
+      data[n] = res
+      frontier.extend (preds[n])
+    res = data[functions[fname].entry]
+    if res == None:
+      # odd, no-return function
+      res = {}
+    limited_function_calls_cache[fname] = res
+    return res
 
 def getBinaryBoundFromC (p, c_tag, asm_split, restrs, hyps):
     c_heads = [h for h in search.init_loops_to_split (p, restrs)
@@ -828,8 +806,20 @@ def get_bound_super_ctxt_inner (split, call_ctxt,
     first_f = trace_refute.identify_function ([], (call_ctxt + [split])[:1])
     call_sites = all_call_sites (first_f)
 
-    if len (call_ctxt) < 3 and len (call_sites) == 1:
+    if function_limit (first_f) == 0:
+      return (0, 'FunctionLimit')
+    safe_call_sites = [cs for cs in call_sites
+      if ctxt_within_function_limits ([cs] + call_ctxt)]
+    if call_sites and not safe_call_sites:
+      return (0, 'FunctionLimit')
+
+    if len (call_ctxt) < 3 and len (safe_call_sites) == 1:
       return get_bound_super_ctxt (split, list (call_sites) + call_ctxt)
+
+    fname = trace_refute.identify_function (call_ctxt, [split])
+    bound = function_limit_bound (fname, split)
+    if bound:
+      return bound
 
     bound = get_bound_ctxt (split, call_ctxt)
     if bound:
@@ -848,11 +838,50 @@ def get_bound_super_ctxt_inner (split, call_ctxt,
 
     anc_bounds = [get_bound_super_ctxt (split, [call_site] + call_ctxt,
         no_splitting = True)
-      for call_site in call_sites]
+      for call_site in safe_call_sites]
     if None in anc_bounds:
       return None
     (bound, kind) = max (anc_bounds)
     return (bound, 'MergedBound')
+
+functions_reachable_within_limits = {}
+
+def function_reachable_within_limits (fname):
+    if fname in functions_reachable_within_limits:
+      return functions_reachable_within_limits[fname]
+    if function_limit (fname) == 0:
+      return False
+    sites = all_call_sites (fname)
+    if sites == []:
+      functions_reachable_within_limits[fname] = True
+      return True
+    for site in sites:
+      fname = trace_refute.identify_function ([], [site])
+      if function_reachable_within_limits (fname):
+        functions_reachable_within_limits[fname] = True
+        return True
+    functions_reachable_within_limits[fname] = False
+    return False
+
+def ctxt_within_function_limits (call_ctxt):
+    for (i, addr) in enumerate (call_ctxt):
+      fname = trace_refute.identify_function (call_ctxt[:i], [addr])
+      if function_limit (fname) == 0:
+        return False
+    fname = trace_refute.identify_function ([], [call_ctxt[0]])
+    return function_reachable_within_limits (fname)
+
+def function_limit_bound (fname, split):
+    p = functions[fname].as_problem (problem.Problem)
+    p.do_loop_analysis (skipInnerLoopCheck = True)
+    [p_split] = [n for n in p.loop_heads () if split in p.loop_body (n)]
+    splits = [n for n in p.loop_body (p_split) if p.loop_splittables[n]]
+    # doesn't cover a really odd case, but I think it's good enough
+    for n in splits:
+      if p.nodes[n].kind == 'Call':
+        if function_limit (p.nodes[n].fname) != None:
+          return (function_limit (p.nodes[n].fname), 'FunctionLimit')
+    return None
 
 def isRegName(s):
     if s in ['r0','r1','r3','r4','r5','r6','r7','r8','r9','r10','r11','r12','r13','ip']:
