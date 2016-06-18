@@ -1,0 +1,4 @@
+cd $1
+echo "Summary of git repo in $1"
+PAGER= git log -1
+git diff
