@@ -73,6 +73,14 @@ kernel.sigs: kernel_all.c_pp
 	MAKEFILES= make -C ${PARSERPATH} standalone-cparser
 	${PARSERPATH}/c-parser --mmbytes $^ > $@
 
+summary.txt: kernel_all.c_pp 
+	echo Summary > pre_summary.txt
+	bash mk_summ ${SOURCE_ROOT} > pre_summary.txt
+	bash mk_summ ${L4V_ROOT} > pre_summary.txt
+	bash mk_summ ${HOL4_ROOT} > pre_summary.txt
+	bash mk_summ . > pre_summary.txt
+	mv pre_summary.txt summary.txt
+
 kernel.tar.gz: kernel.elf.rodata kernel.elf.txt kernel.elf.symtab \
 		kernel_all.c_pp kernel.sigs \
 		kernel.elf
