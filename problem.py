@@ -34,6 +34,8 @@ class Problem:
 		self.loop_data = {}
 		self.loop_splittables = {}
 		self.node_tags = {}
+		self.node_tag_revs = {}
+		self.inline_scripts = {}
 		self.entries = []
 		self.outputs = {}
 		self.tarjan_order = []
@@ -53,6 +55,8 @@ class Problem:
 		self.next_node_name = name + 1
 
 		self.node_tags[name] = (tag, detail)
+		self.node_tag_revs.setdefault ((tag, detail), [])
+		self.node_tag_revs[(tag, detail)].append (name)
 
 		if loop_id != None:
 			self.loop_data[name] = ('Mem', loop_id)
@@ -103,6 +107,8 @@ class Problem:
 		rets = [(vs[v], typ) for (v, typ) in fun.outputs]
 		self.entries.append((entry, tag, fun.name, args))
 		self.outputs[tag] = rets
+
+		self.inline_scripts[tag] = []
 
 		return (args, rets, entry)
 
@@ -380,6 +386,15 @@ class Problem:
 		self.cached_analysis['extensions'] = extensions
 		return extensions
 
+	def replay_inline_script (self, tag, script):
+		for (detail, idx, fname) in script:
+			n = self.node_tag_revs[(tag, detail)][idx]
+			assert self.nodes[n].kind == 'Call', self.nodes[n]
+			assert self.nodes[n].fname == fname, self.nodes[n]
+			inline_at_point (self, n, do_analysis = False)
+		if script:
+			self.do_analysis ()
+
 def deserialise (name, lines):
 	assert lines[0] == 'Problem', lines[0]
 	assert lines[-1] == 'EndProblem', lines[-1]
@@ -585,16 +600,6 @@ def is_trivial_fun (fun):
 				return False
 	return True
 
-num_traced_inlines = [0]
-
-def tracer (p):
-	num_traced_inlines[0] += 1
-	name = 'inline%d.dot' % num_traced_inlines[0]
-	p.save_graph (name)
-	print 'Saved %s.' % name
-
-trace_inlines = []
-
 last_alt_nodes = [0]
 
 def avail_val (vs, typ):
@@ -610,7 +615,9 @@ def inline_at_point (p, n, do_analysis = True):
 
 	f_nm = node.fname
 	fun = functions[f_nm]
-	(tag, _) = p.node_tags[n]
+	(tag, detail) = p.node_tags[n]
+	idx = p.node_tag_revs[(tag, detail)].index (n)
+	p.inline_scripts[tag].append ((detail, idx, f_nm))
 
 	trace ('Inlining %s into %s' % (f_nm, p.name))
 	if n in p.loop_data:
@@ -637,9 +644,6 @@ def inline_at_point (p, n, do_analysis = True):
 
 	trace ('Problem size now %d' % len(p.nodes))
 	sys.stdin.flush ()
-
-	if trace_inlines:
-		trace_inlines[0] (p)
 
 	return ns.values ()
 

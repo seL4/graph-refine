@@ -17,7 +17,7 @@ import logic
 import check
 import stack_logic
 
-from target_objects import functions, trace, pairings, symbols
+from target_objects import functions, trace, pairings, symbols, printout
 import target_objects
 
 from logic import azip
@@ -87,36 +87,36 @@ def get_body_addrs_fun (n):
 		setup_body_addrs ()
 	return body_addrs.get (n)
 
+problem_inline_scripts = {}
+
+def get_problem_inline_scripts (pair):
+	if pair.name in problem_inline_scripts:
+		return problem_inline_scripts[pair.name]
+	p = check.build_problem (pair)
+	scripts = p.inline_scripts
+	problem_inline_scripts[pair.name] = scripts
+	return scripts
+
 def build_compound_problem (fnames):
 	"""mirrors build_problem from check for multiple functions"""
-	print fnames
+	printout ('Building compound problem for %s' % fnames)
 	p = problem.Problem (None, name = ', '.join(fnames))
 	fun_tag_pairs = []
 
 	all_tags = {}
-	for fn in fnames:
+	for (i, fn) in enumerate (fnames):
+		i = len (fnames) - i
 		[pair] = pairings[fn]
 		next_tags = {}
+		scripts = get_problem_inline_scripts (pair)
 		for (pair_tag, fname) in pair.funs.items ():
-			# FIXME: assuming we never repeat functions
-			tag = fname + '_' + pair_tag
+			tag = '%s_%d_%s' % (fname, i, pair_tag)
 			tag = syntax.fresh_name (tag, all_tags)
 			next_tags[pair_tag] = tag
 			p.add_entry_function (functions[fname], tag)
 			p.hook_tag_hints[tag] = pair_tag
+			p.replay_inline_script (tag, scripts[pair_tag])
 		fun_tag_pairs.append ((next_tags, pair))
-
-	p.do_analysis ()
-
-	# FIXME: the inlining is heuristic and belongs in 'search'
-	check.inline_completely_unmatched (p, ref_tags = ['ASM', 'C'],
-		skip_underspec = True)
-	
-	# now do any C inlining
-	for (tags, _) in fun_tag_pairs:
-		assert set (tags) == set (['ASM', 'C']), tags
-		check.inline_reachable_unmatched (p, tags['C'], tags['ASM'],
-			skip_underspec = True)
 
 	p.pad_merge_points ()
 	p.do_analysis ()
