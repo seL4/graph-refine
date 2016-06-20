@@ -826,7 +826,8 @@ def get_bound_super_ctxt_inner (split, call_ctxt,
       return bound
 
     if no_splitting[0]:
-      no_splitting[1] = True
+      assert no_splitting[1], no_splitting
+      no_splitting[1][0] = True
       return None
 
     if len (call_ctxt) >= 3:
