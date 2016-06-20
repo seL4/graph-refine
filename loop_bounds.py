@@ -9,6 +9,7 @@ from search import eval_model_expr
 import target_objects
 import trace_refute
 import stack_logic
+import time
 
 #tryFun must take exactly 1 argument
 def downBinSearch(minimum, maximum, tryFun):
@@ -329,6 +330,8 @@ call_ctxt_problems = []
 avoid_C_information = [False]
 
 def get_call_ctxt_problem (split, call_ctxt):
+    # time this for diagnostic reasons
+    start = time.time ()
     from trace_refute import identify_function, build_compound_problem_with_links
     f = identify_function (call_ctxt, [split])
     for (ctxt2, p, hyps, addr_map) in call_ctxt_problems:
@@ -340,6 +343,10 @@ def get_call_ctxt_problem (split, call_ctxt):
       hyps = [h for h in hyps if not has_C_information (p, h)]
     call_ctxt_problems.append(((call_ctxt, f), p, hyps, addr_map))
     del call_ctxt_problems[: -20]
+
+    end = time.time ()
+    save_extra_timing ('GetProblem', call_ctxt + [split], end - start)
+
     return (p, hyps, addr_map)
 
 def has_C_information (p, hyp):
@@ -382,10 +389,18 @@ def save_bound (glob, split_bin_addr, call_ctxt, prob_hash, prev_bounds, bound,
     f.write (comment + '\n')
     f.write (s + '\n')
     if time != None:
-        f.write ('LoopBoundTiming for %s is %s\n' % (loop_name, time))
+      ctxt2 = call_ctxt + [split_bin_addr]
+      ctxt2 = ' '.join ([str (len (ctxt2))] + map (hex, ctxt2))
+      f.write ('LoopBoundTiming %s %s\n' % (ctxt2, time))
     f.close ()
     trace ('Found bound %s for 0x%x in %s.' % (bound, split_bin_addr,
       loop_name))
+
+def save_extra_timing (nm, ctxt, time):
+    ss = ['ExtraTiming', nm, str (len (ctxt))] + map (hex, ctxt) + [str(time)]
+    f = open ('%s/LoopBounds.txt' % target_objects.target_dir, 'a')
+    f.write (' '.join (ss) + '\n')
+    f.close ()
 
 def parse_bound (ss, n):
     addr = syntax.parse_int (ss[n])
@@ -427,8 +442,6 @@ def load_bounds ():
         known.append ((ctxt, prob_hash, bound))
     known_bounds['Loaded'] = True
 
-import time
-
 def get_bound_ctxt (split, call_ctxt):
     trace ('Getting bound for 0x%x in context %s.' % (split, call_ctxt))
     (p, hyps, addr_map) = get_call_ctxt_problem (split, call_ctxt)
@@ -455,7 +468,7 @@ def get_bound_ctxt (split, call_ctxt):
         (restrs, hyps) = known_bound_restr_hyps[k]
       else:
         (restrs, hyps) = add_loop_bound_restrs_hyps (p, restrs, hyps,
-          split2, bound)
+          split2, bound, call_ctxt + [orig_split])
         known_bound_restr_hyps[k] = (restrs, hyps)
 
     # start timing now. we miss some setup time, but it avoids double counting
@@ -731,7 +744,10 @@ def tryLoopBoundInduct(split, p, base, window, restrs, hyps):
         return False
     return ret 
 
-def add_loop_bound_restrs_hyps (p, restrs, hyps, split, bound):
+def add_loop_bound_restrs_hyps (p, restrs, hyps, split, bound, ctxt):
+    # time this for diagnostic reasons
+    start = time.time ()
+
     #vc_options([concrete numbers], [offsets])
     hyps = hyps + get_linear_series_hyps (p, split, restrs, hyps)
     hyps = list (set (hyps))
@@ -739,6 +755,10 @@ def add_loop_bound_restrs_hyps (p, restrs, hyps, split, bound):
         restrs = restrs + ((split, rep_graph.vc_options([0],[1])),)
     else:
         restrs = restrs + ((split, rep_graph.vc_upto (bound+1)),)
+
+    end = time.time ()
+    save_extra_timing ('LoopBoundRestrHyps', ctxt, end - start)
+
     return (restrs, hyps)
 
 max_acceptable_bound = [1000000]
@@ -783,7 +803,8 @@ def get_bound_super_ctxt (split, call_ctxt, no_splitting=False,
     min_addr = min ([n for n in p.loop_body (split)
       if trace_refute.is_addr (n)])
     if min_addr != split:
-      return get_bound_super_ctxt (min_addr, call_ctxt, known_bound_only)
+      return get_bound_super_ctxt (min_addr, call_ctxt,
+            no_splitting = no_splitting, known_bound_only = known_bound_only)
 
     if known_bound_only:
         return None
