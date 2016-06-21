@@ -60,7 +60,7 @@ def inline_completely_unmatched (p, ref_tags = None, skip_underspec = False):
 				if pair.tags == ref_tags]]
 		[trace ('Skipped inlining underspecified %s.'
 			% p.nodes[n].fname) for (n, skip) in ns if skip]
-		ns = [n for n in skip if not skip]
+		ns = [n for (n, skip) in ns if not skip]
 		for n in ns:
 			inline_at_point (p, n, do_analysis = False)
 		if not ns:
