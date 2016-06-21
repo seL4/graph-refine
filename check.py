@@ -24,7 +24,8 @@ from syntax import (true_term, false_term, boolT, mk_var, mk_word32, mk_word8,
 	rename_expr)
 import syntax
 
-def build_problem (pairing, force_inline = None):
+def build_problem (pairing, force_inline = None,
+		skip_underspec = False):
 	p = Problem (pairing)
 
 	for (tag, fname) in pairing.funs.items ():
@@ -33,10 +34,11 @@ def build_problem (pairing, force_inline = None):
 	p.do_analysis ()
 
 	# FIXME: the inlining is heuristic and belongs in 'search'
-	inline_completely_unmatched (p)
+	inline_completely_unmatched (p, skip_underspec = skip_underspec)
 	
 	# now do any C inlining
-	inline_reachable_unmatched_C (p, force_inline)
+	inline_reachable_unmatched_C (p, force_inline,
+		skip_underspec = skip_underspec)
 
 	trace ('Done inlining.')
 
@@ -66,11 +68,13 @@ def inline_completely_unmatched (p, ref_tags = None, skip_underspec = False):
 			p.do_analysis ()
 			return
 
-def inline_reachable_unmatched_C (p, force_inline = None):
+def inline_reachable_unmatched_C (p, force_inline = None,
+		skip_underspec = False):
 	if 'C' not in p.pairing.tags:
 		return
 	[compare_tag] = [tag for tag in p.pairing.tags if tag != 'C']
-	inline_reachable_unmatched (p, 'C', compare_tag, force_inline)
+	inline_reachable_unmatched (p, 'C', compare_tag, force_inline,
+		skip_underspec = skip_underspec)
 
 def inline_reachable_unmatched (p, inline_tag, compare_tag,
 		force_inline = None, skip_underspec = False):
