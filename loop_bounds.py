@@ -823,6 +823,41 @@ def function_limit_bound (fname, split):
           return (function_limit (p.nodes[n].fname), 'FunctionLimit')
     return None
 
+def loop_bound_difficulty_estimates (split, ctxt):
+    # various guesses at how hard the loop bounding problem is.
+    (p, hyps, addr_map) = get_call_ctxt_problem (split, call_ctxt)
+
+    loop_id = p.loop_id (addr_map[split])
+    assert loop_id
+
+    # number of instructions in the loop
+    inst_node_ids = set (addr_map.itervalues ())
+    l_insts = [n for n in p.loop_body (loop_id) if n in inst_node_ids]
+
+    # number of instructions in the function
+    tag = p.node_tags[loop_id][0]
+    f_insts = [n for n in inst_node_ids if p.node_tags[n][0] == tag]
+
+    # number of instructions in the whole calling context
+    ctxt_insts = len (inst_node_ids)
+
+    # well, what else?
+    return (len (l_insts), len (f_insts), ctxt_insts)
+
+def print_all_loop_bound_difficulty_estimates ():
+    if not known_bounds:
+      load_bounds ()
+    probs = [(split_bin_addr, call_ctxt)
+      for (split_bin_addr, known) in known_bounds.iteritems ()
+      if type (split_bin_addr) == int
+      for (call_ctxt, h, prev_bounds, bound) in known]
+    probs = set (probs)
+    for (split, ctxt) in probs:
+      get_call_ctxt_problem (split, ctxt)
+    for (split, ctxt) in probs:
+      print (split, ctxt)
+      print loop_bound_difficulty_estimates (split, ctxt)
+
 def get_loop_heads (fun):
     if not fun.entry:
       return []
