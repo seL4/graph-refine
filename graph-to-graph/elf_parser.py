@@ -90,7 +90,7 @@ def parseTxt ():
            #This is an instruction, 
             #extract the address, a line looks like f00000ac:>--e5801000 >--str>r1, [r0]
            match = re.search('(?P<line_addr>.*):.*',line)
-           assert match !=None
+           assert match !=None, line
            line_addr = int(match.group('line_addr'),16)
            elf_fun.lines[line_addr] = line
            #remove everything after ;
