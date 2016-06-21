@@ -825,7 +825,7 @@ def function_limit_bound (fname, split):
 
 def loop_bound_difficulty_estimates (split, ctxt):
     # various guesses at how hard the loop bounding problem is.
-    (p, hyps, addr_map) = get_call_ctxt_problem (split, call_ctxt)
+    (p, hyps, addr_map) = get_call_ctxt_problem (split, ctxt)
 
     loop_id = p.loop_id (addr_map[split])
     assert loop_id
@@ -847,16 +847,18 @@ def loop_bound_difficulty_estimates (split, ctxt):
 def print_all_loop_bound_difficulty_estimates ():
     if not known_bounds:
       load_bounds ()
-    probs = [(split_bin_addr, call_ctxt)
+    probs = [(split_bin_addr, tuple (call_ctxt))
       for (split_bin_addr, known) in known_bounds.iteritems ()
       if type (split_bin_addr) == int
       for (call_ctxt, h, prev_bounds, bound) in known]
     probs = set (probs)
-    for (split, ctxt) in probs:
-      get_call_ctxt_problem (split, ctxt)
-    for (split, ctxt) in probs:
-      print (split, ctxt)
-      print loop_bound_difficulty_estimates (split, ctxt)
+    data = [(split, ctxt, loop_bound_difficulty_estimates (split, list (ctxt)))
+      for (split, ctxt) in probs]
+    for (split, ctxt, ests) in data:
+      ss = ['ProblemMetrics', hex (split), str (len (ctxt))]
+      ss += map (hex, ctxt) + map (str, ests)
+      print (' '.join (ss))
+    return data
 
 def get_loop_heads (fun):
     if not fun.entry:
