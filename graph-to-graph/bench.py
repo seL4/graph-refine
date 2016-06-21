@@ -62,6 +62,7 @@ def getWcetFromImm(imm_file_name, generateILPOnly= False):
     print 'chronos completed, ret: %s, err: %s\n' % (ret,err)
     if ret:
         print 'Chronos FAILED\n out: %s\n err: %s\n' % (out,err)
+        print 'Chronos FAILED\n'
         return None
     else:
         pass

@@ -6,14 +6,15 @@ verbose = False
 from elf_file import elfFile, rawVals
 
 class ChronosEmitter:
-    def __init__(self, dir_name, function_name, imm_fun):
+    def __init__(self, dir_name, function_name, imm_fun, emit_as_dummy=None):
         self.function_name = function_name
         self.imm_fun = imm_fun
         self.imm_file_name = '%s/%s.imm' % (dir_name, function_name)
         self.imm_f = open(self.imm_file_name, 'w')
         self.debug_f = open('%s/d_%s.imm' % (dir_name, function_name),'w')
         self.emitted_loop_counts_file = open('%s/%s_emittedLoopCounts' % (dir_name, function_name),'w')
-
+        self.emit_as_dummy = emit_as_dummy
+        self.elf_fun_to_skip = elfFile().funcs['clean_D_PoU']
     def emitTopLevelFunction(self):
         imm_fun = self.imm_fun
         imm_f = self.imm_f
@@ -63,7 +64,10 @@ class ChronosEmitter:
         to_emit = {}
         #we need to emit instructions in the order of addresses
         #firstly, put all the lines in a dict
+        #FIXME: handle clean_D_PoU properly
         for bb_start_addr in imm_fun.bbs:
+            if bb_start_addr in self.elf_fun_to_skip.lines:
+                continue
             for addr in imm_fun.bbs[bb_start_addr]:
                 if addr in imm_loopheads:
                     p_head, f = imm_loopheads[addr]
@@ -133,6 +137,9 @@ class ChronosEmitter:
 
         s = ''
         node = nodes[addr]
+        if node.call_edge and node.call_edge.targ in self.elf_fun_to_skip.lines:
+            self.emitNop(addr,4)
+            return
         #if this is a loop head, emit its loop count
         if loop_count != None:
             self.emitLoopcount (addr,loop_count)
