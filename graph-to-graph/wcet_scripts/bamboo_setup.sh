@@ -8,6 +8,7 @@
 # *
 # * @TAG(NICTA_BSD)
 
+#used for setting up HOL4 on our internal setup
 
 # Fetch directory this script is stored in.
 DIR="$(cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd)"
@@ -16,9 +17,8 @@ SETUP_ROOT=${DIR}/../../../
 
 #setup HOL4
 cd $SETUP_ROOT/HOL4
-echo 'val polymllibdir = ' $POLY '../;' > ./tools-poly/poly-includes.ML
+echo 'val polymllibdir= "'$POLY_LIB_DIR'";' > ./tools-poly/poly-includes.ML
 echo 'configuring HOL4'
 $POLY < tools/smart-configure.sml
 echo 'HOL4 configured, building ...'
 ./bin/build
-
