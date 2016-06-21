@@ -30,7 +30,9 @@ def loopHeadsToWorkOn(lbfs, worker):
     print 'working on %s' % str(map(hex,ret))
     return ret
 
-def convert_loop_bounds(target_dir_name, worker_id, cached_only):
+def convert_loop_bounds(target_dir_name, worker_id=None, cached_only=False):
+    if worker_id == None:
+        worker_id = -1
     args = target_objects.load_target(target_dir_name)
     context = {}
     execfile('%s/loop_counts.py' % target_objects.target_dir,context)

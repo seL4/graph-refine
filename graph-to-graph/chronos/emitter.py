@@ -70,7 +70,7 @@ class ChronosEmitter:
                     bin_head = phyAddrP(p_head,imm_fun.f_problems[f])
                     if imm_fun.loaded_loop_counts and bin_head in imm_fun.bin_loops_by_fs[f]:
                         #The user specified a manual loop-count override
-                        loop_count,desc = imm_fun.bin_loops_by_fs[f][bin_head]
+                        loop_count,desc,_ = imm_fun.bin_loops_by_fs[f][bin_head]
                     else:
                         print "imm_fun.loaded_loop_counts: %s, bin_loops_by_fs[f].keys: %s, function: %s"  % (imm_fun.loaded_loop_counts, str(imm_fun.loops_by_fs[f]), f )
                         assert False

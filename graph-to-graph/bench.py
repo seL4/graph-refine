@@ -59,7 +59,7 @@ def runExtract(program_n_flags,cwd=None):
 def getWcetFromImm(imm_file_name, generateILPOnly= False):
     print 'running chronos...'
     ret,out,err = runExtract([chronos_executable, imm_file_name])
-    print 'chronos completed'
+    print 'chronos completed, ret: %s, err: %s\n' % (ret,err)
     if ret:
         print 'Chronos FAILED\n out: %s\n err: %s\n' % (out,err)
         return None
