@@ -638,9 +638,6 @@ def inline_at_point (p, n, do_analysis = True):
  
 	if do_analysis:
 		p.do_analysis ()
-	else:
-		p.compute_preds ()
-		p.do_loop_analysis ()
 
 	trace ('Problem size now %d' % len(p.nodes))
 	sys.stdin.flush ()
