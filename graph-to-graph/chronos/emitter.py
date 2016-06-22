@@ -15,6 +15,8 @@ class ChronosEmitter:
         self.emitted_loop_counts_file = open('%s/%s_emittedLoopCounts' % (dir_name, function_name),'w')
         self.emit_as_dummy = emit_as_dummy
         self.elf_fun_to_skip = elfFile().funcs['clean_D_PoU']
+        self.skip_fun = False
+
     def emitTopLevelFunction(self):
         imm_fun = self.imm_fun
         imm_f = self.imm_f
@@ -66,7 +68,7 @@ class ChronosEmitter:
         #firstly, put all the lines in a dict
         #FIXME: handle clean_D_PoU properly
         for bb_start_addr in imm_fun.bbs:
-            if bb_start_addr in self.elf_fun_to_skip.lines:
+            if self.skip_fun and bb_start_addr in self.elf_fun_to_skip.lines:
                 continue
             for addr in imm_fun.bbs[bb_start_addr]:
                 if addr in imm_loopheads:
@@ -137,9 +139,6 @@ class ChronosEmitter:
 
         s = ''
         node = nodes[addr]
-        if node.call_edge and node.call_edge.targ in self.elf_fun_to_skip.lines:
-            self.emitNop(addr,4)
-            return
         #if this is a loop head, emit its loop count
         if loop_count != None:
             self.emitLoopcount (addr,loop_count)
@@ -162,15 +161,21 @@ class ChronosEmitter:
         #return: this edge returns
         #tailcall: namesake
 
+
         for e in sorted(node.edges, key = lambda x: x.targ):
             if type(e.targ) != int:
                 print 'e.targ %s' % e.targ
             if e.emit:
                 s += ' next '+ hex(e.targ)
-
+        dummy_call = False
         if node.call_edge:
             assert node.call_ret_edge != None
-            if node.is_tail_call:
+            if self.skip_fun and node.call_edge.targ in self.elf_fun_to_skip.lines:
+                assert not node.is_tail_call
+                # skip the function call and go directly to the return site
+                s += ' next ' + hex(node.call_ret_edge.targ)
+                dummy_call = True
+            elif node.is_tail_call:
                 s += ' tailcall ' + hex(node.call_edge.targ)
             else:
                 s += ' call ' + hex(node.call_edge.targ)
@@ -189,8 +194,11 @@ class ChronosEmitter:
         txt = node.text
         #mnenomic condition setcc, input output etc
         #print '%s: %s' % (addr,txt)
-        txt = node.text
         value = node.raw_inst
+        if dummy_call:
+            s += ' nop _ _ %s\n' % hexSansX(value)
+            self.emitString(s)
+            return
         i = parser.decode_instruction(addr, value, txt)
         s += ' ' + i.mnemonic + ' '
 

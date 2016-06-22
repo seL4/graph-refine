@@ -124,7 +124,7 @@ def read_tcfg_map(input_filename):
 
                 bb_addr = int(bb_addr, 16)
                 #our context matching assumes that all bb addr has the same n_digits...
-                assert bb_addr >= 0xf0000000, 'Go fix context matching :('
+                assert bb_addr >= 0xe0000000, 'Go fix context matching :( bb_addr: %x' % bb_addr
                 bb_size = int(bb_size, 16)
                 bb_dests = [int(x.strip()) for x in bb_dests.split() if x.strip()]
                 ctx_str_list = ctx_str.split(' ')
@@ -454,7 +454,7 @@ def print_constraints(conflict_files, old_cons_file, new_cons_file,sol_file_name
         print '%r' % fake_preemption_points
         preemption_limit(fout,fake_preemption_points,preempt_limit)
         fout.write('end\n')
-        cplex.solveProblem(fout)
+        cplex.solveProblem(fout,presolve_off=False)
         fout.close()
 
 def id_print_context(id1,ctx=None):

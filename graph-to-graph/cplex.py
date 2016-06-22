@@ -21,6 +21,13 @@ display solution variables -
 quit
 '''
 
+cplex_presolve_off='''
+set
+preprocessing
+presolve
+n
+'''
+
 def rmSol(sol_file):
         '''remove existing solution file if it exists'''
         #stop rm from complaining without using the dangerous -f flag
@@ -86,7 +93,9 @@ def endProblem(f_ilp,sol_file_name):
     f_ilp.write(cplex_end_command)
     f_ilp.write('set logfile %s\n' % sol_file_name)
 
-def solveProblem(f_ilp):
+def solveProblem(f_ilp,presolve_off=False):
+    if presolve_off:
+        f_ilp.write(cplex_presolve_off)
     f_ilp.write(cplex_footer2)
 
 def varsUnbounded(var_s,rest):
