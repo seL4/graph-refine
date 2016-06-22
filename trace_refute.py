@@ -97,9 +97,12 @@ def get_problem_inline_scripts (pair):
 	problem_inline_scripts[pair.name] = scripts
 	return scripts
 
+last_compound_problem_req = [0]
+
 def build_compound_problem (fnames):
 	"""mirrors build_problem from check for multiple functions"""
 	printout ('Building compound problem for %s' % fnames)
+	last_compound_problem_req[0] = list (fnames)
 	p = problem.Problem (None, name = ', '.join(fnames))
 	fun_tag_pairs = []
 

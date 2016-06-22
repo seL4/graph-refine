@@ -753,7 +753,7 @@ def get_bound_super_ctxt_inner (split, call_ctxt,
       return (0, 'FunctionLimit')
 
     if len (call_ctxt) < 3 and len (safe_call_sites) == 1:
-      return get_bound_super_ctxt (split, list (call_sites) + call_ctxt)
+      return get_bound_super_ctxt (split, list (safe_call_sites) + call_ctxt)
 
     fname = trace_refute.identify_function (call_ctxt, [split])
     bound = function_limit_bound (fname, split)
