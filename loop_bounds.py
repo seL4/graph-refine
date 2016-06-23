@@ -60,7 +60,7 @@ def build_call_site_set ():
         if node.kind == 'Call':
           s = call_site_set.setdefault (node.fname, set ())
           s.add (addr_of_node (preds, n))
-    call_site_set[('IsLoaded', 'just in case')] = True
+    call_site_set[('IsLoaded', None)] = True
 
 def all_call_sites (f):
     if not call_site_set:
@@ -574,49 +574,6 @@ def search_bound (p, restrs, hyps, split):
 
     return None
 
-def function_limit (fname):
-    for hook in target_objects.hooks ('wcet_function_limits'):
-      if fname in hook:
-        return hook[fname]
-    return None
-
-def limited_function_calls (fname):
-    if fname in limited_function_calls_cache:
-      return limited_function_calls_cache[fname]
-    # compute minimum over all paths through function of total number of
-    # calls to limited functions
-    data = {'Ret': {}, 'Err': None}
-    nodes = functions[fname].nodes
-    preds = logic.compute_preds (nodes)
-    frontier = [n for s in data for n in preds[s]]
-    while frontier:
-      n = frontier.pop ()
-      if n in data:
-        continue
-      succs = nodes[n].get_conts ()
-      if [n2 for n2 in succs if n2 not in data]:
-        continue
-      succs = [data[n2] for n2 in succs if data[n2] != None]
-      if len (succs) == 0:
-        res = None
-      elif len (succs) == 1:
-        res = succs[0]
-      else:
-        ks = set.intersection (* [set (m) for m in succs])
-        res = dict ([(k, min ([m[k] for m in succs])) for k in ks])
-      if nodes[n].kind == 'Call':
-        res = dict (res)
-        for (k, ncalls) in limited_function_calls (nodes[n].fname).iteritems ():
-          res[k] = ncalls + res.get (k, 0)
-      data[n] = res
-      frontier.extend (preds[n])
-    res = data[functions[fname].entry]
-    if res == None:
-      # odd, no-return function
-      res = {}
-    limited_function_calls_cache[fname] = res
-    return res
-
 def getBinaryBoundFromC (p, c_tag, asm_split, restrs, hyps):
     c_heads = [h for h in search.init_loops_to_split (p, restrs)
       if p.node_tags[h][0] == c_tag]
@@ -745,6 +702,8 @@ def get_bound_super_ctxt (split, call_ctxt, no_splitting=False,
     save_bound (True, split, call_ctxt, get_functions_hash (), None, bound)
     return bound
 
+from trace_refute import function_limit, ctxt_within_function_limits
+
 def get_bound_super_ctxt_inner (split, call_ctxt,
       no_splitting = (False, None)):
     first_f = trace_refute.identify_function ([], (call_ctxt + [split])[:1])
@@ -788,33 +747,6 @@ def get_bound_super_ctxt_inner (split, call_ctxt,
       return None
     (bound, kind) = max (anc_bounds)
     return (bound, 'MergedBound')
-
-functions_reachable_within_limits = {}
-
-def function_reachable_within_limits (fname):
-    if fname in functions_reachable_within_limits:
-      return functions_reachable_within_limits[fname]
-    if function_limit (fname) == 0:
-      return False
-    sites = all_call_sites (fname)
-    if sites == []:
-      functions_reachable_within_limits[fname] = True
-      return True
-    for site in sites:
-      fname = trace_refute.identify_function ([], [site])
-      if function_reachable_within_limits (fname):
-        functions_reachable_within_limits[fname] = True
-        return True
-    functions_reachable_within_limits[fname] = False
-    return False
-
-def ctxt_within_function_limits (call_ctxt):
-    for (i, addr) in enumerate (call_ctxt):
-      fname = trace_refute.identify_function (call_ctxt[:i], [addr])
-      if function_limit (fname) == 0:
-        return False
-    fname = trace_refute.identify_function ([], [call_ctxt[0]])
-    return function_reachable_within_limits (fname)
 
 def function_limit_bound (fname, split):
     p = functions[fname].as_problem (problem.Problem)

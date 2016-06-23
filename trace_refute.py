@@ -349,6 +349,20 @@ def refute_function_arcs (call_stack, arcs, ctxt_arcs):
 	f = identify_function (call_stack,
 		[(addr, 0) for arc in arcs for addr in arc])
 
+	# easy function limit refutations
+	if not (ctxt_within_function_limits (call_stack)
+			and function_reachable_within_limits (f)):
+		verdicts.setdefault (f, [])
+		if call_stack:
+			vdct = (call_stack, [], 'impossible')
+		else:
+			min_addr = min ([addr for arc in arcs for addr in arc]
+			vdct = ([], [min_addr], 'impossible')
+		verdicts[f].append (vdct)
+		new_refutes[f] = True
+		print 'added %s refutation %s: %s' % (f, vdct[0], vdct[1])
+		return
+
 	# ignore complex loops
 	if has_complex_loop (f):
 		print 'has loop: %s, skipping' % f
@@ -399,6 +413,46 @@ def refute_function_arcs (call_stack, arcs, ctxt_arcs):
 		verdicts[f].append ((stack2, used_vis, 'impossible'))
 		new_refutes[f] = True
 		print 'added %s refutation %s: %s' % (f, stack, used_vis)
+
+# function limits. mostly used by loop_bounds, but also present in 
+def function_limit (fname):
+	for hook in target_objects.hooks ('wcet_function_limits'):
+		if fname in hook:
+			return hook[fname]
+	return None
+
+reachable_functions = {}
+
+def build_reachable_functions ():
+	fcall_graph = dict ([(fname, functions[fname].function_calls ())
+		for fname in functions])
+	is_reachable = dict ([(fname, False) for fname in functions])
+	called = set ([f for fs in fcall_graph.itervalues () for f in fs])
+	uncalled = set (fcall_graph) - called
+	frontier = uncalled
+	while frontier:
+		f = frontier.pop ()
+		if is_reachable[f]:
+			continue
+		elif function_limit (f) == 0:
+			continue
+		else:
+			is_reachable[f] = True
+			frontier.update (fcall_graph[f])
+	reachable_functions.update (is_reachable)
+	reachable_functions[('IsLoaded', None)] = True
+
+def function_reachable_within_limits (fname):
+	if fname not in reachable_functions:
+		build_reachable_functions ()
+	return reachable_functions[fname]
+
+def ctxt_within_function_limits (call_ctxt):
+	for (i, addr) in enumerate (call_ctxt):
+		fname = identify_function (call_ctxt[:i], [addr])
+		if not function_reachable_within_limits (fname):
+			return False
+	return True
 
 def serialise_verdicts (fname):
 	f = open (fname, 'w')
