@@ -329,7 +329,7 @@ call_ctxt_problems = []
 
 avoid_C_information = [False]
 
-def get_call_ctxt_problem (split, call_ctxt):
+def get_call_ctxt_problem (split, call_ctxt, timing = True):
     # time this for diagnostic reasons
     start = time.time ()
     from trace_refute import identify_function, build_compound_problem_with_links
@@ -345,7 +345,8 @@ def get_call_ctxt_problem (split, call_ctxt):
     del call_ctxt_problems[: -20]
 
     end = time.time ()
-    save_extra_timing ('GetProblem', call_ctxt + [split], end - start)
+    if timing:
+      save_extra_timing ('GetProblem', call_ctxt + [split], end - start)
 
     return (p, hyps, addr_map)
 
@@ -413,6 +414,12 @@ def parse_bound (ss, n):
       kind = ss[n + 2]
       return (n + 3, (addr, (bound, kind)))
 
+def parse_ctxt_id (bits, n):
+    return (n + 1, syntax.parse_int (bits[n]))
+
+def parse_ctxt (bits, n):
+    return syntax.parse_list (parse_ctxt_id, bits, n)
+
 def load_bounds ():
     try:
       f = open ('%s/LoopBounds.txt' % target_objects.target_dir)
@@ -426,9 +433,7 @@ def load_bounds ():
       if bits[:1] not in [['LoopBound'], ['GlobalLoopBound']]:
         continue
       (n, (addr, bound)) = parse_bound (bits, 1)
-      def parse_ctxt_id (bits, n):
-        return (n + 1, syntax.parse_int (bits[n]))
-      (n, ctxt) = parse_list (parse_ctxt_id, bits, n)
+      (n, ctxt) = parse_ctxt (bits, n)
       prob_hash = parse_int (bits[n])
       n += 1
       if bits[0] == 'LoopBound':
@@ -825,7 +830,7 @@ def function_limit_bound (fname, split):
 
 def loop_bound_difficulty_estimates (split, ctxt):
     # various guesses at how hard the loop bounding problem is.
-    (p, hyps, addr_map) = get_call_ctxt_problem (split, ctxt)
+    (p, hyps, addr_map) = get_call_ctxt_problem (split, ctxt, timing = False)
 
     loop_id = p.loop_id (addr_map[split])
     assert loop_id
@@ -844,7 +849,37 @@ def loop_bound_difficulty_estimates (split, ctxt):
     # well, what else?
     return (len (l_insts), len (f_insts), ctxt_insts)
 
-def print_all_loop_bound_difficulty_estimates ():
+def load_timing ():
+    f = open ('%s/LoopBounds.txt' % target_objects.target_dir)
+    timing = {}
+    loop_time = 0.0
+    ext_time = 0.0
+    for line in f:
+      bits = line.split ()
+      if not (bits and 'Timing' in bits[0]):
+        continue
+      if bits[0] == 'LoopBoundTiming':
+        (n, ext_ctxt) = parse_ctxt (bits, 1)
+        assert n == len (bits) - 1
+        time = float (bits[n])
+        ctxt = ext_ctxt[:-1]
+        split = ext_ctxt[-1]
+        timing[(split, tuple(ctxt))] = time
+        loop_time += time
+      elif bits[0] == 'ExtraTiming':
+        time = float (bits[-1])
+        ext_time += time
+    f.close ()
+    f = open ('%s/time' % target_objects.target_dir)
+    [l] = [l for l in f if '(wall clock)' in l]
+    f.close ()
+    tot_time_str = l.split ()[-1]
+    tot_time = sum ([int(s) * (60 ** i)
+      for (i, s) in enumerate (reversed (tot_time_str.split(':')))])
+
+    return (loop_time, ext_time, tot_time, timing)
+
+def mk_timing_metrics ():
     if not known_bounds:
       load_bounds ()
     probs = [(split_bin_addr, tuple (call_ctxt))
@@ -854,11 +889,31 @@ def print_all_loop_bound_difficulty_estimates ():
     probs = set (probs)
     data = [(split, ctxt, loop_bound_difficulty_estimates (split, list (ctxt)))
       for (split, ctxt) in probs]
-    for (split, ctxt, ests) in data:
-      ss = ['ProblemMetrics', hex (split), str (len (ctxt))]
-      ss += map (hex, ctxt) + map (str, ests)
-      print (' '.join (ss))
     return data
+
+# sigh, this is so much work.
+bound_kind_nums = {
+  'FunctionLimit': 2,
+  }
+
+def save_timing_metrics ():
+    (loop_time, ext_time, tot_time, timing) = load_timing ()
+
+    time_ests = mk_timing_metrics ()
+    import os
+    name = os.path.basename (str (target_objects.target_dir))
+    f = open ('%s/LoopTimingMetrics.txt' % target_objects.target_dir, 'w')
+
+    for (split, ctxt, ests) in time_ests:
+      time = timing[(split, tuple (ctxt))]
+      bound = get_bound_ctxt (split, list (ctxt))
+      if bound == None:
+        bdata = "1000000"
+      else:
+        bdata = '%d' % (bound[0])
+      (l_i, f_i, ct_i) = ests
+      f.write ('%s %s %s %s %s %s\n' % (name, l_i, f_i, ct_i, time, bdata))
+    f.close ()
 
 def get_loop_heads (fun):
     if not fun.entry:
@@ -894,6 +949,9 @@ main = search_all_loops
 if __name__ == '__main__':
     import sys
     args = target_objects.load_target_args ()
-    search_all_loops ()
+    if args == ['search']:
+      search_all_loops ()
+    elif args == ['metrics']:
+      save_timing_metrics ()
 
 
