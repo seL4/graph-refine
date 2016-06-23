@@ -9,6 +9,10 @@
 #!/usr/bin/env python2
 import sys, subprocess, re, os
 
+
+unbounded = "unbounded"
+infeasible = "infeasible"
+
 #this cplex footer ends a .ilp file and does 
 cplex_end_command='''
 End
@@ -37,6 +41,7 @@ def rmSol(sol_file):
             p = subprocess.Popen(['rm',sol_file])
             p.communicate()
 
+
 def cplexSolve(ilp_file_name,silent=True,sol_file=None,expect_unbounded=False):
         '''call cplex on the specified ilp file'''
         cplex = 'cplex'
@@ -52,7 +57,7 @@ def cplexSolve(ilp_file_name,silent=True,sol_file=None,expect_unbounded=False):
             print out
         ret = p.returncode
         print 'cplex terminated'
-        if ret or "infeasible" in err or "infeasible" in out:
+        if not expect_unbounded and (ret or (infeasible in err or infeasible in out) or (unbounded in err or unbounded in out)):
             print 'ilp solver FAILED \nout : %s \nerr: %s\n'%(out,err)
             print 'note that infeasible/unbounded can mean the other, turn off the presolver to investiage which is the case'
             return False
@@ -62,11 +67,10 @@ def parseSolFile (sol_file, expect_unbounded):
     objective_regex = r".*Objective\s*=\s*(?P<value>.*)\n"
     f_out = open(sol_file,'r')
     for line in f_out:
-        if re.search("unbounded",line):
-            assert expect_unbounded and "unbounded ilp !!"
-            return "unbounded"
-        elif re.search("infeasible", line):
-            assert False and "Infeasible ilp !!!"
+        if re.search(unbounded,line) or re.search(infeasible, line):
+            if expect_unbounded:
+                return unbounded
+            assert False and "Infeasible/unbounded ilp !!!"
         match = re.search(objective_regex,line)
         if match:
             f_out.close()
@@ -100,6 +104,7 @@ def solveProblem(f_ilp,presolve_off=False):
 
 def varsUnbounded(var_s,rest):
     tmp_name = "./temp_ilp.ilp"
+    sol_name = tmp_name + ".sol"
     tmp_f = open(tmp_name,'w')
     tmp_f.write("enter Q\nMaximize\n")
     for (i,var) in enumerate(var_s):
@@ -107,11 +112,14 @@ def varsUnbounded(var_s,rest):
             tmp_f.write("+ ")
         tmp_f.write("1 %s"% var)
     for line in rest:
-        tmp_f.write(line)
+        if "set logfile" in line:
+            tmp_f.write("set logfile " + sol_name + "\n")
+        else:
+            tmp_f.write(line)
     tmp_f.flush()
-    ret_val = cplexSolve(tmp_name,silent=True,check_unbounded=True)
+    ret_val = cplexSolve(tmp_name, silent=True, sol_file= sol_name, expect_unbounded=True)
     #os.remove(tmp_name)
-    return ret_val == "unbounded"
+    return ret_val == unbounded
 
 def findUnboundedVar(ilp_f_name):
     lp_f = open(ilp_f_name)
@@ -157,10 +165,13 @@ def findUnboundedVar(ilp_f_name):
     print "the unbounded variable is : %s" % str(var_s)
     assert len(var_s) == 1
 
+def printUsage():
+    print 'usage: <some ilp file> [OPTION]'
+    print 'options: --x: run cplex --f: strip footer'
+
 if __name__ == '__main__':
         if len(sys.argv) != 3:
-                print 'usage: <some ilp file> [OPTION]'
-                print 'options: --x: run cplex --f: strip footer'
+                printUsage()
                 sys.exit(1)
         ilp_f_name = sys.argv[1]
         flag = sys.argv[2]
@@ -172,3 +183,6 @@ if __name__ == '__main__':
         elif flag == '--u':
                 print 'finding unbounded variable'
                 findUnboundedVar(ilp_f_name)
+        else:
+                printUsage()
+                sys.exit(1)

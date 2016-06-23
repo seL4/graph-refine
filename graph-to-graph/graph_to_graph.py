@@ -23,7 +23,7 @@ import re
 import cplex
 
 def printHelp():
-      print "args: <dir_name> <function_name> <flag> <phantom preemption point (only required when flag is --x)>"
+      print "args: <dir_name> <function_name> <flag>"
       print 'e.g. ../graph-refine/gcc-O2 handleSyscall --L'
       print '''flags: --l generate loop heads at dir_name/loop_counts.py NOTE: this will override an existing file
       --L use loop counts at the file dir_name/loop_counts.py to generate ILP problem
@@ -56,10 +56,9 @@ if __name__ == '__main__':
         if flag == '--i':
           interactive = True
         if flag == '--x':
-            if len(sys.argv) < 5:
+            if len(sys.argv) < 4:
                 printHelp()
                 sys.exit(-1)
-            conflict_file = sys.argv[4]
             asm_fs = bench.init(dir_name)
             import convert_loop_bounds
             analyseFunction(entry_point_function,asm_fs, dir_name, True, False, False)
@@ -78,7 +77,7 @@ if __name__ == '__main__':
             ilp_to_generate = prefix + "_annotated.imm.ilp"
             sol_to_generate = prefix + "_annotated.imm.sol"
             preemption_limit = 5
-            print "Calling conflict to annotate and estimate WCET with conflict file %s, preemption limit: %d" % (conflict_file, preemption_limit)
-            conflict.conflict(entry_point_function, tcfg_map_file_name, [conflict_file], stripped_ilp, ilp_to_generate, dir_name, sol_to_generate, emit_conflicts=True, do_cplex=True, preempt_limit= preemption_limit)
+            conflict.conflict(entry_point_function, tcfg_map_file_name, [], stripped_ilp, ilp_to_generate, dir_name, sol_to_generate, emit_conflicts=True, do_cplex=True, preempt_limit= preemption_limit,default_phantom_preempt=True)
+            sys.exit(0)
     bench_ret = bench.bench(dir_name, entry_point_function, gen_heads,load_counts,interactive)
     print 'bench returned: ' +  str(bench_ret)

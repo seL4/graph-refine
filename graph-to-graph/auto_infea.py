@@ -11,6 +11,7 @@ import os, sys, time
 from subprocess import Popen, PIPE
 import graph_refine.trace_refute as trace_refute
 import conflict
+import cplex
 
 def silence():
     '''
@@ -42,7 +43,8 @@ def auto_infea(dir_name, entry_point_function, manual_conflicts_file, results_di
     kernel_elf_file = dir_name+'/kernel.elf'
     tcfg_map = dir_name + '/%s.imm.map' % entry_point_function
     kernel_elf_file = dir_name+'/kernel.elf'
-    ilp_nofooter = dir_name + '/%s.imm.ilp_nofooter' % entry_point_function
+    ilp_nofooter = cplex.stripFooter(dir_name + '/%s.imm.ilp' % entry_point_function)
+    
     auto_refutes_file = results_dir+'/refutes.txt'
 
     p = Popen(['touch', auto_refutes_file])
@@ -54,7 +56,7 @@ def auto_infea(dir_name, entry_point_function, manual_conflicts_file, results_di
     results_f = open(results_file,'w',0)
 
 #setup trace_refute's environment
-    from target_objects import target_dir, target_args
+    from graph_refine.target_objects import target_dir, target_args
     target = '%s/target.py' % dir_name
     target_dir.set_dir(dir_name)
 
@@ -63,13 +65,13 @@ def auto_infea(dir_name, entry_point_function, manual_conflicts_file, results_di
         sol_file = results_dir+'/case_%d.sol' % case_i
         ilp_file = results_dir+'/case_%d.ilp' % case_i
         print 'case_i = %d' % case_i
-        print 'calling conflict.main'
+        print 'calling conflict.conflict'
 #silence()
 #get the wcet with existing conflicts
         conflict.cleanGlobalStates()
 
         #FIXME: un-hardcode the entry function
-        wcet = conflict.main('handleSyscall', tcfg_map, [manual_conflicts_file,auto_refutes_file],ilp_nofooter,ilp_file,dir_name,sol_file,emit_conflicts=True,do_cplex=True,silent_cplex=True,preempt_limit=preemption_limit)
+        wcet = conflict.conflict('handleSyscall', tcfg_map, [manual_conflicts_file,auto_refutes_file],ilp_nofooter,ilp_file,dir_name, sol_file, emit_conflicts=True, do_cplex=True, silent_cplex=True, preempt_limit=preemption_limit)
 #unsilence()
 
         print 'conflict.main returned'
@@ -120,7 +122,7 @@ def auto_infea(dir_name, entry_point_function, manual_conflicts_file, results_di
     results_f.close()
 
 if __name__ == '__main__':    
-    if len(sys.argv) != 5:
+    if len(sys.argv) != 6:
         print 'Usage: python auto_infea.py <dir_name> <entry point function> <manual_conflicts_file> <results directory> initial i'
         print 'results direcotry should already exists and be empty'
         print 'initial i determine which iterations to start at, use 0 for fresh runs'

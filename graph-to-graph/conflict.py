@@ -17,6 +17,7 @@ from addr_utils import callNodes,phyAddrP
 import bench
 import cplex
 import graph_refine.trace_refute as trace_refute
+import convert_loop_bounds
 from graph_refine.trace_refute import parse_num_arrow_list
 
 global bb_addr_to_ids
@@ -460,7 +461,6 @@ def print_constraints(conflict_files, old_cons_file, new_cons_file,sol_file_name
 def id_print_context(id1,ctx=None):
         if ctx==None:
                 ctx = id_to_context[id1][:-1]
-        
         for bb in ctx:
           print '%s'% elfFile().addrs_to_f[bb]
         return
@@ -480,10 +480,11 @@ def times_limit(fout, addrs,limit):
           fout.write(' + b{0}'.format(x))
         fout.write(' <= {0}\n'.format(limit))
 
-def conflict(entry_point_function, tcfg_map, conflict_files, old_ilp, new_ilp, dir_name, sol_file, emit_conflicts=False, do_cplex=False, interactive=False, silent_cplex=False, preempt_limit= None):
+def conflict(entry_point_function, tcfg_map, conflict_files, old_ilp, new_ilp, dir_name, sol_file, emit_conflicts=False, do_cplex=False, interactive=False, silent_cplex=False, preempt_limit= None, default_phantom_preempt=False):
         if preempt_limit == None:
-          preempt_limit = 5
-
+            preempt_limit = 5
+        if default_phantom_preempt:
+            conflict_files.append(convert_loop_bounds.phantomPreemptsAnnoFileName(dir_name))
         #initialise graph_to_graph so we get immFunc
         #load the loop_counts
         print 'conflict.conflict: sol_file %s' % sol_file
@@ -505,8 +506,8 @@ def conflict(entry_point_function, tcfg_map, conflict_files, old_ilp, new_ilp, d
         #print_constraints(sys.argv[3], sys.argv[4], sys.argv[5])
 
 if __name__ == '__main__':
-        if len(sys.argv) != 10:
-                print '''Usage: python conflict.py [tcfg map] [conflict file1] [conflict file2] [ilp file with footer stripped] [new ilp file] [target_dir] [flag] [preemption limit] [sol file to be generated]
+        if len(sys.argv) != 9:
+                print '''Usage: python conflict.py [tcfg map] [conflict file] [ilp file with footer stripped] [new ilp file] [target_dir] [flag] [preemption limit] [sol file to be generated]
                 conflict file 1 and/or 2 can be empty
                 flag is one of:
                         --c
@@ -516,16 +517,17 @@ if __name__ == '__main__':
                         --cx
                                 generate a new conflict file and call cplex directly'''
                 sys.exit(1)
+        
         tcfg_map = sys.argv[1]
-        conflict_files = sys.argv [2:4]
-        old_ilp = sys.argv[4]
-        new_ilp = sys.argv[5]
-        dir_name = sys.argv[6]
-        flag = sys.argv[7]
-        preempt_limit = int(sys.argv[8])
+        old_ilp = sys.argv[3]
+        new_ilp = sys.argv[4]
+        dir_name = sys.argv[5]
+        flag = sys.argv[6]
+        preempt_limit = int(sys.argv[7])
         print 'preempt_limit: %d' % preempt_limit
-        sol_file = sys.argv[9]
+        sol_file = sys.argv[8]
         assert 'sol' in sol_file
+        conflict_files = [sys.argv[2]]
         print 'sol_file: %s' % sol_file
         print 'old_ilp %s' % old_ilp
         print 'conflict_files: %r' % conflict_files
@@ -540,7 +542,7 @@ if __name__ == '__main__':
         elif flag == '--i':
           interactive = True
         #FIXME: un-hardcode the entry point function's name
-        ret = conflict('handleSyscall', tcfg_map,conflict_files,old_ilp,new_ilp,dir_name,sol_file,emit_conflicts=emit_conflicts,do_cplex=do_cplex,interactive=interactive,preempt_limit = preempt_limit)
+        ret = conflict('handleSyscall', tcfg_map,conflict_files,old_ilp,new_ilp,dir_name,sol_file,emit_conflicts=emit_conflicts,do_cplex=do_cplex,interactive=interactive,preempt_limit = preempt_limit, default_phantom_preempt=True)
         print 'conflict terminated'
         print 'ret: %s' % str(ret)
 
