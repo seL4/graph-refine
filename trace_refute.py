@@ -356,7 +356,7 @@ def refute_function_arcs (call_stack, arcs, ctxt_arcs):
 		if call_stack:
 			vdct = (call_stack, [], 'impossible')
 		else:
-			min_addr = min ([addr for arc in arcs for addr in arc]
+			min_addr = min ([addr for arc in arcs for addr in arc])
 			vdct = ([], [min_addr], 'impossible')
 		verdicts[f].append (vdct)
 		new_refutes[f] = True
