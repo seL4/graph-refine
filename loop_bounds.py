@@ -806,7 +806,7 @@ def load_timing ():
     [l] = [l for l in f if '(wall clock)' in l]
     f.close ()
     tot_time_str = l.split ()[-1]
-    tot_time = sum ([int(s) * (60 ** i)
+    tot_time = sum ([float(s) * (60 ** i)
       for (i, s) in enumerate (reversed (tot_time_str.split(':')))])
 
     return (loop_time, ext_time, tot_time, timing)
@@ -814,37 +814,48 @@ def load_timing ():
 def mk_timing_metrics ():
     if not known_bounds:
       load_bounds ()
-    probs = [(split_bin_addr, tuple (call_ctxt))
+    probs = [(split_bin_addr, tuple (call_ctxt), bound)
       for (split_bin_addr, known) in known_bounds.iteritems ()
       if type (split_bin_addr) == int
       for (call_ctxt, h, prev_bounds, bound) in known]
     probs = set (probs)
-    data = [(split, ctxt, loop_bound_difficulty_estimates (split, list (ctxt)))
-      for (split, ctxt) in probs]
+    data = [(split, ctxt, bound,
+        loop_bound_difficulty_estimates (split, list (ctxt)))
+      for (split, ctxt, bound) in probs]
     return data
 
 # sigh, this is so much work.
 bound_kind_nums = {
   'FunctionLimit': 2,
-  }
+  'NaiveBinSearch': 3,
+  'InductiveBinSearch': 4,
+  'FromC': 5,
+  'MergedBound': 6,
+}
 
-def save_timing_metrics ():
+gnuplot_colours = [
+  "dark-red", "dark-blue", "dark-green", "dark-grey",
+  "dark-orange", "dark-magenta", "dark-cyan"]
+
+def save_timing_metrics (num):
     (loop_time, ext_time, tot_time, timing) = load_timing ()
+
+    col = gnuplot_colours[num]
+    from target import short_name
 
     time_ests = mk_timing_metrics ()
     import os
-    name = os.path.basename (str (target_objects.target_dir))
     f = open ('%s/LoopTimingMetrics.txt' % target_objects.target_dir, 'w')
+    f.write ('"%s"\n', short_name)
 
-    for (split, ctxt, ests) in time_ests:
+    for (split, ctxt, bound, ests) in time_ests:
       time = timing[(split, tuple (ctxt))]
-      bound = get_bound_ctxt (split, list (ctxt))
       if bound == None:
-        bdata = "1000000"
+        bdata = "1000000 7"
       else:
-        bdata = '%d' % (bound[0])
+        bdata = '%d %d' % (bound[0], bound_kind_nums[bound[1]])
       (l_i, f_i, ct_i) = ests
-      f.write ('%s %s %s %s %s %s\n' % (name, l_i, f_i, ct_i, time, bdata))
+      f.write ('%s %s %s %s %s %s\n' % (l_i, f_i, ct_i, bdata, col, time))
     f.close ()
 
 def get_loop_heads (fun):
@@ -884,6 +895,7 @@ if __name__ == '__main__':
     if args == ['search']:
       search_all_loops ()
     elif args == ['metrics']:
-      save_timing_metrics ()
+      num = args[1:].index (str (target_objects.target_dir))
+      save_timing_metrics (num)
 
 
