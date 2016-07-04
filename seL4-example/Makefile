@@ -91,7 +91,6 @@ tar: kernel.tar.gz
 H4PATH=$(realpath ${HOL4_ROOT}/bin):${PATH}
 
 ASMFunctions.txt: kernel.elf.txt kernel.sigs
-	PATH=${H4PATH} build
 	PATH=${H4PATH} ${DECOMP_SCRIPT} --fast ./kernel --ignore=fastpath_restore,slowpath
 	# we move the output to a new location to get around a problem where
 	# the decompiler can fail leaving an incomplete output file.
@@ -115,6 +114,10 @@ GRAPH_REFINE_INPUTS= kernel.elf.rodata kernel.elf.symtab ASMFunctions.txt \
 
 StackBounds.txt: ${GRAPH_REFINE_INPUTS}
 	python ../graph-refine.py .
+
+demo-report.txt: StackBounds.txt ${GRAPH_REFINE_INPUTS}
+	python ../graph-refine.py . trace-to:partial-$@ deps:Kernel_C.cancelAllIPC
+	mv partial-$@ $@
 
 report.txt: StackBounds.txt ${GRAPH_REFINE_INPUTS}
 	python ../graph-refine.py . trace-to:partial-$@ all

@@ -1,0 +1,37 @@
+<?xml version="1.0"?>
+<!--
+     Copyright 2016, Data61
+
+    This software may be distributed and modified according to the terms of
+    the BSD 2-Clause license. Note that NO WARRANTY is provided.
+    See "LICENSE_BSD2.txt" in above directory for details.
+
+    @TAG(NICTA_BSD)
+  -->
+
+<!--
+
+     Regression Specification File
+
+     See the l4v repository's "misc/regression/tests.xml" for a description of
+     the file format.
+
+-->
+<testsuite cpu-timeout="3600" depends="isabelle">
+
+    <sequence depends="CSpec">
+        <!-- Setup environment -->
+        <test name="SEL4BinarySetupEnvironment">bash configure_default.sh</test>
+        <!-- Compile & decompile -->
+        <test name="SEL4BinaryDecompile">make ASMFunctions.txt</test>
+        <!-- Export C semantics from Isabelle -->
+        <test name="SEL4BinaryCProblem">make CFunctions.txt</test>
+        <!-- Check configuration, do stack analysis. -->
+        <test name="SEL4FullProblem">make StackBounds.txt</test>
+        <!-- Test graph-refine on a subset of functions. -->
+        <test name="SEL4BinaryDemo">make demo-report.txt</test>
+        <!-- disabled for now, too expensive
+        <test name="SEL4BinaryCorrectness">make report.txt</test>
+        -->
+    </sequence>
+</testsuite>

@@ -40,7 +40,7 @@ def toplevel_check (pair, check_loops = True, report = False, count = None):
 	for (tag, fname) in pair.funs.iteritems ():
 		if not functions[fname].entry:
 			printout ('Skipping %s, underspecified %s' % (pair, tag))
-			return None
+			return 'None'
 	prev_tracer = tracer[0]
 	if report:
 		tracer[0] = lambda s, n: ()
@@ -114,7 +114,8 @@ def toplevel_check (pair, check_loops = True, report = False, count = None):
 
 def toplevel_check_wname (pair, check_loops = True,
 		report_mode = False, count = None):
-	r = toplevel_check (pair, count = count, report = report_mode)
+	r = toplevel_check (pair, count = count, report = report_mode,
+		check_loops = check_loops)
 	return (pair.name, r)
 
 word_re = re.compile('\\w+')
@@ -134,20 +135,33 @@ def name_search (s, tags = None):
 def check_search (s, tags = None, report_mode = False,
 		check_loops = True):
 	pair = name_search (s, tags = tags)
-	if pair:
-		return toplevel_check_wname (pair,
-			report_mode = report_mode,
+	if not pair:
+		return 'None'
+	else:
+		return toplevel_check (pair, report = report_mode,
 			check_loops = check_loops)
 
-def check_all (omit_set = set (), loops = True, tags = None,
-		report_mode = False):
-	pairs = list (set ([pair for f in pairings for pair in pairings[f]
-		if omit_set.isdisjoint (pair.funs.values ())
-		if not tags or tags.issubset (set (pair.tags))]))
+# somewhat arbitrary assignment of return codes to outcomes.
+# larger numbers are (roughly) worse outcomes.
+result_nums = {
+	'True' : 0,
+	'Loop' : 1,
+	'NoLoop' : 2,
+	'None' : 3,
+	'ProofAbort' : 4,
+	'ProofNoSplit' : 5,
+	'ProofSolverFailure' : 6,
+	'ProofEXCEPT' : 7,
+	'CheckSolverFailure' : 8,
+	'CheckEXCEPT' : 9,
+}
+
+def comb_results (r1, r2):
+	(_, r) = max ([(result_nums[r], r) for r in [r1, r2]])
+	return r
+
+def check_pairs (pairs, loops = True, report_mode = False):
 	num_pairs = len (pairs)
-	omitted = list (set ([pair for f in pairings for pair in pairings[f]
-		if not omit_set.isdisjoint (pair.funs.values())]))
-	random.shuffle (pairs)
 	results = [toplevel_check_wname (pair, check_loops = loops,
 			report_mode = report_mode, count = (i, num_pairs))
 		for (i, pair) in enumerate (pairs)]
@@ -160,9 +174,37 @@ def check_all (omit_set = set (), loops = True, tags = None,
 	fails = [(nm, r) for (nm, r) in results
 		if r not in ['True', 'ProofAbort', None]]
 	printout ('  - failures: %s' % fails)
+	return syntax.foldr1 (comb_results, ['True']
+		+ [r for (nm, r) in results])
+
+def check_all (omit_set = set (), loops = True, tags = None,
+		report_mode = False):
+	pairs = list (set ([pair for f in pairings for pair in pairings[f]
+		if omit_set.isdisjoint (pair.funs.values ())
+		if not tags or tags.issubset (set (pair.tags))]))
+	omitted = list (set ([pair for f in pairings for pair in pairings[f]
+		if not omit_set.isdisjoint (pair.funs.values())]))
+	random.shuffle (pairs)
+	r = check_pairs (pairs, loops = loops, report_mode = report_mode)
 	if omitted:
 		printout ('  - %d pairings omitted: %s'
 			% (len (omitted), omitted))
+	return r
+
+def check_deps (fname, report_mode = False):
+	frontier = set ([fname])
+	funs = set ()
+	while frontier:
+		fname = frontier.pop ()
+		if fname in funs:
+			continue
+		funs.add (fname)
+		frontier.update (functions[fname].function_calls ())
+	funs = sorted (funs)
+	funs = [fun for fun in funs if fun in pairings]
+	printout ('Testing functions: %s' % funs)
+	pairs = [pair for f in funs for pair in pairings[f]]
+	return check_pairs (pairs, report_mode = report_mode)
 
 def save_compiled_funcs (fname):
 	out = open (fname, 'w')
@@ -178,7 +220,9 @@ def main (args):
 	loops = True
 	tags = set ()
 	report = True
+	result = 'True'
 	for arg in args:
+		r = 'True'
 		try:
 			if arg == 'verbose':
 				report = False
@@ -187,12 +231,13 @@ def main (args):
 				f = open (s, 'w')
 				target_objects.trace_files.append (f)
 			elif arg == 'all':
-				check_all (excludes, loops = loops, tags = tags,
-					report_mode = report)
+				r = check_all (excludes, loops = loops,
+					tags = tags, report_mode = report)
 			elif arg == 'all_safe':
-				check_all (set.union (target_objects.danger_set,
-					excludes), loops = loops, tags = tags,
-					report_mode = report)
+				ex = set.union (excludes,
+					target_objects.danger_set)
+				r = check_all (ex, loops = loops,
+					tags = tags, report_mode = report)
 			elif arg == 'no_loops':
 				loops = False
 			elif arg == 'only_loops':
@@ -213,15 +258,22 @@ def main (args):
 				pass
 			elif excluding:
 				excludes.add (arg)
+			elif arg.startswith ('deps:'):
+				r = check_deps (arg[5:],
+					report_mode = report)
 			else:
 				if arg not in excludes:
-					check_search (arg, tags = tags,
+					r = check_search (arg, tags = tags,
 						report_mode = report,
 						check_loops = loops)
 		except Exception, e:
 			print 'EXCEPTION in syscall arg %s:' % arg
 			print traceback.format_exc ()
+			r = 'ProofEXCEPT'
+		result = comb_results (r, result)
+	return result
 
 if __name__ == '__main__':
-	main (args)
+	result = main (args)
+	sys.exit (result_nums[result])
 
