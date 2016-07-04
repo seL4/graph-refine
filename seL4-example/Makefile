@@ -14,7 +14,8 @@
 # rebuild if a custom tool is updated.
 
 # necessary configuration
-TOOLPREFIX?=../../toolchains-x86_64/arm-2010.09/bin/arm-none-eabi-
+TOOLPREFIX?=$(shell bash get_tool_prefix.sh)
+$(if ${TOOLPREFIX},,$(error failed to pick a toolset))
 CC?=gcc
 OBJDUMP?=${TOOLPREFIX}objdump
 
