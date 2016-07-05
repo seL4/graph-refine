@@ -48,8 +48,11 @@ then
   exit 1
 else
   echo Building PolyML in $POLY_DIR
+  # track bleeding-edge polyml for now (urk!)
+  git clone https://github.com/polyml/polyml $POLY_DIR
   POLY_SRC=$($ISABELLE env bash -c 'echo $ML_SOURCES')
-  cp -r $POLY_SRC $POLY_DIR
+  # an alternative is to fetch the isabelle polyml version
+  # cp -r $POLY_SRC $POLY_DIR
   OUT=$(readlink -f poly_output.txt)
   pushd $POLY_DIR
   (./configure --prefix=$POLY_DIR/deploy && make && make install) &> $OUT
@@ -65,14 +68,14 @@ fi fi
 HOL4_DIR=$(readlink -f ../../HOL4)
 
 function mk_build_summ {
-  nm = $(readlink -f $HOL4_DIR/bin/$1)
+  SUMM=$(readlink -f $HOL4_DIR/bin/$1)
   pushd $HOL4_DIR
-  echo Results of '"git show"' in $HOL4_DIR before building. > $nm
-  git show >> $nm
+  echo Results of '"git show"' in $HOL4_DIR before building. > $SUMM
+  git show >> $SUMM
   popd
   pushd $POLY_DIR
-  echo Results of '"tar -c -O deploy"' in $POLY_DIR before building. >> $nm
-  tar -c -O deploy >> $nm
+  echo Results of '"tar -c -O deploy | md5sum"' in $POLY_DIR before building. >> $SUMM
+  tar -c -O deploy | md5sum >> $SUMM
   popd
 }
 
@@ -83,9 +86,9 @@ then
   if ( diff -q $HOL4_DIR/bin/build_summ $HOL4_DIR/bin/build_summ )
   then
     # curiously this is the equal case of diff
-    echo HOL4 build up to date.
+    echo HOL4 matches last build status.
   else
-    echo HOL4 configuration changed, cleaning.
+    echo HOL4 configuration changed from previous build, cleaning.
     pushd $HOL4
     rm -rf $HOL4/bin
     git clean -fX
@@ -96,16 +99,16 @@ fi
 # setup HOL4 to use this PolyML
 if [[ -e $HOL4_DIR/bin/build ]]
 then
-  echo HOL4 already built
+  echo HOL4 already built.
 else
-  echo 'Configuring HOL4'
+  echo HOL4 not built, configuring.
   OUT=$(readlink -f hol4_output.txt)
   pushd $HOL4_DIR
   $POLY < tools-poly/smart-configure.sml &> $OUT
   popd
   if [[ -e $HOL4_DIR/bin/build ]]
   then
-    echo 'Configured HOL4'
+    echo Configured HOL4.
     mk_build_summ build_summ
   else
     err hol4_output.txt $HOL4_DIR "$POLY < tools-poly/smart-configure.sml"
