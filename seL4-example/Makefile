@@ -91,6 +91,10 @@ tar: kernel.tar.gz
 
 H4PATH=$(realpath ${HOL4_ROOT}/bin):${PATH}
 
+H4Update: .FORCE
+	PATH=${H4PATH} build
+	cd ${DECOMP_DIR} ; PATH=${H4PATH} Holmake
+
 ASMFunctions.txt: kernel.elf.txt kernel.sigs
 	PATH=${H4PATH} build
 	PATH=${H4PATH} ${DECOMP_SCRIPT} --fast ./kernel --ignore=fastpath_restore,slowpath

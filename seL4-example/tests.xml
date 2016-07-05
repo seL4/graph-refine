@@ -22,6 +22,8 @@
     <sequence depends="CSpec">
         <!-- Setup environment -->
         <test name="BinaryProofEnvironment">bash configure_default.sh</test>
+        <!-- Build HOL4 theories -->
+        <test name="HOL4GraphTheories">make H4Update</test>
         <!-- Compile & decompile -->
         <test name="BinaryDecompile">make ASMFunctions.txt</test>
         <!-- Export C semantics from Isabelle -->
