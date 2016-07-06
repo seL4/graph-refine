@@ -73,10 +73,8 @@ function mk_build_summ {
   echo Results of '"git show"' in $HOL4_DIR before building. > $SUMM
   git show >> $SUMM
   popd
-  pushd $POLY_DIR
-  echo Results of '"tar -c -O deploy | md5sum"' in $POLY_DIR before building. >> $SUMM
-  tar -c -O deploy | md5sum >> $SUMM
-  popd
+  echo Results of '"find $POLY_DIR/deploy -type f | xargs md5sum"' before building. >> $SUMM
+  find $POLY_DIR/deploy -type f | xargs md5sum >> $SUMM
 }
 
 # check for an old build of HOL4 built by this script, and clean out
