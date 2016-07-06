@@ -199,7 +199,7 @@ def smt_typ (typ):
 			token_smt_typ.num, typ.num)
 	return smt_typ_builtins[typ.name]
 
-token_smt_typ = syntax.word64
+token_smt_typ = syntax.word64T
 
 smt_typ_builtins = {'Bool':'Bool', 'Mem':'{MemSort}', 'Dom':'{MemDomSort}',
 	'Token': smt_typ (token_smt_typ)}
