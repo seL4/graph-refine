@@ -436,6 +436,14 @@ def process_conflict(fout, conflict_files):
     f.close()
     return fake_preemption_points 
 
+def add_impossible_contexts(fout):
+    fout.write('\ === excluded function constraints === \n\n')
+    for (tid, ctxt) in id_to_context.iteritems ():
+        if len (ctxt) <= 2:
+            continue
+        if not trace_refute.ctxt_within_function_limits (ctxt[:-2]):
+            fout.write ('b%s = 0\n' % tid)
+
 def print_constraints(conflict_files, old_cons_file, new_cons_file,sol_file_name, preempt_limit):
         global bb_count
         global edge_count
@@ -451,6 +459,7 @@ def print_constraints(conflict_files, old_cons_file, new_cons_file,sol_file_name
         #cplex.endProblem(fout,log_file_name='./new-gcc-O2.imm.sol')
         cplex.endProblem(fout,sol_file_name)
         fout.write('add\n')
+        add_impossible_contexts(fout)
         fake_preemption_points = process_conflict(fout,conflict_files)
         print '%r' % fake_preemption_points
         preemption_limit(fout,fake_preemption_points,preempt_limit)

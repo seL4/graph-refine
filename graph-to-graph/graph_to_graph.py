@@ -29,6 +29,8 @@ def printHelp():
       --L use loop counts at the file dir_name/loop_counts.py to generate ILP problem
       --i interactive mode (for debugging)
       --x automated WCET estimating, firstly generate the loop heads, then automatically deduce the loop bounds, and finally use the automatically determined loopbounds to estimate teh WCET. A conflict file specifying additional preemption points 
+      --xL same as --x but do not generate (and thus overwrite) loop_counts.py
+
       '''
 
 if __name__ == '__main__':
@@ -46,7 +48,7 @@ if __name__ == '__main__':
         dir_name = sys.argv[1]
         print 'dir_name: %s' % dir_name
         flag = sys.argv[3]
-        assert flag in ['--l','--L','--i', '--x']
+        assert flag in ['--l','--L','--i', '--x', '--xL']
         if flag == '--l':
             gen_heads = True
             bench.bench(dir_name, entry_point_function, gen_heads, load_counts,interactive)
@@ -55,14 +57,15 @@ if __name__ == '__main__':
           load_counts = True
         if flag == '--i':
           interactive = True
-        if flag == '--x':
+        if flag == '--x' or flag == '--xL':
             if len(sys.argv) < 4:
                 printHelp()
                 sys.exit(-1)
             asm_fs = bench.init(dir_name)
-            import convert_loop_bounds
-            analyseFunction(entry_point_function,asm_fs, dir_name, True, False, False)
-            print "loop heads generated"
+            if flag == '--x':
+                import convert_loop_bounds
+                analyseFunction(entry_point_function,asm_fs, dir_name, True, False, False)
+                print "loop heads generated"
             convert_loop_bounds.convert_loop_bounds(dir_name)
             print "loop bounds automatically determined via graph-refine and results stored in %s/loop_counts.py" % dir_name
             print "Using automatically determined loopbounds to generate ILP problem"
