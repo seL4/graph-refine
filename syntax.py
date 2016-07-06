@@ -391,7 +391,7 @@ class Expr:
 
 	def binds (self):
 		binds = []
-		if self.kind in {'Symbol':True, 'Var':True, 'ConstGlobal':True}:
+		if self.kind in set (['Symbol', 'Var', 'ConstGlobal', 'Token']):
 			binds.append(('name', self.name))
 		elif self.kind in ['Array', 'StructCons']:
 			binds.append(('vals', self.vals))
@@ -475,7 +475,7 @@ class Expr:
 		elif self.kind == 'ConstGlobal':
 			assert (target_objects.const_globals[self.name].typ
 				== self.typ)
-		elif self.kind in {'Num':True, 'Symbol':True, 'Type':True}:
+		elif self.kind in set (['Num', 'Symbol', 'Type', 'Token']):
 			pass
 		else:
 			assert not 'expr understood', self
@@ -541,6 +541,9 @@ class Expr:
 			self.typ.serialise (xs)
 		elif self.kind == 'Type':
 			self.val.serialise (xs)
+		elif self.kind == 'Token':
+			xs.extend ([self.kind, self.name])
+			self.typ.serialise (xs)
 		else:
 			assert not 'expr serialisable', self.kind
 
@@ -857,7 +860,7 @@ class Function:
 
 def mk_builtinTs ():
 	return dict([(n, Type('Builtin', n)) for n
-	in 'Bool Mem Dom HTD PMS UNIT Type RelWrapper'.split()])
+	in 'Bool Mem Dom HTD PMS UNIT Type Token RelWrapper'.split()])
 builtinTs = mk_builtinTs ()
 boolT = builtinTs['Bool']
 word32T = Type ('Word', '32')
@@ -922,7 +925,10 @@ def node_name (name):
 	if name in {'Ret':True, 'Err':True}:
 		return name
 	else:
-		return parse_int (name)
+		try:
+			return parse_int (name)
+		except ValueError, e:
+			assert not 'node name understood', name
 
 def parse_list (parser, bits, n, extra=None):
 	try:
@@ -994,7 +1000,7 @@ def parse_struct_elem (bits, n):
 	return (n, (name, val))
 
 def parse_expr (bits, n):
-	if bits[n] in {'Symbol':True, 'Var':True, 'ConstGlobal':True}:
+	if bits[n] in set (['Symbol', 'Var', 'ConstGlobal', 'Token']):
 		kind = bits[n]
 		name = bits[n + 1]
 		(n, typ) = parse_typ (bits, n + 2)
@@ -1130,7 +1136,7 @@ lines. See syntax.quick_reference for an explanation.'''
 		else:
 			# <node name> <node (encoded)>
 			name = node_name(bits[0])
-			assert name not in current_function.nodes
+			assert name not in current_function.nodes, (name, bits)
 			current_function.nodes[name] = parse_node (bits, 1)
 
 	return (structs, functions, const_globals)
@@ -1447,6 +1453,8 @@ def pretty_expr (expr, print_type = False):
 			vals = [pretty_expr (v, print_type = v.typ != expr.typ)
 				for v in expr.vals]
 		return '%s(%s)' % (expr.name, ', '.join (vals))
+	elif expr.kind == 'Token':
+		return "''%s''" % expr.name
 	else:
 		assert not 'expr pretty-printable', expr
 

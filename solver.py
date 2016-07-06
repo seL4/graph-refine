@@ -189,15 +189,19 @@ def save_solv_example (solv, last_msgs, comments = []):
 	solv.write_solv_script (f, last_msgs)
 	f.close ()
 
-smt_typ_builtins = {'Bool':'Bool', 'Mem':'{MemSort}', 'Dom':'{MemDomSort}',
-	'HTD':'HTDSort', 'PMS':'PMSSort'}
-
 def smt_typ (typ):
 	if typ.kind == 'Word':
 		return '(_ BitVec %d)' % typ.num
 	elif typ.kind == 'WordArray':
 		return '(Array (_ BitVec %d) (_ BitVec %d))' % tuple (typ.nums)
 	return smt_typ_builtins[typ.name]
+
+token_smt_typ = syntax.word64
+
+smt_typ_builtins = {'Bool':'Bool', 'Mem':'{MemSort}', 'Dom':'{MemDomSort}',
+	'Token': smt_typ (token_smt_typ)}
+
+smt_typs_omitted = set ([builtinTs['HTD'], builtinTs['PMS'])
 
 smt_ops = syntax.ops_to_smt
 
@@ -226,6 +230,8 @@ class EnvMiss (Exception):
 		self.typ = typ
 
 cheat_mem_doms = [True]
+
+tokens = {}
 
 def smt_expr (expr, env, solv):
 	if expr.is_op (['WordCast', 'WordCastSigned']):
@@ -362,6 +368,12 @@ def smt_expr (expr, env, solv):
 		return var
 	elif expr.kind == 'SMTExpr':
 		return expr.val
+	elif expr.kind == 'Token':
+		if expr.name not in tokens:
+			n = len (tokens) + 1
+			tokens[expr.name] = n
+		n = tokens[expr.name]
+		return smt_num (n, token_smt_typ.num)
 	else:
 		assert not 'handled expr', expr
 
@@ -774,7 +786,7 @@ class Solver:
 	def add_var (self, name, typ, kind = 'Var',
 			mem_name = None,
 			ignore_external_names = False):
-		if typ in [builtinTs['HTD'], builtinTs['PMS']]:
+		if typ in smt_typs_omitted:
 			# skipped. not supported by all solvers
 			name = self.smt_name (name, ('Ghost', typ),
 				ignore_external_names = ignore_external_names)
@@ -801,7 +813,7 @@ class Solver:
 
 	def add_def (self, name, val, env, ignore_external_names = False):
 		kind = 'Var'
-		if val.typ in [builtinTs['HTD'], builtinTs['PMS']]:
+		if val.typ in smt_typs_omitted:
 			kind = 'Ghost'
 		smt = smt_expr (val, env, self)
 		if smt[0] == 'SplitMem':
