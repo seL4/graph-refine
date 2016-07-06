@@ -256,7 +256,7 @@ standard.
 class Type:
 	def __init__ (self, kind, name, el_typ=None):
 		self.kind = kind
-		if kind in ['Array', 'Word']:
+		if kind in ['Array', 'Word', 'TokenWords']:
 			self.num = int (name)
 		else:
 			self.name = name
@@ -270,8 +270,8 @@ class Type:
 		if self.kind == 'Array':
 			return 'Type ("Array", %r, %r)' % (self.num,
 				self.el_typ_symb)
-		elif self.kind == 'Word':
-			return 'Type ("Word", %r)' % self.num
+		elif self.kind in ('Word', 'TokenWords'):
+			return 'Type (%s, %r)' % (self.kind, self.num)
 		elif self.kind == 'Ptr':
 			return 'Type ("Ptr", %r)' % self.el_typ_symb
 		elif self.kind in ('WordArray', 'FloatingPoint'):
@@ -285,7 +285,7 @@ class Type:
 			return False
 		if self.kind != other.kind:
 			return False
-		if self.kind in ['Array', 'Word']:
+		if self.kind in ['Array', 'Word', 'TokenWords']:
 			if self.num != other.num:
 				return False
 		elif self.kind in ['WordArray', 'FloatingPoint']:
@@ -350,8 +350,8 @@ class Type:
 			assert not 'type has alignment'
 
 	def serialise (self, xs):
-		if self.kind == 'Word':
-			xs.append ('Word')
+		if self.kind in ('Word', 'TokenWords'):
+			xs.append (self.kind)
 			xs.append (str (self.num))
 		elif self.kind in ('WordArray', 'FloatingPoint'):
 			xs.append (self.kind)
@@ -963,6 +963,7 @@ ops = {'Plus':2, 'Minus':2, 'Times':2, 'Modulus':2,
 	'PValid':3, 'PWeakValid':3, 'PAlignValid':2, 'PGlobalValid':3,
 	'PArrayValid':4,
 	'HTDUpdate':5, 'WordArrayAccess':2, 'WordArrayUpdate':3,
+	'TokenWordsAccess':2, 'TokenWordsUpdate':3,
 	'ROData':1, 'StackWrapper':2,
 	'ToFloatingPoint':1, 'ToFloatingPointSigned':2,
 	'ToFloatingPointUnsigned':2, 'FloatingPointCast':1, 

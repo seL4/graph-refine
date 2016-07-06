@@ -194,6 +194,9 @@ def smt_typ (typ):
 		return '(_ BitVec %d)' % typ.num
 	elif typ.kind == 'WordArray':
 		return '(Array (_ BitVec %d) (_ BitVec %d))' % tuple (typ.nums)
+	elif typ.kind == 'TokenWords':
+		return '(Array (_ BitVec %d) (_ BitVec %d))' % (
+			token_smt_typ.num, typ.num)
 	return smt_typ_builtins[typ.name]
 
 token_smt_typ = syntax.word64
@@ -203,7 +206,12 @@ smt_typ_builtins = {'Bool':'Bool', 'Mem':'{MemSort}', 'Dom':'{MemDomSort}',
 
 smt_typs_omitted = set ([builtinTs['HTD'], builtinTs['PMS'])
 
-smt_ops = syntax.ops_to_smt
+smt_ops = dict (syntax.ops_to_smt)
+# these additional smt ops aren't used as keywords in the syntax
+more_smt_ops = {
+	'TokenWordsAccess': 'select', 'TokenWordsUpdate': 'store'
+}
+smt_ops.update (more_smt_ops)
 
 def smt_num (num, bits):
 	if num < 0:
