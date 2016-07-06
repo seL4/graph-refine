@@ -204,7 +204,7 @@ token_smt_typ = syntax.word64
 smt_typ_builtins = {'Bool':'Bool', 'Mem':'{MemSort}', 'Dom':'{MemDomSort}',
 	'Token': smt_typ (token_smt_typ)}
 
-smt_typs_omitted = set ([builtinTs['HTD'], builtinTs['PMS'])
+smt_typs_omitted = set ([builtinTs['HTD'], builtinTs['PMS']])
 
 smt_ops = dict (syntax.ops_to_smt)
 # these additional smt ops aren't used as keywords in the syntax
