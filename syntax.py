@@ -491,7 +491,7 @@ class Expr:
 				self = Expr ('Op', self.typ, name = self.name,
 					vals = subst_vals)
 				ret = True
-		if (ss == None or self.kind in ss):
+		if (ss == None or self.kind in ss or self.is_op (ss)):
 			r = substor (self)
 			if r != None:
 				return r
