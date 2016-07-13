@@ -71,7 +71,7 @@ def auto_infea(dir_name, entry_point_function, manual_conflicts_file, results_di
         conflict.cleanGlobalStates()
 
         #FIXME: un-hardcode the entry function
-        wcet = conflict.conflict('handleSyscall', tcfg_map, [manual_conflicts_file,auto_refutes_file],ilp_nofooter,ilp_file,dir_name, sol_file, emit_conflicts=True, do_cplex=True, silent_cplex=True, preempt_limit=preemption_limit)
+        wcet = conflict.conflict(entry_point_function, tcfg_map, [manual_conflicts_file,auto_refutes_file],ilp_nofooter,ilp_file,dir_name, sol_file, emit_conflicts=True, do_cplex=True, silent_cplex=True, preempt_limit=preemption_limit)
 #unsilence()
 
         print 'conflict.main returned'
@@ -122,16 +122,17 @@ def auto_infea(dir_name, entry_point_function, manual_conflicts_file, results_di
     results_f.close()
 
 if __name__ == '__main__':    
-    if len(sys.argv) != 6:
-        print 'Usage: python auto_infea.py <dir_name> <entry point function> <manual_conflicts_file> <results directory> initial i'
+    if len(sys.argv) != 5:
+        print 'Usage: python auto_infea.py <dir_name> <entry point function> <results directory> <initial i>'
         print 'results direcotry should already exists and be empty'
         print 'initial i determine which iterations to start at, use 0 for fresh runs'
         print len(sys.argv)
         sys.exit(0)
     dir_name = sys.argv[1]
     entry_point_function = sys.argv[2]
-    manual_conflicts_file = sys.argv[3]
-    results_dir = sys.argv[4]
-    initial_i = int(sys.argv[5])
-    auto_infea(dir_name, entry_point_function, manual_conflicts_file, results_dir, initial_i, preemption_limit = 5)
+    from convert_loop_bounds import phantomPreemptsAnnoFileName
+    preempt_conflicts_file = phantomPreemptsAnnoFileName(dir_name)
+    results_dir = sys.argv[3]
+    initial_i = int(sys.argv[4])
+    auto_infea(dir_name, entry_point_function,preempt_conflicts_file, results_dir, initial_i, preemption_limit = 5)
 

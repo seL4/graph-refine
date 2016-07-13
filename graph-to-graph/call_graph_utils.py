@@ -58,11 +58,11 @@ def dotCallGraph(f,cg,dir_name):
         assert nodes[ff]
         graph.add_edge(pydot.Edge(nodes[f],nodes[ff]))
     print 'emitting call graph for %s' % fun
-    graph.write_svg('graphs/call_graph_%s.svg' % fun)
+    graph.write_svg('%s/graphs/call_graph_%s.svg' % (dir_name,fun))
 
-def makeCallGraph(functions,dir_name):
-    cg = funsCallGraph(functions,dir_name)
-    dotCallGraph(cg,dir_name)
+def makeCallGraph(fun,functions,dir_name):
+    cg = funsCallGraph(functions,dir_name,[])
+    dotCallGraph(fun,cg,dir_name)
 
 #return a list of all funcs transitively called by f
 def transitiveCall(f,cg):
@@ -81,10 +81,13 @@ def transitiveCall(f,cg):
           vs += cg[ff]
     return list(set(ret))
 
-def makeFunCallGraph(f,funs,dn,ignore_funs):
+def drawFunCallGraph(f,funs,dn,ignore_funs,transitive=False):
     cg = funsCallGraph(funs,dn,ignore_funs)
     tc = transitiveCall(f,cg)
-    cg_tc = {x:cg[x] for x in tc}
+    if transitive:
+        cg_tc = {x:transitiveCall(x,cg) for x in tc}
+    else:
+        cg_tc = {x:cg[x] for x in tc}
     cg_tc[f] = cg[f]
     #print 'cg_tc: %s' % cg_tc
     dotCallGraph(f,cg_tc,dn) 

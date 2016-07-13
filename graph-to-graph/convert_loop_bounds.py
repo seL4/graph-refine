@@ -82,9 +82,9 @@ def convert_loop_bounds(target_dir_name, worker_id=None, cached_only=False):
             lbfs[f][head] = (ret[0],ret[1], old_worker)
         imm_utils.genLoopheads(lbfs, target_objects.target_dir, incremental_head=(f,head))
     preempt_annotations_file.close()
-    unexpectedUnboundedFuns = set([x for x in funs_with_unbounded_loop if x not in funs_with_phantom_preempt])
-    if unexpectedUnboundedFuns:
-        print 'functions with unbounded loop and not bounded by preemption: %s' % str(unexpectedUnboundedFuns)
+    unex_unbounded_funcs = set([x for x in funs_with_unbounded_loop if x not in funs_with_phantom_preempt])
+    if unex_unbounded_funcs:
+        print 'functions with unbounded loop and not bounded by preemption: %s' % str(unex_unbounded_funcs)
         return None
     return lbfs
 

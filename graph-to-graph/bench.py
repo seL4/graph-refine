@@ -154,7 +154,7 @@ def bench(dir_name, entry_point_function, gen_heads,load_counts, interactive, pa
     asm_fs = init(dir_name)
     functions = target_objects.functions
     if parse_only or interactive:
-        t = entry_point_function[0]
+        t = entry_point_function
         i = toImmFun(t,dir_name,load_counts=load_counts)
         i.process()
         return

@@ -377,8 +377,6 @@ def emit_f_conflicts (fout, line):
       for tcfg_id in ids_ctx:
         fout.write("b{0} = 0\n".format(tcfg_id))
 
-#whether bin_addr is in a loop inside its function
-#def isInPLoop(bin_addr):
 def process_conflict(fout, conflict_files):
     fake_preemption_points = []
     for conflict_file in conflict_files:
