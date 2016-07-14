@@ -17,7 +17,7 @@
      the file format.
 
 -->
-<testsuite cpu-timeout="3600" depends="isabelle">
+<testsuite cpu-timeout="36000" depends="isabelle">
 
     <sequence depends="CSpec">
         <!-- Setup environment -->
