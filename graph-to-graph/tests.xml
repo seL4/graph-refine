@@ -17,15 +17,9 @@
 
 -->
 <testsuite>
-
-    <sequence depends="BinaryProblem">
-        <test name="InitialLoopAnalysis">
-        python graph_to_graph.py ../seL4-example handleSyscall --l
-        </test>
-        
-        <test name="DeriveLoopBounds" cpu-timeout="100">
-        python convert_loop_bounds.py ../seL4-example
-        </test>
-    </sequence>
+    <set>
+        <test name="CheckCplex"> cplex -c "help" </test>
+        <test name="CheckChronos"> test -s ../../chronos4.2/est </test>
+    </set>
 
 </testsuite>

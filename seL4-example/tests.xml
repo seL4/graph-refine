@@ -17,7 +17,7 @@
      the file format.
 
 -->
-<testsuite cpu-timeout="36000" depends="isabelle">
+<testsuite cpu-timeout="36000" depends="isabelle CheckCplex CheckChronos">
 
     <sequence depends="CSpec">
         <!-- Setup environment -->
