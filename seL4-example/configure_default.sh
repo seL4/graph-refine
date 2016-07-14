@@ -40,21 +40,21 @@ POLY=$POLY_DIR/deploy/bin/poly
 if [[ -e $POLY ]]
 then
   echo PolyML already built.
-else if [[ -e $POLY_DIR ]]
-then
-  echo PolyML present but not built in $POLY_DIR
-  echo   - cd $POLY_DIR
-  echo   - "./configure --prefix=$POLY_DIR/deploy && make install"
-  exit 1
 else
   echo Building PolyML in $POLY_DIR
   # track bleeding-edge polyml for now (urk!)
-  git clone https://github.com/polyml/polyml $POLY_DIR
-  POLY_SRC=$($ISABELLE env bash -c 'echo $ML_SOURCES')
+  #git clone https://github.com/polyml/polyml $POLY_DIR
+  #POLY_SRC=$($ISABELLE env bash -c 'echo $ML_SOURCES')
   # an alternative is to fetch the isabelle polyml version
   # cp -r $POLY_SRC $POLY_DIR
   OUT=$(readlink -f poly_output.txt)
   pushd $POLY_DIR
+  git status &> /dev/null
+  if [ $? -ne 0 ]; then
+    echo PolyML not checked out at $POLY_DIR !
+    exit 1
+  fi
+  echo Setting up PolyML
   (./configure --prefix=$POLY_DIR/deploy && make && make install) &> $OUT
   popd
   if [[ -e $POLY ]]
@@ -62,8 +62,8 @@ else
     echo Built PolyML
   else
     err poly_output.txt $POLY_DIR "./configure --prefix=$POLY_DIR/deploy && make && make install"
-  fi
-fi fi
+fi
+fi
 
 HOL4_DIR=$(readlink -f ../../HOL4)
 
