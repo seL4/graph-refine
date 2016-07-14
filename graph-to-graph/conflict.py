@@ -495,7 +495,7 @@ def conflict(entry_point_function, tcfg_map, conflict_files, old_ilp, new_ilp, d
         #initialise graph_to_graph so we get immFunc
         #load the loop_counts
         print 'conflict.conflict: sol_file %s' % sol_file
-        bench.bench(dir_name, [entry_point_function],False,True,False,parse_only=True )
+        bench.bench(dir_name, entry_point_function,False,True,False,parse_only=True )
         #we need the loop data
         immFunc().process()
         global bbAddr
