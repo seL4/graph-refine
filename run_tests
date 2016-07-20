@@ -9,7 +9,7 @@
 #
 # @TAG(NICTA_BSD)
 #
-
+set -e
 echo 'running run_tests script'
 
 # Fetch directory this script is stored in.
