@@ -138,11 +138,8 @@ def init(dir_name):
           return
         print s
     target_objects.tracer[0] = silent_tracer
-    ef = elf_parser.parseElf(dir_name)
-
-    #build a dict of asm_fs -> fs from functions_by_tag and functions
-    asm_fs = dict ([(x,functions[x]) for x in functions_by_tag['ASM']])
-
+    elf_parser.parseElf(dir_name)
+    asm_fs = elfFile().asm_fs
     tran_call_graph = call_graph_utils.transitiveCallGraph(asm_fs,dir_name,dummy_funs)
 
     elfFile().tcg = tran_call_graph

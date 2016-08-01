@@ -27,7 +27,7 @@ syntax.parse_and_install_all (f, 'C')
 f.close ()
 
 f = open ('%s/ASMFunctions.txt' % target_dir)
-(astructs, afunctions, aconst_globals) = syntax.parse_and_install_all (f, 'ASM')
+(astructs, afunctions, aconst_globals) = syntax.parse_and_install_all (f, 'ASM',skip_functions= ['fastpath_call', 'fastpath_reply_recv','c_handle_syscall'])
 f.close ()
 assert not astructs
 assert not aconst_globals
