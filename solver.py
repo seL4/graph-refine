@@ -985,7 +985,8 @@ class Solver:
 		if not solver:
 			return 'no-slow-solver'
 
-		(fd, name) = tempfile.mkstemp (suffix='.txt', prefix='temp-input')
+		(fd, name) = tempfile.mkstemp (suffix='.txt',
+			prefix='graph-refine-problem-')
 		tmpfile_write = open (name, 'w')
 		self.write_solv_script (tmpfile_write, input_msgs)
 		tmpfile_write.close ()
@@ -994,6 +995,7 @@ class Solver:
 			stdin = fd, stdout = subprocess.PIPE,
 			preexec_fn = preexec (timeout))
 		os.close (fd)
+		os.unlink (name)
 
 		return (proc, proc.stdout)
 
