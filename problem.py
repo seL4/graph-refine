@@ -421,6 +421,9 @@ def deserialise (name, lines):
 
 # printing of problem graphs
 
+def sanitise_str (s):
+	return s.replace ('"', '_').replace ("'", "_").replace (' ', '')
+
 def graph_name (nodes, node_tags, n, prev=None):
 	if type (n) == str:
 		return 't_%s_%d' % (n, prev)
@@ -433,8 +436,12 @@ def graph_name (nodes, node_tags, n, prev=None):
 		if len (details) > 1 and logic.is_int (details[1]):
 			ident = '%d_%s_%s_0x%x' % (n, tag,
 				details[0], details[1])
+		elif type (details) != str:
+			details = '_'.join (map (str, details))
+			ident = '%d_%s_%s' % (n, tag, details)
 		else:
 			ident = '%d_%s_%s' % (n, tag, details)
+	ident = sanitise_str (ident)
 	node = nodes[n]
 	if node.kind == 'Call':
 		return 'fcall_%s' % ident
@@ -451,12 +458,11 @@ def graph_node_tooltip (nodes, n):
 		return 'Return point'
 	node = nodes[n]
 	if node.kind == 'Call':
-		return '%s: call to %r' % (n, node.fname)
+		return "%s: call to '%s'" % (n, sanitise_str (node.fname))
 	if node.kind == 'Cond':
 		return '%s: conditional node' % n
 	if node.kind == 'Basic':
-		var_names = [x[0][0].replace('"', '_').replace("'", "_")
-			for x in node.upds]
+		var_names = [sanitise_str (x[0][0]) for x in node.upds]
 		return '%s: assignment to [%s]' % (n, ', '.join (var_names))
 	assert not 'node kind understood'
 

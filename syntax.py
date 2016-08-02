@@ -147,7 +147,7 @@ Array <type> <int>
 Struct "struct name"
 Ptr <type>
 One of the builtin types as a single token:
-  'Bool Mem Dom HTD PMS UNIT Type RoundingMode'
+  'Bool Mem Dom HTD PMS UNIT Type Token RoundingMode'
 FloatingPoint <int> <int>
 
 These types encode a machine word with the given number of bits, an array of
@@ -1265,6 +1265,9 @@ def get_extensions (v):
 
 def mk_var (nm, typ):
 	return Expr ('Var', typ, name = nm)
+
+def mk_token (nm):
+	return Expr ('Token', builtinTs['Token'], name = nm)
 
 def mk_plus (x, y):
 	assert x.typ == y.typ
