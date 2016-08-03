@@ -304,9 +304,8 @@ class immFunc (Borg):
 
     def inlineForBinGraph(self):
         self.f_problems = {}
-        if self.name not in elfFile().tcg: 
+        if self.name not in elfFile().tcg:
             print elfFile().tcg.keys()
-        
         tc_fs = elfFile().tcg[self.name]
         for f in tc_fs + [self.name]:
             assert '.' not in f
@@ -322,7 +321,7 @@ class immFunc (Borg):
         self.findAllDeadends()
         #now generate the bin graph
 
-        for (f,p) in [(f,self.f_problems[f]) for f in self.f_problems]:
+        for f,p in self.f_problems.iteritems():
           for p_n in p.nodes:
             if type(p_n) != int:
               continue
@@ -349,7 +348,7 @@ class immFunc (Borg):
           self.deadend_g_ns.add (deadend_f_g_n)
           print 'deadend_f_g_n %s' % deadend_f_g_n
 
-        for (f,p) in [(f,self.f_problems[f]) for f in (self.f_problems)]:
+        for (f,p) in self.f_problems.iteritems():
             for p_n in p.nodes:
                 if self.isDeadend((p_n,f)):
                     pf_deadends.append((p_n,f))
@@ -372,6 +371,9 @@ class immFunc (Borg):
         if isCall(p.nodes[p_n]):
             #walk into the callee problem
             f = self.funName(p_nf)
+            #FIXME: dodge dummy functions
+            if 'instruction' in f:
+                return False
             if f in elfFile().deadend_funcs:
               return True
             p_callee = self.f_problems[f]

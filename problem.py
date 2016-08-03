@@ -451,6 +451,9 @@ def graph_name (nodes, node_tags, n, prev=None):
 		return 'ass_%s' % ident
 	assert not 'node kind understood'
 
+def sanitise_name (nm):
+	return nm.replace('"', '_').replace("'", "_").replace(" ", "_")
+
 def graph_node_tooltip (nodes, n):
 	if n == 'Err':
 		return 'Error point'
