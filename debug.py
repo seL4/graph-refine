@@ -508,4 +508,37 @@ def read_summary (f):
 		times[pair] = time
 	return (results, times)
 
+def unfold_defs_sexpr (defs, sexpr, depthlimit = -1):
+	if type (sexpr) == str:
+		sexpr = defs.get (sexpr, sexpr)
+		print sexpr
+		return sexpr
+	elif depthlimit == 0:
+		return sexpr
+	return tuple ([sexpr[0]] + [unfold_defs_sexpr (defs, s, depthlimit - 1)
+		for s in sexpr[1:]])
+
+def unfold_defs (defs, hyp, depthlimit = -1):
+	return solver.flat_s_expression (unfold_defs_sexpr (defs, 
+		solver.parse_s_expression (hyp), depthlimit))
+
+def investigate_unsat (solv, hyps = None):
+	if hyps == None:
+		hyps = list (solver.last_hyps[0])
+	assert solv.hyps_sat_raw (hyps) == 'unsat', hyps
+	kept_hyps = []
+	while hyps:
+		h = hyps.pop ()
+		if solv.hyps_sat_raw (hyps + kept_hyps) != 'unsat':
+			kept_hyps.append (h)
+	assert solv.hyps_sat_raw (kept_hyps) == 'unsat', kept_hyps
+	split_hyps = sorted (set ([(hyp2, tag) for (hyp, tag) in kept_hyps
+		for hyp2 in solver.split_hyp (hyp)]))
+	if len (split_hyps) > len (kept_hyps):
+		return investigate_unsat (solv, split_hyps)
+	def_hyps = [(unfold_defs (solv.defs, h, 2), tag)
+		for (h, tag) in kept_hyps]
+	if def_hyps != kept_hyps:
+		return investigate_unsat (solv, def_hyps)
+	return kept_hyps
 

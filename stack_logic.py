@@ -193,7 +193,8 @@ def get_extra_sp_defs (rep, tag):
 	sp = mk_var ('r13', syntax.word32T)
 	defs = {}
 	items = [(n_vc, x) for (n_vc, x) in rep.funcs.iteritems ()
-		if logic.is_int (n_vc[0])]
+		if logic.is_int (n_vc[0])
+		if get_asm_calling_convention (rep.p.nodes[n_vc[0]].fname)]
 	for ((n, vc), (inputs, outputs, _)) in items:
 		if rep.p.node_tags[n][0] == tag:
 			inp_sp = solver.smt_expr (sp, inputs, rep.solv)
@@ -341,6 +342,8 @@ def stack_virtualise_node (node, sp_offs):
 			return (ptrs, syntax.Node ('Cond',
 				node.get_conts (), cond))
 	elif node.kind == 'Call':
+		if node.fname.startswith ("impl'"):
+			return ([], node)
 		cc = get_asm_calling_convention_at_node (node)
 		assert cc != None, node.fname
 		args = [arg for arg in cc['args'] if not is_stack (arg)]
@@ -830,6 +833,9 @@ asm_cc_cache = {}
 def get_asm_calling_convention (fname):
 	if fname in asm_cc_cache:
 		return asm_cc_cache[fname]
+	if fname not in pre_pairings:
+		assert fname.startswith ("impl'")
+		return None
 	pair = pre_pairings[fname]
 	assert pair['ASM'] == fname
 	c_fun = functions[pair['C']]

@@ -1077,4 +1077,3 @@ def strengthen_hyp (expr, sign = 1):
 def weaken_assert (expr):
 	return strengthen_hyp (expr, -1)
 
-

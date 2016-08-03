@@ -171,6 +171,7 @@ import os
 last_solver = [None]
 last_10_models = []
 last_satisfiable_hyps = [None]
+last_hyps = [None]
 last_check_model_state = [None]
 active_solvers = []
 max_active_solvers = [5]
@@ -187,6 +188,13 @@ def save_solv_example (solv, last_msgs, comments = []):
 	for msg in comments:
 		f.write ('; ' + msg + '\n')
 	solv.write_solv_script (f, last_msgs)
+	f.close ()
+
+def write_last_solv_script (solv, fname):
+	f = open (fname, 'w')
+	hyps = last_hyps[0]
+	cmds = ['(assert %s)' % hyp for (hyp, _) in hyps] + ['(check-sat)']
+	solv.write_solv_script (f, cmds)
 	f.close ()
 
 def smt_typ (typ):
@@ -479,15 +487,16 @@ def split_hyp_sexpr (hyp, accum):
 			split_hyp_sexpr (('not', h), accum)
 	elif hyp[0] == 'not' and hyp[1][0] == 'not':
 		split_hyp_sexpr (hyp[1][1], accum)
+	elif hyp[:1] + hyp[2:] == ('=>', 'false'):
+		split_hyp_sexpr (('not', hyp[1]), accum)
 	elif hyp[:1] == ('=', ) and ('true' in hyp or 'false' in hyp):
-		if hyp[1] == 'true':
-			split_hyp_sexpr (hyp[2], accum)
-		elif hyp[2] == 'true':
-			split_hyp_sexpr (hyp[1], accum)
-		elif hyp[1] == 'false':
-			split_hyp_sexpr (('not', hyp[2]), accum)
-		elif hyp[2] == 'false':
-			split_hyp_sexpr (('not', hyp[1]), accum)
+		(_, p, q) = hyp
+		if q in ['true', 'false']:
+			(p, q) = (q, p)
+		if p == 'true':
+			split_hyp_sexpr (q, accum)
+		else:
+			split_hyp_sexpr (('not', q), accum)
 	else:
 		accum.append (hyp)
 	return accum
@@ -903,6 +912,7 @@ class Solver:
 		hyp_dict = {}
 		raw_hyps = [(hyp2, tag) for (hyp, tag) in hyps
 			for hyp2 in split_hyp (hyp)]
+		last_hyps[0] = list (raw_hyps)
 		hyps = [self.next_hyp (h, hyp_dict) for h in raw_hyps]
 		succ = False
 		if force_solv != 'Slow':
@@ -1780,6 +1790,30 @@ def flat_s_expression (s):
 
 pvalid_type_map = {}
 
+def fun_cond_test (fun, unsats = None):
+	if unsats == None:
+		unsats = []
+	ns = [n for n in fun.reachable_nodes (simplify = True)
+		if fun.nodes[n].get_conts ()[1:] == ['Err']
+		if fun.nodes[n].cond != syntax.false_term]
+	if not ns:
+		return
+	solv = Solver ()
+	for n in ns:
+		vs = syntax.get_node_rvals (fun.nodes[n])
+		env = dict ([((nm, typ), solv.add_var (nm, typ))
+			for (nm, typ) in vs.iteritems ()])
+		r = solv.test_hyp (syntax.mk_not (fun.nodes[n].cond), env)
+		if r == True:
+			unsats.append ((fun.name, n))
+	return unsats
+
+def cond_tests ():
+	unsats = []
+	from target_objects import functions
+	[fun_cond_test (fun, unsats) for (f, fun) in functions.iteritems ()]
+	assert not unsats, unsats
+
 #def compile_struct_pvalid ():
 #def compile_pvalids ():
 	
@@ -1811,5 +1845,7 @@ if __name__ == "__main__":
 		test ()
 	elif sys.argv[1:] == ['test']:
 		test ()
+	elif sys.argv[1:] == ['ctest']:
+		cond_tests ()
 
 

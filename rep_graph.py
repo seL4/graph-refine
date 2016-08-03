@@ -770,17 +770,17 @@ class GraphSlice:
 		return self.funcs[n_vc]
 
 	def get_func_pairing (self, n_vc, n_vc2):
-		fname_n_vcs = {self.p.nodes[n_vc[0]].fname: n_vc,
-			self.p.nodes[n_vc2[0]].fname: n_vc2}
-		fnames = set (fname_n_vcs)
+		fnames = [self.p.nodes[n_vc[0]].fname,
+			self.p.nodes[n_vc2[0]].fname]
 		pairs = [pair for pair in pairings[list (fnames)[0]]
-			if set (pair.funs.values ()) == fnames]
+			if set (pair.funs.values ()) == set (fnames)]
 		if not pairs:
 			return None
 		[pair] = pairs
-		[l_n_vc, r_n_vc] = [fname_n_vcs[pair.funs[tag]]
-			for tag in pair.tags]
-		return (pair, l_n_vc, r_n_vc)
+		if pair.funs[pair.tags[0]] == fnames[0]:
+			return (pair, n_vc, n_vc2)
+		else:
+			return (pair, n_vc2, n_vc)
 
 	def get_func_assert (self, n_vc, n_vc2):
 		(pair, l_n_vc, r_n_vc) = self.get_func_pairing (n_vc, n_vc2)
