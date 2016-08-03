@@ -834,7 +834,7 @@ def get_asm_calling_convention (fname):
 	if fname in asm_cc_cache:
 		return asm_cc_cache[fname]
 	if fname not in pre_pairings:
-		assert fname.startswith ("impl'")
+		assert fname.startswith ("impl'") or fname.startswith ("instruction'")
 		return None
 	pair = pre_pairings[fname]
 	assert pair['ASM'] == fname

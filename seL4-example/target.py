@@ -41,6 +41,8 @@ f.close ()
 print 'Pseudo-Compiling.'
 pseudo_compile.compile_funcs (functions)
 
+print 'Doing stack/inst logic.'
+
 def make_pairings ():
 	pairs = [(s, 'Kernel_C.' + s) for s in functions
 		if ('Kernel_C.' + s) in functions]
@@ -51,6 +53,9 @@ def make_pairings ():
 	pairings.update (new_pairings)
 
 make_pairings ()
+
+import inst_logic
+inst_logic.add_inst_specs ()
 
 print 'Checking.'
 syntax.check_funs (functions)
