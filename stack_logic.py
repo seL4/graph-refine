@@ -279,7 +279,7 @@ def is_stack (expr):
 def stack_virtualise_expr (expr, sp_offs):
 	if expr.is_op ('MemAcc') and is_stack (expr.vals[0]):
 		[m, p] = expr.vals
-		assert expr.typ == syntax.word32T
+		assert expr.typ == syntax.word32T, expr
 		ptrs = [(p, 'MemAcc')]
 		if sp_offs == None:
 			return (ptrs, None)

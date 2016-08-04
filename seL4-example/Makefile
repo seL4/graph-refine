@@ -14,8 +14,6 @@
 # rebuild if a custom tool is updated.
 
 # necessary configuration
-TOOLPREFIX?=$(shell bash get_tool_prefix.sh)
-$(if ${TOOLPREFIX},,$(error failed to pick a toolset))
 CC?=gcc
 OBJDUMP?=${TOOLPREFIX}objdump
 
@@ -28,6 +26,10 @@ CSPEC_PATH?=${L4V_ROOT}/spec/cspec/c
 HOL4_ROOT?=../../HOL4
 DECOMP_DIR?=${HOL4_ROOT}/examples/machine-code/graph
 
+GREF_ROOT?=..
+TOOLPREFIX?=$(shell bash ${GREF_ROOT}/seL4-example/get_tool_prefix.sh)
+$(if ${TOOLPREFIX},,$(error failed to pick a toolset))
+
 # standard configuration
 UMM_TYPES=umm_types.txt
 ARCH=arm
@@ -38,8 +40,6 @@ FASTPATH=yes
 CONFIG_DOMAIN_SCHEDULE=${CSPEC_PATH}/config_arm.c
 
 # optional configuration
-
-CONFIG_OPTIMISATION_O1=y
 
 # sanity test configuration
 
@@ -53,8 +53,10 @@ $(if $(wildcard ${HOL4_ROOT}/bin/Holmake ${HOL4_ROOT}/bin/build),, \
   $(error Holmake/build not found in ${HOL4_ROOT}/bin - first configure HOL4. \
   See INSTALL in HOL4, but skip the bin/build step))
 
-SOLV_TEST = $(shell python ../solver.py testq | grep 'Solver self-test succ')
-$(if ${SOLV_TEST},,$(error Solver self-test failed (python ../solver.py test)))
+SOLV=python ${GREF_ROOT}/solver.py
+
+SOLV_TEST = $(shell ${SOLV} testq | grep 'Solver self-test succ')
+$(if ${SOLV_TEST},,$(error Solver self-test failed (${SOLV} test)))
 
 
 # compile and decompile
@@ -72,7 +74,7 @@ kernel.elf.symtab: kernel.elf
 
 kernel.sigs: kernel_all.c_pp
 	MAKEFILES= make -C ${PARSERPATH} standalone-cparser
-	${PARSERPATH}/c-parser --mmbytes $^ > $@
+	${PARSERPATH}/c-parser --underscore_idents --mmbytes $^ > $@
 
 summary.txt: kernel_all.c_pp 
 	echo Summary > pre_summary.txt
@@ -92,7 +94,7 @@ tar: kernel.tar.gz
 H4PATH=$(realpath ${HOL4_ROOT}/bin):${PATH}
 
 H4Update: .FORCE
-	PATH=${H4PATH} build
+	PATH=${H4PATH} build -nograph
 	cd ${DECOMP_DIR} ; PATH=${H4PATH} Holmake
 
 ASMFunctions.txt: kernel.elf.txt kernel.sigs
@@ -116,17 +118,19 @@ CFunctions.txt: $(KERNEL_ALL_FILES) ${L4V_ROOT}/tools/asmrefine/*.thy
 	cp ${L4V_ROOT}/proof/asmrefine/CFunDump.txt CFunctions.txt
 
 GRAPH_REFINE_INPUTS= kernel.elf.rodata kernel.elf.symtab ASMFunctions.txt \
-                CFunctions.txt target.py ../*.py
+                CFunctions.txt target.py ${GREF_ROOT}/*.py
+
+GRAPH_REFINE=python ${GREF_ROOT}/graph-refine.py
 
 StackBounds.txt: ${GRAPH_REFINE_INPUTS}
-	python ../graph-refine.py .
+	${GRAPH_REFINE} .
 
 demo-report.txt: StackBounds.txt ${GRAPH_REFINE_INPUTS}
-	python ../graph-refine.py . trace-to:partial-$@ deps:Kernel_C.cancelAllIPC
+	${GRAPH_REFINE} . trace-to:partial-$@ deps:Kernel_C.cancelAllIPC
 	mv partial-$@ $@
 
 report.txt: StackBounds.txt ${GRAPH_REFINE_INPUTS}
-	python ../graph-refine.py . trace-to:partial-$@ all
+	${GRAPH_REFINE} . trace-to:partial-$@ all
 	mv partial-$@ $@
 
 default: report.txt

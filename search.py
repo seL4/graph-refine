@@ -166,11 +166,14 @@ def eval_model (m, s, toplevel = None):
 	
 	xs = [eval_model (m, x, toplevel) for x in s[1:]]
 
-	if op[0] == '_' and op[1] == 'zero_extend':
-		[_, _, n_extend] = op
+	if op[0] == '_' and op[1] in ['zero_extend', 'sign_extend']:
+		[_, ex_kind, n_extend] = op
 		n_extend = int (n_extend)
 		[x] = xs
 		assert x.typ.kind == 'Word' and x.kind == 'Num'
+		val = x.val
+		if ex_kind == 'sign_extend':
+			val = get_signed_val (x)
 		result = Expr ('Num', Type ('Word', x.typ.num + n_extend),
 			val = x.val)
 	elif op[0] == '_' and op[1] == 'extract':
