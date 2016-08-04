@@ -148,12 +148,13 @@ result_nums = {
 	'Loop' : 1,
 	'NoLoop' : 2,
 	'None' : 3,
-	'ProofAbort' : 4,
-	'ProofNoSplit' : 5,
-	'ProofSolverFailure' : 6,
-	'ProofEXCEPT' : 7,
-	'CheckSolverFailure' : 8,
-	'CheckEXCEPT' : 9,
+	'False': 4,
+	'ProofAbort' : 5,
+	'ProofNoSplit' : 6,
+	'ProofSolverFailure' : 7,
+	'ProofEXCEPT' : 8,
+	'CheckSolverFailure' : 9,
+	'CheckEXCEPT' : 10,
 }
 
 def comb_results (r1, r2):
