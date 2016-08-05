@@ -1330,6 +1330,14 @@ def mk_not (x):
 	assert x.typ == boolT
 	return Expr ('Op', boolT, name = 'Not', vals = [x])
 
+def mk_shift_gen (name, x, n):
+	assert x.typ.kind == 'Word'
+	if type (n) == int:
+		n = Expr ('Num', x.typ, val = n)
+	return Expr ('Op', x.typ, name = name, vals = [x, n])
+
+mk_shiftr = lambda x, n: mk_shift_gen ('ShiftRight', x, n)
+
 def mk_clz (x):
 	return Expr ('Op', word32T, name = "CountLeadingZeroes", vals = [x])
 

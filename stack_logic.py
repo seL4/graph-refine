@@ -50,7 +50,7 @@ def split_sum_s_expr (expr, solv, extra_defs):
 		(rvar, rconst) = split_sum_s_expr (rhs, solv, extra_defs)
 		const = lconst - rconst
 		var = dict ([(v, lvar.get (v, 0) - rvar.get (v, 0))
-			for v in set (lvar) + set (rvar)])
+			for v in set.union (set (lvar), set (rvar))])
 		return (var, const)
 	elif expr in solv.defs:
 		return split_sum_s_expr (solv.defs[expr], solv, extra_defs)
@@ -279,16 +279,28 @@ def is_stack (expr):
 def stack_virtualise_expr (expr, sp_offs):
 	if expr.is_op ('MemAcc') and is_stack (expr.vals[0]):
 		[m, p] = expr.vals
-		assert expr.typ == syntax.word32T, expr
-		ptrs = [(p, 'MemAcc')]
+		if expr.typ == syntax.word8T:
+			ps = [(syntax.mk_minus (p, syntax.mk_word32 (n)), n)
+				for n in [0, 1, 2, 3]]
+		elif expr.typ == syntax.word32T:
+			ps = [(p, 0)]
+		else:
+			assert expr.typ == syntax.word32T, expr
+		ptrs = [(p, 'MemAcc') for (p, _) in ps]
 		if sp_offs == None:
 			return (ptrs, None)
-		else:
-			if p not in sp_offs:
-				return (ptrs, expr)
-			(k, offs) = sp_offs[p]
-			return (ptrs, mk_var (('Fake', k, offs),
-					syntax.word32T))
+		# FIXME: very 32-bit specific
+		ps = [(p, n) for (p, n) in ps if p in sp_offs
+			if sp_offs[p][1] % 4 == 0]
+		if not ps:
+			return (ptrs, expr)
+		[(p, n)] = ps
+		(k, offs) = sp_offs[p]
+		v = mk_var (('Fake', k, offs), syntax.word32T)
+		if n != 0:
+			v = syntax.mk_shiftr (v, n * 8)
+		v = syntax.mk_cast (v, expr.typ)
+		return (ptrs, v)
 	elif expr.kind == 'Op':
 		vs = [stack_virtualise_expr (v, sp_offs) for v in expr.vals]
 		return ([p for (ptrs, _) in vs for p in ptrs],

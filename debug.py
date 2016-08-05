@@ -274,14 +274,22 @@ def m_var_name (expr):
 	else:
 		return '<Expr %s>' % expr.kind
 
+def eval_str (expr, env, solv, m):
+	s = solver.smt_expr (expr, env, solv)
+	s_x = solver.parse_s_expression (s)
+	v = search.eval_model (m, s_x)
+	if v.typ == syntax.boolT:
+		assert v in [syntax.true_term, syntax.false_term]
+		return v.name
+	elif v.typ.kind == 'Word':
+		return solver.smt_num (v.val, v.typ.num)
+	else:
+		assert not 'type printable', v
+
 def trace_mem (rep, tag, m, verbose = False, simplify = True, symbs = True):
 	p = rep.p
 	ns = walk_model (rep, tag, m)
 	trace = []
-	def eval (expr, env):
-		s = solver.smt_expr (expr, env, rep.solv)
-		s_x = solver.parse_s_expression (s)
-		return search.eval_model (m, s_x).val
 	for (n, vc) in ns:
 		if (n, vc) not in rep.arc_pc_envs:
 			# this n_vc has a pre-state, but has not been emitted.
@@ -306,10 +314,10 @@ def trace_mem (rep, tag, m, verbose = False, simplify = True, symbs = True):
 		for (kind, addr, v, mem) in accs:
 			addr_s = solver.smt_expr (addr, env, rep.solv)
 			v_s = solver.smt_expr (v, env, rep.solv)
-			addr = eval (addr, env)
-			v = eval (v, env)
+			addr = eval_str (addr, env, rep.solv, m)
+			v = eval_str (v, env, rep.solv, m)
 			m_nm = m_var_name (mem)
-			print '%s: %s @ <0x%08x>   -- 0x%08x -- %s' % (kind, m_nm, addr, v, n_nm)
+			print '%s: %s @ <%s>   -- %s -- %s' % (kind, m_nm, addr, v, n_nm)
 			if simplify:
 				addr_s = simplify_sexp (addr_s, rep, m)
 				v_s = simplify_sexp (v_s, rep, m)
