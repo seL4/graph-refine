@@ -271,7 +271,7 @@ class Type:
 			return 'Type ("Array", %r, %r)' % (self.num,
 				self.el_typ_symb)
 		elif self.kind in ('Word', 'TokenWords'):
-			return 'Type (%s, %r)' % (self.kind, self.num)
+			return 'Type (%r, %r)' % (self.kind, self.num)
 		elif self.kind == 'Ptr':
 			return 'Type ("Ptr", %r)' % self.el_typ_symb
 		elif self.kind in ('WordArray', 'FloatingPoint'):

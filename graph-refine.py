@@ -170,10 +170,10 @@ def check_pairs (pairs, loops = True, report_mode = False):
 	count = len ([1 for (_, r) in results if r == 'True'])
 	printout ('  - %d proofs checked' % count)
 	count = len ([1 for (_, r) in results
-		if r in ['ProofAbort', None]])
+		if r in ['ProofAbort', 'None']])
 	printout ('  - %d proofs skipped' % count)
 	fails = [(nm, r) for (nm, r) in results
-		if r not in ['True', 'ProofAbort', None]]
+		if r not in ['True', 'ProofAbort', 'None']]
 	printout ('  - failures: %s' % fails)
 	return syntax.foldr1 (comb_results, ['True']
 		+ [r for (nm, r) in results])

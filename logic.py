@@ -632,7 +632,7 @@ def contextual_cond_simps (nodes, preds):
 	  b   e    =>    b-e
 	 / \ / \   =>   /   \ 
 	a-c-d-f-g  =>  a-c-f-g
-	this is sometimes important if b calculates a register than e uses
+	this is sometimes important if b calculates a register that e uses
 	since variable dependency analysis will see this register escape via
 	the impossible path a-c-d-e
 	"""
@@ -648,6 +648,40 @@ def contextual_cond_simps (nodes, preds):
 			nodes[n] = syntax.copy_rename (nodes[n],
 				({}, {cont: cont2}))
 	return nodes
+
+def minimal_loop_node_set (p):
+	"""discover a minimal set of loop addresses, excluding some operations
+	using conditional instructions which are syntactically within the
+	loop but semantically must always be followed by an immediate loop
+	exit.
+
+	amounts to rerunning loop detection after contextual_cond_simps."""
+
+	loop_ns = set (p.loop_data)
+	really_in_loop = {}
+	nodes = contextual_cond_simps (p.nodes, p.preds)
+	def is_really_in_loop (n):
+		if n in really_in_loop:
+			return really_in_loop[n]
+		ns = []
+		r = None
+		while r == None:
+			ns.append (n)
+			if n not in loop_ns:
+				r = False
+			elif p.loop_splittables[n]:
+				r = True
+			else:
+				conts = [n2 for n2 in nodes[n].get_conts ()
+					if n2 != 'Err']
+				if len (conts) > 1:
+					r = True
+				else:
+					[n] = conts
+		for n in ns:
+			really_in_loop[n] = r
+		return r
+	return set ([n for n in loop_ns if is_really_in_loop (n)])
 
 def compute_var_deps (nodes, outputs, preds, override_lvals_rvals = {}):
 	# outs = list of (outname, retvars)

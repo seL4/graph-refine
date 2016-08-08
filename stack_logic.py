@@ -421,10 +421,11 @@ def get_loop_virtual_stack_analysis (p, tag):
 	rets = [syntax.rename_expr (ret, r) for ret in rets]
 
 	ns = [n for n in p.nodes if p.node_tags[n][0] == tag]
+	loop_ns = logic.minimal_loop_node_set (p)
 
 	ptrs = list (set ([(n, ptr) for n in ns
 		for ptr in (stack_virtualise_node (p.nodes[n], None))[0]]))
-	ptrs += [(n, (sp, 'StackPointer')) for n in ns if p.loop_id (n)]
+	ptrs += [(n, (sp, 'StackPointer')) for n in ns if n in loop_ns]
 	offs = get_ptr_offsets (p, [(n, ptr) for (n, (ptr, _)) in ptrs],
 		[(ent, sp, 'stack')]
 			+ [(ent, ptr, 'indirect_ret') for ptr in rets[:1]])
@@ -439,7 +440,7 @@ def get_loop_virtual_stack_analysis (p, tag):
 		rep_offs[n][k] = (ptr, - off)
 
 	for (n, (ptr, kind)) in ptrs:
-		if kind == 'MemUpdate' and p.loop_id (n):
+		if kind == 'MemUpdate' and n in loop_ns:
 			loop = p.loop_id (n)
 			(k, off) = ptr_offs[n][ptr]
 			upd_offsets.setdefault (loop, set ())
@@ -460,7 +461,7 @@ def get_loop_virtual_stack_analysis (p, tag):
 	vds = logic.compute_var_deps (adj_nodes,
 		adjusted_var_dep_outputs (p), preds)
 
-	result = (vds, adj_nodes, loc_offs, upd_offsets)
+	result = (vds, adj_nodes, loc_offs, upd_offsets, (ptrs, offs))
 	p.cached_analysis[cache_key] = result
 	return result
 
@@ -479,7 +480,7 @@ def loop_var_analysis (p, split):
 		return p.cached_analysis[key]
 
 	(vds, adj_nodes, loc_offs,
-		upd_offsets) = get_loop_virtual_stack_analysis (p, tag)
+		upd_offsets, _) = get_loop_virtual_stack_analysis (p, tag)
 	loop = p.loop_body (head)
 
 	va = logic.compute_loop_var_analysis (adj_nodes, vds, split, loop,
