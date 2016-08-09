@@ -42,11 +42,21 @@ then
   echo PolyML already built.
 else
   echo Building PolyML in $POLY_DIR
-  # track bleeding-edge polyml for now (urk!)
-  #git clone https://github.com/polyml/polyml $POLY_DIR
-  #POLY_SRC=$($ISABELLE env bash -c 'echo $ML_SOURCES')
-  # an alternative is to fetch the isabelle polyml version
-  # cp -r $POLY_SRC $POLY_DIR
+  POLY_SRC=$($ISABELLE env bash -c 'echo $ML_SOURCES')
+
+  if [[ -e $POLY_DIR/configure ]]
+  then
+    echo PolyML already fetched
+  elif [[ -e $POLY_DIR ]]
+  then
+    echo PolyML dir exists but no source ... continue manually.
+    exit 1
+  else
+    # track bleeding-edge polyml for now (urk!)
+    git clone https://github.com/polyml/polyml $POLY_DIR
+    # an alternative is to fetch the isabelle polyml version
+    # cp -r $POLY_SRC $POLY_DIR
+  fi
   OUT=$(readlink -f poly_output.txt)
   pushd $POLY_DIR
   git status &> /dev/null
@@ -62,7 +72,7 @@ else
     echo Built PolyML
   else
     err poly_output.txt $POLY_DIR "./configure --prefix=$POLY_DIR/deploy && make && make install"
-fi
+  fi
 fi
 
 HOL4_DIR=$(readlink -f ../../HOL4)
@@ -81,15 +91,14 @@ function mk_build_summ {
 if [[ -e $HOL4_DIR/bin/build_summ ]]
 then
   mk_build_summ build_summ2
-  if ( diff -q $HOL4_DIR/bin/build_summ $HOL4_DIR/bin/build_summ )
+  if ( diff -q $HOL4_DIR/bin/build_summ $HOL4_DIR/bin/build_summ2 )
   then
     # curiously this is the equal case of diff
     echo HOL4 matches last build status.
   else
     echo HOL4 configuration changed from previous build, cleaning.
-    pushd $HOL4
-    rm -rf $HOL4/bin
-    git clean -fX
+    pushd $HOL4_DIR
+    git clean -fdX
     popd
   fi
 fi
