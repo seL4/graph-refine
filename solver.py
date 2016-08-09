@@ -10,7 +10,6 @@
 # which support SMTLIB2 push/pop and are controlled by pipe, and heavyweight
 # 'slow' solvers which are run once per problem on static input files.
 import signal
-# todo: support a collection of solvers running in parallel
 solverlist_missing = """
 This tool requires the use of an SMT solver.
 
@@ -1126,10 +1125,10 @@ class Solver:
 			if strat == 'all' and res == 'unsat':
 				trace ('  -- hyps all confirmed by %s' % nm)
 				break
-			elif strat == 'hyp' and res != 'unsat':
+			elif strat == 'hyp' and res == 'sat':
 				trace ('  -- hyp refuted by %s' % nm)
 				break
-			if strat == 'hyp':
+			elif strat == 'hyp' and res == 'unsat':
 				ks = [(solver.name, strat, k)
 					for (solver, strat) in self.strategy]
 				self.close_parallel_solvers (ks)
@@ -1139,6 +1138,10 @@ class Solver:
 				else:
 					trace ('  - hyps confirmed individually')
 					break
+			if not self.parallel_solvers:
+				res = 'timeout'
+				trace ('  - all solvers timed out or failed.')
+				break
 		self.close_parallel_solvers ()
 		return (res == 'unsat', k)
 
