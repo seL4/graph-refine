@@ -15,7 +15,8 @@ from rep_graph import (mk_graph_slice, vc_num, vc_offs, vc_upto,
 import rep_graph
 from syntax import (mk_and, mk_cast, mk_implies, mk_not, mk_uminus, mk_var,
 	foldr1, boolT, word32T, word8T, builtinTs, true_term, false_term,
-	mk_word32, mk_word8, mk_times, Expr, Type, mk_or, mk_eq, mk_memacc)
+	mk_word32, mk_word8, mk_times, Expr, Type, mk_or, mk_eq, mk_memacc,
+	mk_num)
 import syntax
 import logic
 
@@ -174,8 +175,7 @@ def eval_model (m, s, toplevel = None):
 		val = x.val
 		if ex_kind == 'sign_extend':
 			val = get_signed_val (x)
-		result = Expr ('Num', Type ('Word', x.typ.num + n_extend),
-			val = x.val)
+		result = mk_num (val, x.typ.num + n_extend)
 	elif op[0] == '_' and op[1] == 'extract':
 		[_, _, n_top, n_bot] = op
 		n_top = int (n_top)
@@ -183,8 +183,7 @@ def eval_model (m, s, toplevel = None):
 		[x] = xs
 		assert x.typ.kind == 'Word' and x.kind == 'Num'
 		length = (n_top - n_bot) + 1
-		result = Expr ('Num', Type ('Word', length),
-			val = (x.val >> n_bot) & ((1 << length) - 1))
+		result = mk_num ((x.val >> n_bot) & ((1 << length) - 1), length)
 	elif op[0] == 'store-word32':
 		(m, p, v) = xs
 		(naming, eqs) = m

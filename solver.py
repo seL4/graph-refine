@@ -385,11 +385,7 @@ def smt_expr (expr, env, solv):
 	elif expr.kind == 'SMTExpr':
 		return expr.val
 	elif expr.kind == 'Token':
-		if expr.name not in tokens:
-			n = len (tokens) + 1
-			tokens[expr.name] = n
-		n = tokens[expr.name]
-		return smt_num (n, token_smt_typ.num)
+		return solv.get_token (expr.name)
 	else:
 		assert not 'handled expr', expr
 
@@ -461,7 +457,8 @@ def to_smt_expr (expr, env, solv):
 	return mk_smt_expr (s, expr.typ)
 
 def typ_representable (typ):
-	return typ.kind == 'Word' or typ == builtinTs['Bool']
+	return (typ.kind == 'Word' or typ == builtinTs['Bool']
+		or typ == builtinTs['Token'])
 
 def maybe_note_model_expr (sexpr, typ, subexprs, solv):
 	"""note this expression if values of its type can be represented
@@ -649,6 +646,7 @@ class Solver:
 		self.arbitrary_vars = {}
 		self.stack_eqs = {}
 		self.mem_naming = {}
+		self.tokens = {}
 
 		self.written = []
 		self.num_hyps = 0
@@ -1505,6 +1503,15 @@ class Solver:
 		self.stack_eqs[k] = rhs
 		return '(=> %s (= %s %s))' % (cond, st_top, rhs)
 
+	def get_token (self, string):
+		if ('Token', string) not in self.tokens:
+			n = len (self.tokens) + 1
+			v = self.add_def ("token_%s" % string,
+				syntax.mk_num (n, token_smt_typ), {})
+			self.tokens[('Token', string)] = v
+			self.tokens[('Val', self.defs[v])] = string
+		return self.tokens[('Token', string)]
+
 	def note_mem_dom (self, p, d, md):
 		self.doms.add ((p, d, md))
 
@@ -1701,15 +1708,13 @@ def smt_to_val (s, toplevel = None):
 	if len (s) == 3 and s[0] == '_' and s[1][:2] == 'bv':
 		ln = int (s[2])
 		n = int (s[1][2:])
-		return Expr ('Num', Type ('Word', ln), val = n)
+		return syntax.mk_num (n, ln)
 	elif type (s) == tuple:
 		assert type (s) != tuple, s
 	elif s.startswith ('#b'):
-		return Expr ('Num', Type ('Word', len (s) - 2),
-			val = int (s[2:], 2))
+		return syntax.mk_num (int (s[2:], 2), len (s) - 2)
 	elif s.startswith ('#x'):
-		return Expr ('Num', Type ('Word', (len (s) - 2) * 4),
-			val = int (s[2:], 16))
+		return syntax.mk_num (int (s[2:], 16), (len (s) - 2) * 4)
 	elif s == 'true':
 		return true_term
 	elif s == 'false':

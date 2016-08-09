@@ -1355,20 +1355,24 @@ def foldr1 (f, xs):
 		x = f (xs[i], x)
 	return x
 
-def mk_word32 (x):
+def mk_num (x, typ):
 	import logic
+	if logic.is_int (typ):
+		typ = Type ('Word', typ)
+	assert typ.kind == 'Word', typ
 	assert logic.is_int (x), x
-	return Expr ('Num', word32T, val = x)
+	return Expr ('Num', typ, val = x)
+
+def mk_word32 (x):
+	return mk_num (x, word32T)
 
 def mk_word8 (x):
-	import logic
-	assert logic.is_int (x), x
-	return Expr ('Num', word8T, val = x)
+	return mk_num (x, word8T)
 
 def mk_word32_maybe(x):
 	import logic
 	if logic.is_int (x):
-		return mk_word32(x)
+		return mk_word32 (x)
 	else:
 		assert x.typ == word32T
 		return x

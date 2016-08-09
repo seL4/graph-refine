@@ -14,7 +14,6 @@
 
 # necessary configuration
 CC?=gcc
-OBJDUMP?=${TOOLPREFIX}objdump
 
 SOURCE_ROOT?=../../seL4
 
@@ -28,6 +27,8 @@ DECOMP_DIR?=${HOL4_ROOT}/examples/machine-code/graph
 GREF_ROOT?=..
 TOOLPREFIX?=$(shell bash ${GREF_ROOT}/seL4-example/get_tool_prefix.sh)
 $(if ${TOOLPREFIX},,$(error failed to pick a toolset))
+
+OBJDUMP?=${TOOLPREFIX}objdump
 
 # standard configuration
 UMM_TYPES=umm_types.txt

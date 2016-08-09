@@ -66,6 +66,13 @@ instruction_fun_specs = {
 	'mrc2': ("impl'mrc", ["O"]),
 	'mrrc': ("impl'mrrc", ["O", "O"]),
 	'mrrc2': ("impl'mrrc", ["O", "O"]),
+	'dsb': ("impl'dsb", []),
+	'isb': ("impl'isb", []),
+}
+
+instruction_name_aliases = {
+	'isb_sy': 'isb',
+	'dsb_sy': 'dsb'
 }
 
 def add_impl_fun (impl_fname, regspecs):
@@ -93,13 +100,24 @@ def add_impl_fun (impl_fname, regspecs):
 	functions[impl_fname] = fun
 	pairings[impl_fname] = [pair]
 
+inst_addr_re = re.compile('E[0123456789][0123456789]*')
+def split_inst_name_addr (instname):
+	bits = instname.split('_')
+	assert bits, instname
+	addr = bits[-1]
+	assert inst_addr_re.match (addr), instname
+	addr = int (addr[1:], 16)
+	return ('_'.join (bits[:-1]), addr)
+
 def mk_bin_inst_spec (fname):
 	if not fname.startswith ("instruction'"):
 		return
 	if functions[fname].entry:
 		return
 	(_, ident) = fname.split ("'", 1)
+	(ident, addr) = split_inst_name_addr (ident)
 	(regs, ident) = split_inst_name_regs (ident)
+	ident = instruction_name_aliases.get (ident, ident)
 	base_ident = ident.split ("_")[0]
 	if base_ident not in instruction_fun_specs:
 		return
