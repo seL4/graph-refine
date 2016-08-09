@@ -155,6 +155,7 @@ def mk_eqs_arm_none_eabi_gnu (var_c_args, var_c_rets, c_imem, c_omem,
 		save_addrs = [addr for (_, addr) in save_seq]
 		post_eqs += [(r0_input, r0_input)]
 		out_eqs = zip (var_c_rets, [x for (x, _) in save_seq])
+		out_eqs = [(c, mk_cast (a, c.typ)) for (c, a) in out_eqs]
 		init_save_seq = mk_stack_sequence (r0, 4, st, word32T,
 			len (var_c_rets))
 		(_, last_arg_addr) = arg_seq[len (var_c_args) - 1]
