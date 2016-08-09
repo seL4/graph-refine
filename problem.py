@@ -72,10 +72,14 @@ class Problem:
 		self.vs = syntax.get_vars (fun)
 		for n in fun.reachable_nodes ():
 			self.nodes[n] = fun.nodes[n]
-			self.node_tags[n] = (tag, (fun.name, n))
+			detail = (fun.name, n)
+			self.node_tags[n] = (tag, detail)
+			self.node_tag_revs.setdefault ((tag, detail), [])
+			self.node_tag_revs[(tag, detail)].append (n)
 		self.outputs[tag] = fun.outputs
 		self.entries = [(fun.entry, tag, fun.name, fun.inputs)]
 		self.next_node_name = max (self.nodes.keys () + [2]) + 1
+		self.inline_scripts[tag] = []
 
 	def add_function (self, fun, tag, node_renames, loop_id = None):
 		if not fun.entry:
