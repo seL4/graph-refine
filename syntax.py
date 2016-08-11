@@ -835,9 +835,12 @@ class Function:
 		p.compute_preds ()
 		return p
 
+	def function_call_addrs (self):
+		return [(n, self.nodes[n].fname)
+			for n in self.nodes if self.nodes[n].kind == 'Call']
+
 	def function_calls (self):
-		return set ([self.nodes[n].fname
-			for n in self.nodes if self.nodes[n].kind == 'Call'])
+		return set ([fn for (n, fn) in self.function_call_addrs ()])
 
 	def compile_hints (self, Problem):
 		xs = ['Hints %s' % self.name]

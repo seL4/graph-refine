@@ -377,9 +377,12 @@ class Problem:
 			self.nodes[pred] = syntax.copy_rename (self.nodes[pred],
 				({}, {n: name}))
 
+	def function_call_addrs (self):
+		return [(n, self.nodes[n].fname)
+			for n in self.nodes if self.nodes[n].kind == 'Call']
+
 	def function_calls (self):
-		return set ([self.nodes[n].fname
-			for n in self.nodes if self.nodes[n].kind == 'Call'])
+		return set ([fn for (n, fn) in self.function_call_addrs ()])
 
 	def get_extensions (self):
 		if 'extensions' in self.cached_analysis:

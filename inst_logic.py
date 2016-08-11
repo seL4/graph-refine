@@ -21,7 +21,7 @@ import target_objects
 
 import re
 
-reg_aliases = {'sb': 'r9', 'fp': 'r11', 'ip': 'r12',
+reg_aliases = {'sb': 'r9', 'sl': 'r10', 'fp': 'r11', 'ip': 'r12',
         'sp': 'r13', 'lr': 'r14', 'pc': 'r15'}
 
 reg_set = set (['r%d' % i for i in range (16)])
@@ -67,12 +67,14 @@ instruction_fun_specs = {
 	'mrrc': ("impl'mrrc", ["O", "O"]),
 	'mrrc2': ("impl'mrrc", ["O", "O"]),
 	'dsb': ("impl'dsb", []),
+	'dmb': ("impl'dmb", []),
 	'isb': ("impl'isb", []),
 }
 
 instruction_name_aliases = {
 	'isb_sy': 'isb',
-	'dsb_sy': 'dsb'
+	'dmb_sy': 'dmb',
+	'dsb_sy': 'dsb',
 }
 
 def add_impl_fun (impl_fname, regspecs):

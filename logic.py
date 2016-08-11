@@ -315,6 +315,12 @@ def mk_accum_rewrites ():
 		(x, i, via_word8 (mk_plus (y, x)),
 			via_word8 (mk_plus (x, mk_times (i, y))),
 			y),
+		(x, i, via_word8 (mk_plus (via_word8 (mk_plus (x, z)), y)),
+			via_word8 (mk_plus (x, mk_times (i, mk_plus (y, z)))),
+			mk_plus (y, z)),
+		(x, i, via_word8 (mk_plus (y, x)),
+			via_word8 (mk_plus (x, mk_times (i, y))),
+			y),
 		(x, i, mk_plus (mk_plus (x, y), z),
 			mk_plus (x, mk_times (i, mk_plus (y, z))),
 			mk_plus (y, z)),
@@ -740,9 +746,14 @@ def compute_loop_var_analysis (nodes, var_deps, n, loop, preds):
 	return vca
 
 cvca_trace = []
+cvca_diag = [False]
+no_accum_expressions = set ()
 
 def compute_var_cycle_analysis (nodes, n, loop, preds, const_vars, vs,
-		diag = False):
+		diag = None):
+
+	if diag == None:
+		diag = cvca_diag[0]
 
 	cache = {}
 	del cvca_trace[:]
@@ -849,6 +860,7 @@ def compute_var_cycle_analysis (nodes, n, loop, preds, const_vars, vs,
 			if diag:
 				trace ('No accumulator %s => %s'
 					% (v, expr))
+			no_accum_expressions.add ((v, expr))
 			vca[v] = 'LoopVariable'
 	return vca
 
