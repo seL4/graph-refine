@@ -137,6 +137,7 @@ def init(dir_name):
         if s.startswith('Testing') or s.startswith('Group'):
           return
         print s
+
     target_objects.tracer[0] = silent_tracer
     elf_parser.parseElf(dir_name)
     asm_fs = elfFile().asm_fs

@@ -61,7 +61,7 @@ class immFunc (Borg):
     def process(self):
         if self.bbs != {}:
             return
-        self.inlineForBinGraph()
+        self.makeBinGraph()
         self.loopheads = {}
         self.findLoopheads()
         lbfs = self.loops_by_fs
@@ -156,15 +156,19 @@ class immFunc (Borg):
 
         return 
 
-    #locate the first real node from, and including, p_addr, or branch targets if it hits a branch before that
-    #it's an error for this function to reach 'Ret' when skip_ret is not True
     def firstRealNodes(self,p_nf,visited = None,may_multi=False,may_call=False,skip_ret=False):
+        """
+        Locate the first real node from, and including, p_addr, 
+            or branch targets if it hits a branch before that. 
+            Returns a list of p_nf
+        """
         elf_fun = self.elf_fun
         p_n,f = p_nf
         next_p_nf = p_nf
         ret = []
         if visited == None:
-          visited = []
+            #print 'fRN on p_n %d, fun: %s' % (p_n,f)
+            visited = []
 
         if p_nf in visited:
           return []
@@ -175,7 +179,7 @@ class immFunc (Borg):
           if self.isRealNode(next_p_nf):
              return [next_p_nf]
           next_p_n , next_f, next_p = self.unpackPNF(next_p_nf)
-          if next_p_n == 'Ret' and f == self.name:
+          if ( next_p_n == 'Ret' and f == self.name):
             return [('Ret',f)]
           elif next_p_n == 'Ret':
             if skip_ret:
@@ -205,6 +209,7 @@ class immFunc (Borg):
 
     #given p_n is an imm call, return is_taillcall
     def isCallTailCall(self,p_nf):
+        #    suc = p_n_cs[0]
         g_n = self.phyAddr(p_nf)
         return elf_parser.isDirectBranch(g_n)
 
@@ -301,14 +306,27 @@ class immFunc (Borg):
         p.add_entry_function(self.asm_fs[f], 'ASM')
         p.do_analysis()
         return p
-
-    def inlineForBinGraph(self):
+    
+    def isSpecInsFunc(self,f):
+        """
+        Returns whether f is the name of  a special function 
+        used to model special instruction
+        """
+        return f.startswith ("instruction'")
+    
+    def makeBinGraph(self):
+        """
+        Prepare problems for all functions transitively called by self,
+        and turn this into a binary CFG
+        """
         self.f_problems = {}
         if self.name not in elfFile().tcg:
             print elfFile().tcg.keys()
         tc_fs = elfFile().tcg[self.name]
         for f in tc_fs + [self.name]:
             assert '.' not in f
+            if self.isSpecInsFunc(f):
+                continue
             p = problem.Problem(None, 'Functions (%s)' % f)
             p.add_entry_function(self.asm_fs[f], 'ASM')
             self.f_problems[f] = p
@@ -317,20 +335,21 @@ class immFunc (Borg):
             assert len(p.entries) == 1
             self.p_entries[f] = p.entries[0][0]
 
-        #print 'all p generated'
+        print 'all problems generated'
         self.findAllDeadends()
+        print "all deadends found"
         #now generate the bin graph
 
         for f,p in self.f_problems.iteritems():
-          for p_n in p.nodes:
-            if type(p_n) != int:
-              continue
-            p_nf = (p_n,f)
-            if p_nf in self.pf_deadends:
-              continue
-            if self.isRealNode(p_nf):
-              #print 'adding: %s' % str(p_nf)
-              self.addImmNode(p_nf)
+            for p_n in p.nodes:
+                if type(p_n) != int:
+                    continue
+                p_nf = (p_n,f)
+                if p_nf in self.pf_deadends:
+                    continue
+                if self.isRealNode(p_nf):
+                    #print 'adding: %s' % str(p_nf)
+                    self.addImmNode(p_nf)
 
         self.imm_entry = self.phyAddr(self.firstRealNodes((self.p_entries[self.name], self.name ))[0])
         #print 'self.imm_entry %x' % self.imm_entry
@@ -346,7 +365,7 @@ class immFunc (Borg):
           print 'dead_f %s' % dead_f
           deadend_f_g_n = elfFile().funcs[dead_f].addr
           self.deadend_g_ns.add (deadend_f_g_n)
-          print 'deadend_f_g_n %s' % deadend_f_g_n
+          print 'deadend_f_g_n 0x%x' % deadend_f_g_n
 
         for (f,p) in self.f_problems.iteritems():
             for p_n in p.nodes:
@@ -422,7 +441,6 @@ class immFunc (Borg):
     def pNodeConts(self, p_nf, no_deadends=False, may_call = False):
         p_n,f, p = self.unpackPNF(p_nf)
         p_node = p.nodes[p_n]
-
         if isCall(p_node):
           assert may_call
           fun_called = self.funName(p_nf)
@@ -431,9 +449,9 @@ class immFunc (Borg):
           pf_conts = [(entry,fun_called)]
           return p_node, pf_conts
         assert p_n != 'Ret'
-        p_conts = [x for x in p_node.get_conts() if x != 'Err']
+        p_conts = filter(lambda x: x != 'Err', p_node.get_conts())
         if no_deadends:
-          p_conts = [x for x in p_conts if (x,p_i) not in pi_deadends]
+            p_conts = filter(lambda x: (x, p_i) not in pi_deadends, p_conts)
         pf_conts = [(x , f) for x in p_conts]
         return p_node,pf_conts
     
@@ -468,8 +486,7 @@ class immFunc (Borg):
         p_node,pf_conts = self.pNodeConts(p_nf)
         p_conts = [x[0] for x in pf_conts]
         p_n,f,p = self.unpackPNF(p_nf)
-
-        #print 'node g_n %s admitted' % g_n
+        #print "adding imm_node p_n: %s f: %s" % (p_n,f)
         if g_n in imm_nodes:
           #we have been here before
           node = imm_nodes[g_n]
@@ -477,15 +494,26 @@ class immFunc (Borg):
           node = immNode(g_n,rawVals(g_n))
           imm_nodes[g_n] = node
 
-        imm_call = self.isImmCall(p_nf)
-
-        p_imm_return_to_caller_edge = self.isImmRetToCaller(p_nf)
-        assert not (imm_call and p_imm_return_to_caller_edge)
         dont_emit = []
-        if imm_call:
-          g_call_targ,g_ret_addr,is_tail_call = imm_call
-          dont_emit.append(g_call_targ)
-          node.addCallRetEdges(g_call_targ, g_ret_addr,is_tail_call)
+        p_imm_return_to_caller_edge = self.isImmRetToCaller(p_nf)
+        call_pn =  self.getCallTarg(p_nf)
+        if call_pn:
+            fun_called = self.funName((call_pn, f))
+            if self.isSpecInsFunc(fun_called):
+                #Hack: go straight to the return node, do nothing else
+                next_addrs = p.nodes[call_pn].get_conts()
+                assert len(next_addrs) == 1
+                next_addr = next_addrs[0]
+                assert next_addr not in ['Ret','Err']
+                phy_next_addr = self.phyAddr((next_addr,f))
+                i_e = immEdge(phy_next_addr, emit = True)
+                node.addEdge(i_e)
+                return
+            imm_call = self.parseImmCall(p_nf)
+            assert not p_imm_return_to_caller_edge
+            g_call_targ,g_ret_addr,is_tail_call = imm_call
+            dont_emit.append(g_call_targ)
+            node.addCallRetEdges(g_call_targ, g_ret_addr,is_tail_call)
 
         elif p_imm_return_to_caller_edge or self.isImmRootReturn(p_nf):
             node.addRetEdge()
@@ -495,7 +523,6 @@ class immFunc (Borg):
           if type(p_targ) == int and (p_targ, f) not in self.pf_deadends:
             if p_targ == 'Ret':
               continue
-
             edges = self.firstRealNodes((p_targ,f),may_multi=True,may_call=True,skip_ret=True)
             for p_e in edges :
               #dodge halt
@@ -511,41 +538,53 @@ class immFunc (Borg):
 
     def retPF(self,call_p_nf):
         p_n,f,p = self.unpackPNF(call_p_nf)
-        assert len (p.nodes[p_n].get_conts() ) == 1
+        assert len(p.nodes[p_n].get_conts()) == 1
         return ( (p.nodes[p_n].get_conts())[0] , f)
-
-    def isImmCall(self,p_nf):
+    
+    def getCallTarg(self, p_nf):
         p_n,f,p = self.unpackPNF(p_nf)
-        p_nodes = p.nodes
-        p_node,pf_conts = self.pNodeConts(p_nf)
-        p_conts = [x[0] for x in pf_conts]
+        _, pf_conts = self.pNodeConts(p_nf)
+        p_conts = map(lambda x: x[0],pf_conts)
         #is Imm call iff there is a successor of kind Call in the g graph
-        p_n_cs = [p_n_c for p_n_c in p_conts
-                  if type(p_n_c) == int
-                  and not self.isLoopReturn(( p_n_c, f))
-                  and self.gNode( (p_n_c,f) ).kind == 'Call'
-                  ]
+        p_n_cs = filter(lambda p_n_c:
+                        type(p_n_c) == int
+                        and not self.isLoopReturn(( p_n_c, f))
+                        and isCall(self.gNode((p_n_c,f)))
+                        , p_conts)
         if not p_n_cs:
-          return False
-        else:
-          assert len(p_n_cs) == 1
-          call_pn = p_n_cs[0]
-          #print 'p_n_cs: %s' % str(p_n_cs)
-          suc = self.firstRealNodes( (p_n_cs[0], f) ,may_multi=False,may_call=True)
-          pf_call_targ = suc[0]
-          g_call_targ = self.phyAddr(pf_call_targ)
-          #locate the call return address
-          f_caller, _ = self.pNToFunGN(p_nf)
-          is_tailcall = self.isCallTailCall(p_nf)
-          if not is_tailcall:
-            #return the return addr
-            g_ret_addr = self.phyAddr(self.retPF((call_pn,f)))
-          else:
-            g_ret_addr = None
+          return None
+        assert len(p_n_cs) == 1
+        #return the p_n of the call node
+        return p_n_cs[0]
 
-          assert type(g_ret_addr) == int or is_tailcall, "g_call_targ %s g_ret_addr %s" % (g_call_targ,g_ret_addr)
-          #print 'call detected: g_ret_addr %x' % g_ret_addr
-          return (g_call_targ, g_ret_addr,is_tailcall)
+    def parseImmCall(self,p_nf):
+        """
+        Returns (entry point to the called function, return addr, is_tailcall)
+        """
+        call_pn = self.getCallTarg(p_nf) 
+        assert call_pn != None
+
+        p_n,f,p = self.unpackPNF(p_nf)
+        #print "p_n: %s, f: %s" % (p_n,f)
+        p_nodes = p.nodes
+        #find the return addr
+        #print "call_pn = %d" % call_pn
+
+        suc = self.firstRealNodes( (call_pn, f) ,may_multi=False,may_call=True)
+        pf_call_targ = suc[0]
+        g_call_targ = self.phyAddr(pf_call_targ)
+        #locate the call return address
+        f_caller, _ = self.pNToFunGN(p_nf)
+        is_tailcall = self.isCallTailCall(p_nf)
+        if not is_tailcall:
+            #return the return addr
+            phy_ret_addr = self.phyAddr(self.retPF((call_pn,f)))
+        else:
+            phy_ret_addr = None
+
+        assert type(phy_ret_addr) == int or is_tailcall, "g_call_targ %s phy_ret_addr %s" % (g_call_targ, phy_ret_addr)
+          #print 'call detected: phy_ret_addr %x' % phy_ret_addr
+        return (g_call_targ, phy_ret_addr,is_tailcall)
 
     def gNode(self,p_nf):
         p_n,f,p = self.unpackPNF(p_nf)

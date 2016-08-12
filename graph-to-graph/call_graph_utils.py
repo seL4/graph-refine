@@ -74,7 +74,7 @@ def transitiveCall(f,cg):
     while vs:
        ff = elfFile().gFunName(vs.pop())
        assert '.' not in ff
-       if ff not in ret:
+       if ff not in ret and not ff.startswith("impl'"):
           ret.append(ff)
     #      print 'ret + f: %s: ' % ff
     #      print '[f]: %s' % cg[ff]
