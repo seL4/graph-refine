@@ -386,9 +386,9 @@ def pvalid_assertion1 ((typ, k, p, pv), (typ2, k2, p2, pv2)):
 	dynamically sized arrays.
 	"""
 	offs1 = mk_minus (p, p2)
-	cond1 = get_styp_condition (offs1, typ, typ2, strict = False)
+	cond1 = get_styp_condition (offs1, typ, typ2)
 	offs2 = mk_minus (p2, p)
-	cond2 = get_styp_condition (offs2, typ2, typ, strict = False)
+	cond2 = get_styp_condition (offs2, typ2, typ)
 	
 	out1 = mk_less (end_addr (p, typ), p2)
 	out2 = mk_less (end_addr (p2, typ2), p)
@@ -399,6 +399,9 @@ def pvalid_assertion2 ((typ, k, p, pv), (typ2, k2, p2, pv2)):
 	"""second pointer validity assertion: implication.
 	pvalid1 & strictly-contained --> pvalid2
 	"""
+	if typ[0] == 'Array' and typ2[0] == 'Array':
+		# this is such a vague notion it's not worth it
+		return true_term
 	offs1 = mk_minus (p, p2)
 	cond1 = get_styp_condition (offs1, typ, typ2)
 	imp1 = mk_implies (mk_and (cond1, pv2), pv)
@@ -415,41 +418,53 @@ def sym_distinct_assertion ((typ, p, pv), (start, end)):
 def norm_array_type (t):
 	if t[0] == 'Type' and t[1].kind == 'Array':
 		(_, atyp) = t
-		return ('Array', atyp.el_typ_symb, mk_word32 (atyp.num))
+		return ('Array', atyp.el_typ_symb, mk_word32 (atyp.num), 'Strong')
+	elif t[0] == 'Array' and len (t) == 3:
+		(_, typ, l) = t
+		# these derive from PArrayValid assertions. we know the array is
+		# at least this long, but it might be longer.
+		return ('Array', typ, l, 'Weak')
 	else:
 		return t
 
 stored_styp_conditions = {}
 
-def get_styp_condition (offs, inner_typ, outer_typ, strict = True):
-	r = get_styp_condition_inner1 (inner_typ, outer_typ, strict = strict)
+def get_styp_condition (offs, inner_typ, outer_typ):
+	r = get_styp_condition_inner1 (inner_typ, outer_typ)
 	if not r:
 		return false_term
 	else:
 		return r (offs)
 
-def get_styp_condition_inner1 (inner_typ, outer_typ, strict = True):
+def get_styp_condition_inner1 (inner_typ, outer_typ):
 	inner_typ = norm_array_type (inner_typ)
 	outer_typ = norm_array_type (outer_typ)
-	k = (inner_typ, outer_typ, strict)
+	k = (inner_typ, outer_typ)
 	if k in stored_styp_conditions:
 		return stored_styp_conditions[k]
-	r = get_styp_condition_inner2 (inner_typ, outer_typ, strict)
+	r = get_styp_condition_inner2 (inner_typ, outer_typ)
 	stored_styp_conditions[k] = r
 	return r
 
-def get_styp_condition_inner2 (inner_typ, outer_typ, strict = True):
+def array_typ_size ((kind, el_typ, num, _)):
+	el_size = mk_word32 (el_typ.size ())
+	return mk_times (num, el_size)
+
+def get_styp_condition_inner2 (inner_typ, outer_typ):
 	if inner_typ[0] == 'Array' and outer_typ[0] == 'Array':
-		(_, ityp, inum) = inner_typ
-		(_, otyp, onum) = outer_typ
+		(_, ityp, inum, _) = inner_typ
+		(_, otyp, onum, outer_bound) = outer_typ
 		# array fits in another array if the starting element is
-		# a sub-element, and for the strictness constraint if it's
-		# no smaller
+		# a sub-element, and if the size of the left array plus
+		# the offset fits in the right array
 		cond = get_styp_condition_inner1 (('Type', ityp), outer_typ)
-		if strict and cond:
+		isize = array_typ_size (inner_typ)
+		osize = array_typ_size (outer_typ)
+		if outer_bound == 'Strong' and cond:
 			return lambda offs: mk_and (cond (offs),
-				mk_less_eq (inum, onum))
-		return cond
+				mk_less_eq (mk_plus (isize, offs), osize))
+		else:
+			return cond
 	elif inner_typ == outer_typ:
 		return lambda offs: mk_eq (offs, mk_word32 (0))
 	elif outer_typ[0] == 'Type' and outer_typ[1].kind == 'Struct':
@@ -465,13 +480,15 @@ def get_styp_condition_inner2 (inner_typ, outer_typ, strict = True):
 		else:
 			return None
 	elif outer_typ[0] == 'Array':
-		(_, el_typ, n) = outer_typ
+		(_, el_typ, n, bound) = outer_typ
 		cond = get_styp_condition_inner1 (inner_typ, ('Type', el_typ))
 		el_size = mk_word32 (el_typ.size ())
 		size = mk_times (n, el_size)
-		if cond:
+		if bound == 'Strong' and cond:
 			return lambda offs: mk_and (mk_less (offs, size),
 				cond (mk_modulus (offs, el_size)))
+		elif cond:
+			return lambda offs: cond (mk_modulus (offs, el_size))
 		else:
 			return None
 	else:

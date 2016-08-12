@@ -275,9 +275,8 @@ def m_var_name (expr):
 		return '<Expr %s>' % expr.kind
 
 def eval_str (expr, env, solv, m):
-	s = solver.smt_expr (expr, env, solv)
-	s_x = solver.parse_s_expression (s)
-	v = search.eval_model (m, s_x)
+	expr = solver.to_smt_expr (expr, env, solv)
+	v = search.eval_model_expr (m, solv, expr)
 	if v.typ == syntax.boolT:
 		assert v in [syntax.true_term, syntax.false_term]
 		return v.name
@@ -286,7 +285,8 @@ def eval_str (expr, env, solv, m):
 	else:
 		assert not 'type printable', v
 
-def trace_mem (rep, tag, m, verbose = False, simplify = True, symbs = True):
+def trace_mem (rep, tag, m, verbose = False, simplify = True, symbs = True,
+		resolve_addrs = False):
 	p = rep.p
 	ns = walk_model (rep, tag, m)
 	trace = []
@@ -328,7 +328,12 @@ def trace_mem (rep, tag, m, verbose = False, simplify = True, symbs = True):
 				ss = hit_symbs + secs
 				if ss:
 					print '\t [%s]' % ', '.join (ss)
-		trace.extend(accs)
+		if resolve_addrs:
+			accs = [(kind, solver.to_smt_expr (addr, env, rep.solv),
+				solver.to_smt_expr (v, env, rep.solv), mem)
+				for (kind, addr, v, mem) in accs]
+		trace.extend ([(kind, addr, v, mem, n, vc)
+			for (kind, addr, v, mem) in accs])
 	return trace
 
 def simplify_sexp (smt_xp, rep, m, flatten = True):
@@ -352,6 +357,87 @@ def trace_mems (rep, m, verbose = False, symbs = True):
 	for tag in reversed (rep.p.pairing.tags):
 		print '%s mem trace:' % tag
 		trace_mem (rep, tag, m, verbose = verbose, symbs = symbs)
+
+def trace_mems_diff (rep, m, tags = ['ASM', 'C']):
+	asms = trace_mem (rep, tags[0], m, resolve_addrs = True)
+	cs = trace_mem (rep, tags[1], m, resolve_addrs = True)
+	ev = lambda expr: eval_str (expr, {}, None, m)
+	c_upds = [(ev (addr), ev (v)) for (kind, addr, v, mem, _, _) in cs
+		if kind == 'MemUpdate']
+	asm_upds = [(ev (addr), ev (v)) for (kind, addr, v, mem, _, _) in asms
+		if kind == 'MemUpdate' and 'mem' in m_var_name (mem)]
+	c_upd_d = dict (c_upds)
+	asm_upd_d = dict (asm_upds)
+	addr_ord = [addr for (addr, _) in asm_upds] + [addr for (addr, _) in c_upds
+		if addr not in asm_upd_d]
+	mism = [addr for addr in addr_ord
+		if c_upd_d.get (addr) != asm_upd_d.get (addr)]
+	return (c_upd_d == asm_upd_d, mism, c_upds, asm_upds)
+
+def get_pv_type (pv):
+	assert pv.is_op (['PValid', 'PArrayValid'])
+	typ_v = pv.vals[1]
+	assert typ_v.kind == 'Type'
+	typ = typ_v.val
+	if pv.is_op ('PArrayValid'):
+		return ('PArrayValid', typ, pv.vals[3])
+	else:
+		return ('PValid', typ, None)
+
+def guess_pv (p, n, addr_expr):
+	vs = syntax.get_expr_var_set (addr_expr)
+	[pred] = p.preds[n]
+	pvs = []
+	def vis (expr):
+		if expr.is_op (['PValid', 'PArrayValid']):
+			pvs.append (expr)
+	p.nodes[pred].cond.visit (vis)
+	match_pvs = [pv for pv in pvs
+		if set.union (* [syntax.get_expr_var_set (v) for v in pv.vals[2:]])
+			== vs]
+	if len (match_pvs) > 1:
+		match_pvs = [pv for pv in match_pvs if pv.is_op ('PArrayValid')]
+	pv = match_pvs[0]
+	return pv
+
+def eval_pv_type (rep, (n, vc), m, data):
+	if data[0] == 'PValid':
+		return data
+	else:
+		(nm, typ, offs) = data
+		offs = rep.to_smt_expr (offs, (n, vc))
+		offs = search.eval_model_expr (m, rep.solv, offs)
+		return (nm, typ, offs)
+
+def trace_suspicious_mem (rep, m, tag = 'C'):
+	cs = trace_mem (rep, tag, m)
+	data = [(addr, search.eval_model_expr (m, rep.solv,
+			rep.to_smt_expr (addr, (n, vc))), (n, vc))
+		for (kind, addr, v, mem, n, vc) in cs]
+	addr_sets = {}
+	for (addr, addr_v, _) in data:
+		addr_sets.setdefault (addr_v, set ())
+		addr_sets[addr_v].add (addr)
+	dup_addrs = set ([addr_v for addr_v in addr_sets
+		if len (addr_sets[addr_v]) > 1])
+	data = [(addr, addr_v, guess_pv (rep.p, n, addr), (n, vc))
+		for (addr, addr_v, (n, vc)) in data
+		if addr_v in dup_addrs]
+	data = [(addr, addr_v, eval_pv_type (rep, (n, vc), m,
+			get_pv_type (pv)), rep.to_smt_expr (pv, (n, vc)), n)
+		for (addr, addr_v, pv, (n, vc)) in data]
+	dup_addr_types = set ([addr_v for addr_v in dup_addrs
+		if len (set ([t for (_, addr_v2, t, _, _) in data
+			if addr_v2 == addr_v])) > 1])
+	res = [(addr_v, [(t, pv, n) for (_, addr_v2, t, pv, n) in data
+			if addr_v2 == addr_v])
+		for addr_v in dup_addr_types]
+	for (addr_v, insts) in res:
+		print 'Address %s' % addr_v
+		for (t, pv, n) in insts:
+			print '  -- accessed with type %s at %s' % (t, n)
+			print '    (covered by %s)' % pv
+	return res
 
 def trace_var (rep, tag, m, v):
 	p = rep.p

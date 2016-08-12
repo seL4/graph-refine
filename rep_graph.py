@@ -928,6 +928,11 @@ class GraphSlice:
 		(pc, env) = pc_env
 		return to_smt_expr (pc, env, self.solv)
 
+	def to_smt_expr (self, expr, (n, vcount), tag = None):
+		pc_env = self.get_node_pc_env ((n, vcount), tag = tag)
+		(pc, env) = pc_env
+		return to_smt_expr (expr, env, self.solv)
+
 	def get_induct_var (self, (n1, n2)):
 		if (n1, n2) not in self.induct_var_env:
 			vname = self.solv.add_var ('induct_i_%d_%d' % (n1, n2),
