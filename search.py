@@ -580,8 +580,12 @@ def find_split (rep, head, restrs, hyps, i_opts, j_opts, unfold_limit,
 		for pred in expand_var_eqs (knowledge, (v, 'Const')):
 			smt_expr (pred, {}, rep.solv)
 
-	# start the process with a model
-	add_model (knowledge, [mk_not (get_pc (head, unfold_limit))])
+	# test any relevant cached solutions.
+	p.cached_analysis.setdefault (('v_eqs', head), set ())
+	v_eq_cache = p.cached_analysis[('v_eqs', head)]
+	for (pair, eqs) in v_eq_cache:
+		if pair in pairs:
+			add_model_wrapper (knowledge, list (eqs))
 
 	num_eqs = 3
 	while True:
@@ -600,6 +604,7 @@ def find_split (rep, head, restrs, hyps, i_opts, j_opts, unfold_limit,
 			if split == None:
 				pairs[pair] = ('Failed', 'SplitWeak', eqs)
 				continue
+			v_eq_cache.add ((pair, tuple (eqs)))
 			if check_split_induct (p, restrs, hyps, split,
 					tags = tags):
 				trace ('Tested v_eqs!')
@@ -627,7 +632,7 @@ def find_split (rep, head, restrs, hyps, i_opts, j_opts, unfold_limit,
 			for f in ind_fails:
 				trace ('    %s' % (f,))
 			return (None, ind_fails)
-		
+
 		add_model_wrapper (knowledge, u_eqs)
 		num_eqs = 4 - num_eqs # oscillate between 3, 1
 
