@@ -89,14 +89,118 @@ def find_split_limit (p, n, restrs, hyps, kind, bound = 51, must_find = True,
 		assert not 'split limit found'
 	return None
 
+class SearchKnowledge:
+	def __init__ (self, rep, name, restrs, hyps, tags, cand_elts):
+		self.rep = rep
+		self.name = name
+		self.restrs = restrs
+		self.hyps = hyps
+		self.tags = tags
+		(loop_elts, r_elts) = cand_elts
+		(pairs, vs) = init_knowledge_pairs (rep, loop_elts, r_elts)
+		self.pairs = pairs
+		self.v_ids = vs
+		self.model_trace = []
+		self.facts = set ()
+		self.premise = syntax.true_term
+
+	def add_model (self, m):
+		self.model_trace.append (m)
+		update_v_ids_for_model (self, self.pairs, self.v_ids, m)
+
+	def hyps_add_model (self, hyps):
+		if hyps:
+			test_expr = foldr1 (mk_and, hyps)
+		else:
+			# we want to learn something, either a new model, or
+			# that all hyps are true. if there are no hyps,
+			# learning they're all true is learning nothing.
+			# instead force a model
+			test_expr = false_term
+		test_expr = mk_implies (self.premise, test_expr)
+		m = {}
+		r = self.rep.solv.check_hyp (test_expr, {}, model = m)
+		if r == 'unsat':
+			if not hyps:
+				trace ('WARNING: SearchKnowledge: premise unsat.')
+				trace ("  ... learning procedure isn't going to work.")
+			for hyp in hyps:
+				self.facts.add (hyp)
+		else:
+			assert r == 'sat', r
+			self.add_model (m)
+
+	def eqs_add_model (self, eqs):
+		preds = [pred for vpair in eqs
+			for pred in expand_var_eqs (self, vpair)
+			if pred not in self.facts]
+
+		self.hyps_add_model (preds)
+
+def init_knowledge_pairs (rep, loop_elts, cand_r_loop_elts):
+	v_is = [(i, i_offs, i_step,
+		[(v, i, i_offs, i_step) for v in get_loop_vars_at (rep.p, i)])
+		for (i, i_offs, i_step) in sorted (loop_elts)]
+	l_vtyps = set ([v[0].typ for (_, _, _, vs) in v_is for v in vs])
+	v_js = [(j, j_offs, j_step,
+		[(v, j, j_offs, j_step) for v in get_loop_vars_at (rep.p, j)
+			if v.typ in l_vtyps])
+		for (j, j_offs, j_step) in sorted (cand_r_loop_elts)]
+	vs = {}
+	for (_, _, _, var_vs) in v_is + v_js:
+		for v in var_vs:
+			vs[v] = (v[0].typ, True)
+	pairs = {}
+	for (i, i_offs, i_step, i_vs) in v_is:
+		for (j, j_offs, j_step, j_vs) in v_js:
+			pair = ((i, i_offs, i_step), (j, j_offs, j_step))
+			pairs[pair] = (i_vs, j_vs)
+	return (pairs, vs)
+
+def update_v_ids_for_model (knowledge, pairs, vs, m):
+	rep = knowledge.rep
+	# first update the live variables
+	groups = {}
+	for v in vs:
+		(k, const) = vs[v]
+		groups.setdefault (k, [])
+		groups[k].append ((v, const))
+	k_counter = 1
+	vs.clear ()
+	for k in groups:
+		for (const, xs) in split_group (knowledge, m, groups[k]):
+			for x in xs:
+				vs[x] = (k_counter, const)
+			k_counter += 1
+	# then figure out which pairings are still viable
+	needed_ks = set ()
+	zero = syntax.mk_word32 (0)
+	for (pair, data) in pairs.items ():
+		if data[0] == 'Failed':
+			continue
+		(lvs, rvs) = data
+		lv_ks = set ([vs[v][0] for v in lvs
+			if v[0] == zero or not vs[v][1]])
+		rv_ks = set ([vs[v][0] for v in rvs])
+		miss_vars = lv_ks - rv_ks
+		if miss_vars:
+			lv_miss = [v[0] for v in lvs if vs[v][0] in miss_vars]
+			pairs[pair] = ('Failed', lv_miss.pop ())
+		else:
+			needed_ks.update ([vs[v][0] for v in lvs + rvs])
+	# then drop any vars which are no longer relevant
+	for v in vs.keys ():
+		if vs[v][0] not in needed_ks:
+			del vs[v]
+
 def get_var_pc_var_list (knowledge, v_i):
-	(rep, (restrs, _, _, _), _, _) = knowledge
+	rep = knowledge.rep
 	(v_i, i, i_offs, i_step) = v_i
 	def get_var (k):
 		head = rep.p.loop_id (i)
 		if i != head:
 			k += 1
-		restrs2 = restrs + ((head, vc_num (k)), )
+		restrs2 = knowledge.restrs + ((head, vc_num (k)), )
 		(pc, env) = rep.get_node_pc_env ((i, restrs2))
 		return (to_smt_expr (pc, env, rep.solv),
 			to_smt_expr (v_i, env, rep.solv))
@@ -104,8 +208,6 @@ def get_var_pc_var_list (knowledge, v_i):
 		for k in [0, 1, 2]]
 
 def expand_var_eqs (knowledge, (v_i, v_j)):
-	(rep, (restrs, _, _, _), _, _) = knowledge
-
 	if v_j == 'Const':
 		pc_vs = get_var_pc_var_list (knowledge, v_i)
 		(_, v0) = pc_vs[0]
@@ -267,17 +369,16 @@ def eval_model_expr (m, solv, v):
 	return eval_model (m, s_x)
 
 def model_equal (m, knowledge, vpair):
-	(rep, _, _, _) = knowledge
 	preds = expand_var_eqs (knowledge, vpair)
 	for pred in preds:
-		x = eval_model_expr (m, rep.solv, pred)
+		x = eval_model_expr (m, knowledge.rep.solv, pred)
 		assert x in [syntax.true_term, syntax.false_term]
 		if x == syntax.false_term:
 			return False
 	return True
 
 def get_model_trace (knowledge, m, v):
-	(rep, _, _, _) = knowledge
+	rep = knowledge.rep
 	pc_vs = get_var_pc_var_list (knowledge, v)
 	trace = []
 	for (pc, v) in pc_vs:
@@ -315,165 +416,29 @@ def split_group (knowledge, m, group):
 			bins[trace][1].append (v)
 		return bins.values ()
 
-def update_knowledge_for_model (knowledge, m):
-	(rep, _, (pairs, vs), _) = knowledge
-	# first update the live variables
-	groups = {}
-	for v in vs:
-		(k, const) = vs[v]
-		groups.setdefault (k, [])
-		groups[k].append ((v, const))
-	k_counter = 1
-	vs.clear ()
-	for k in groups:
-		for (const, xs) in split_group (knowledge, m, groups[k]):
-			for x in xs:
-				vs[x] = (k_counter, const)
-			k_counter += 1
-	# then figure out which pairings are still viable
-	needed_ks = set ()
-	for (pair, data) in pairs.items ():
-		if data[0] == 'Failed':
-			continue
-		(lvs, rvs) = data
-		lv_ks = set ([vs[v][0] for v in lvs if not vs[v][1]])
-		rv_ks = set ([vs[v][0] for v in rvs])
-		miss_vars = lv_ks - rv_ks
-		if miss_vars:
-			lv_miss = [v[0] for v in lvs if vs[v][0] in miss_vars]
-			pairs[pair] = ('Failed', lv_miss.pop ())
-		else:
-			needed_ks.update ([vs[v][0] for v in lvs + rvs])
-	# then drop any vars which are no longer relevant
-	for v in vs.keys ():
-		if vs[v][0] not in needed_ks:
-			del vs[v]
-
-def init_knowledge_pairs (rep, loop_elts, cand_r_loop_elts):
-	v_is = [(i, i_offs, i_step,
-		[(v, i, i_offs, i_step) for v in get_loop_vars_at (rep.p, i)])
-		for (i, i_offs, i_step) in sorted (loop_elts)]
-	l_vtyps = set ([v[0].typ for (_, _, _, vs) in v_is for v in vs])
-	v_js = [(j, j_offs, j_step,
-		[(v, j, j_offs, j_step) for v in get_loop_vars_at (rep.p, j)
-			if v.typ in l_vtyps])
-		for (j, j_offs, j_step) in sorted (cand_r_loop_elts)]
-	vs = {}
-	for (_, _, _, var_vs) in v_is + v_js:
-		for v in var_vs:
-			vs[v] = (v[0].typ, True)
-	pairs = {}
-	for (i, i_offs, i_step, i_vs) in v_is:
-		for (j, j_offs, j_step, j_vs) in v_js:
-			pair = ((i, i_offs, i_step), (j, j_offs, j_step))
-			pairs[pair] = (i_vs, j_vs)
-	return (pairs, vs)
-
-def debug_pair_eqs (knowledge, pair):
-	(rep, data, _, _) = knowledge
-	p = rep.p
-
-	((i, i_offs, i_step), (j, j_offs, j_step)) = pair
-	v_is = [(v, i, i_offs, i_step) for v in get_loop_vars_at (p, i)]
-	v_js = [(v, j, j_offs, j_step) for v in get_loop_vars_at (p, j)]
-
-	vs = {}
-	for v in v_is + v_js:
-		vs[v] = (v[0].typ, True)
-
-	knowledge2 = (rep, data, ({pair: (v_is, v_js)}, vs), set ())
-	eqs = unknown_eqs (knowledge2, 10000)
-	preds = [pred for vpair in eqs
-		for pred in expand_var_eqs (knowledge2, vpair)]
-
-	return (eqs, preds)
-
-def add_model (knowledge, preds):
-	(rep, (_, _, _, premise), _, facts) = knowledge
-	if preds:
-		pred_expr = foldr1 (mk_and, preds)
-	else:
-		# we want to learn something, either a new model, or that
-		# all of our predicates are true. if there are no predicates,
-		# ''all our predicates are true'' is trivially true. instead
-		# we must want a model (counterexample of false)
-		pred_expr = false_term
-	m = {}
-	r = rep.solv.check_hyp (mk_implies (premise, pred_expr), {}, model = m)
-	if r == 'unsat':
-		if not preds:
-			trace ('WARNING: unsat with no extra assertions.')
-			trace ("  ... learning procedure isn't going to work.")
-		for pred in preds:
-			facts.add (pred)
-	else:
-		assert r == 'sat'
-		update_knowledge_for_model (knowledge, m)
-
-def add_model_wrapper (knowledge, eqs):
-	(_, _, _, facts) = knowledge
-	preds = [pred for vpair in eqs
-		for pred in expand_var_eqs (knowledge, vpair)
-		if pred not in facts]
-
-	add_model (knowledge, preds)
-
-def mk_pairing_v_eqs (knowledge, pair):
-	(_, _, (pairs, vs), _) = knowledge
+def mk_pairing_v_eqs (knowledge, pair, endorsed = True):
 	v_eqs = []
-	(lvs, rvs) = pairs[pair]
+	(lvs, rvs) = knowledge.pairs[pair]
 	zero = mk_word32 (0)
 	for v_i in lvs:
-		(k, const) = vs[v_i]
+		(k, const) = knowledge.v_ids[v_i]
 		if const and v_i[0] != zero:
 			if eq_known (knowledge, (v_i, 'Const')):
 				v_eqs.append ((v_i, 'Const'))
 				continue
-		vs_j = [v_j for v_j in rvs if vs[v_j][0] == k]
-		vs_j = [v_j for v_j in vs_j
-			if eq_known (knowledge, (v_i, v_j))]
+		vs_j = [v_j for v_j in rvs if knowledge.v_ids[v_j][0] == k]
+		if endorsed:
+			vs_j = [v_j for v_j in vs_j
+				if eq_known (knowledge, (v_i, v_j))]
 		if not vs_j:
 			return None
-		if v_i[0] == zero:
-			continue
 		v_j = vs_j[0]
 		v_eqs.append ((v_i, v_j))
 	return v_eqs
 
-def unknown_eqs (knowledge, number_eqs):
-	(rep, _, (pairs, vs), _) = knowledge
-	eq_sets = {}
-	eqs = []
-	for (pair, data) in pairs.iteritems ():
-		if data[0] == 'Failed':
-			continue
-		(lvs, rvs) = data
-		for lv in lvs:
-			(k, const) = vs[lv]
-			eq_sets.setdefault (k, set ())
-			for rv in rvs:
-				if vs[rv][0] == k:
-					eq_sets[k].add ((1, lv, rv))
-			if const:
-				eq_sets[k].add ((2, lv, 'Const'))
-	eq_sets = [[(lv, rv) for (_, lv, rv) in sorted (eq_sets[k])]
-		for k in sorted (eq_sets)]
-	# pick some equalities from various sets
-	while eq_sets and len (eqs) < number_eqs:
-		eq_set = eq_sets.pop (0)
-		if not eq_set:
-			continue
-		vpair = eq_set.pop ()
-		if eq_set:
-			eq_sets.append(eq_set)
-		if not eq_known (knowledge, vpair):
-			eqs.append (vpair)
-	return eqs
-
 def eq_known (knowledge, vpair):
 	preds = expand_var_eqs (knowledge, vpair)
-	(rep, _, _, facts) = knowledge
-	return set (preds) <= facts
+	return set (preds) <= knowledge.facts
 
 def find_split_loop (p, head, restrs, hyps):
 	assert p.loop_data[head][0] == 'Head'
@@ -525,14 +490,13 @@ def find_split_loop (p, head, restrs, hyps):
 
 last_failed_pairings = []
 
-def find_split (rep, head, restrs, hyps, i_opts, j_opts, unfold_limit,
-		tags = None):
+def setup_split_search (rep, head, restrs, hyps,
+		i_opts, j_opts, unfold_limit, tags = None):
 	p = rep.p
 
-	if tags:
-		l_tag, r_tag = tags
-	else:
-		l_tag, r_tag = p.pairing.tags
+	if not tags:
+		tags = p.pairing.tags
+	l_tag, r_tag = tags
 	loop_elts = [(n, start, step) for n in p.loop_data[head][1]
 		if p.loop_splittables[n]
 		for (start, step) in i_opts]
@@ -562,131 +526,175 @@ def find_split (rep, head, restrs, hyps, i_opts, j_opts, unfold_limit,
 	premise = foldr1 (mk_and, [nrerr_pc] + map (rep.interpret_hyp, hyps))
 	premise = logic.weaken_assert (premise)
 
-	knowledge = (rep, (restrs, loop_elts, cand_r_loop_elts, premise),
-		init_knowledge_pairs (rep, loop_elts, cand_r_loop_elts), set ())
+	knowledge = SearchKnowledge (rep,
+		'search at %d (unfold limit %d)' % (head, unfold_limit),
+		restrs, hyps, tags, (loop_elts, cand_r_loop_elts))
+	knowledge.premise = premise
 	last_knowledge[0] = knowledge
 
 	# make sure the representation is in sync
 	rep.test_hyp_whyps (true_term, hyps)
 
 	# make sure all mem eqs are being tracked
-	(_, _, (pairs, vs), _) = knowledge
-	mem_vs = [v for v in vs if v[0].typ == builtinTs['Mem']]
+	mem_vs = [v for v in knowledge.v_ids if v[0].typ == builtinTs['Mem']]
 	for (i, v) in enumerate (mem_vs):
 		for v2 in mem_vs[:i]:
 			for pred in expand_var_eqs (knowledge, (v, v2)):
 				smt_expr (pred, {}, rep.solv)
-	for v in vs:
+	for v in knowledge.v_ids:
 		for pred in expand_var_eqs (knowledge, (v, 'Const')):
 			smt_expr (pred, {}, rep.solv)
+
+	return knowledge
+
+def split_search (head, knowledge):
+	rep = knowledge.rep
+	p = rep.p
 
 	# test any relevant cached solutions.
 	p.cached_analysis.setdefault (('v_eqs', head), set ())
 	v_eq_cache = p.cached_analysis[('v_eqs', head)]
 	for (pair, eqs) in v_eq_cache:
-		if pair in pairs:
-			add_model_wrapper (knowledge, list (eqs))
+		if pair in knowledge.pairs:
+			knowledge.eqs_add_model (list (eqs))
 
-	num_eqs = 3
 	while True:
-		trace ('Search at unfold limit %d' % unfold_limit)
+		trace ('In %s' % knowledge.name)
 		trace ('Computing live pairings')
 		pair_eqs = [(pair, mk_pairing_v_eqs (knowledge, pair))
-			for pair in sorted (pairs)
-			if pairs[pair][0] != 'Failed']
+			for pair in sorted (knowledge.pairs)
+			if knowledge.pairs[pair][0] != 'Failed']
+		if not pair_eqs:
+			ind_fails = trace_search_fail (knowledge)
+			return (None, ind_fails)
+
 		endorsed = [(pair, eqs) for (pair, eqs) in pair_eqs
 			if eqs != None]
 		trace (' ... %d live pairings, %d endorsed' %
 			(len (pair_eqs), len (endorsed)))
 		for (pair, eqs) in endorsed:
-			split = v_eqs_to_split (p, pair, eqs, restrs, hyps,
-				tags = tags)
+			split = v_eqs_to_split (p, pair, eqs,
+				knowledge.restrs, knowledge.hyps,
+				tags = knowledge.tags)
 			if split == None:
-				pairs[pair] = ('Failed', 'SplitWeak', eqs)
+				knowledge.pairs[pair] = ('Failed',
+					'SplitWeak', eqs)
 				continue
 			v_eq_cache.add ((pair, tuple (eqs)))
-			if check_split_induct (p, restrs, hyps, split,
-					tags = tags):
+			if check_split_induct (p, knowledge.restrs,
+					knowledge.hyps, split,
+					tags = knowledge.tags):
 				trace ('Tested v_eqs!')
 				return ('Split', split)
 			else:
 				pairs[pair] = ('Failed', 'InductFailed', eqs)
-
-		u_eqs = unknown_eqs (knowledge, num_eqs)
-		if not u_eqs:
-			trace (('Exhausted split candidates for loop at %d,'
-				+ ' unfold limit %d') % (head, unfold_limit))
-			fails = [it for it in pairs.items ()
-				if it[1][0] == 'Failed']
-			fails10 = fails[:10]
-			trace ('  %d of %d failed pairings:' % (len (fails10),
-				len (fails)))
-			last_failed_pairings.append (fails)
-			del last_failed_pairings[:-10]
-			for f in fails:
-				trace ('    %s' % (f,))
-			ind_fails = [it for it in fails
-				if str (it[1][1]) == 'InductFailed']
-			if ind_fails:
-				trace (  'Inductive failures!')
-			for f in ind_fails:
-				trace ('    %s' % (f,))
-			return (None, ind_fails)
-
-		add_model_wrapper (knowledge, u_eqs)
-		num_eqs = 4 - num_eqs # oscillate between 3, 1
-
-def find_case_split (p, head, restrs, hyps, tags = None):
-	# are there multiple paths to the loop head 'head' and can we
-	# restrict to one of them?
-	preds = set ()
-	frontier = list (set ([n2 for n in p.loop_body (head)
-		for n2 in p.preds[n] if p.loop_id (n2) != head]))
-	while frontier:
-		n2 = frontier.pop ()
-		if n2 in preds:
+		if endorsed:
 			continue
-		preds.add (n2)
-		frontier.extend (p.preds[n2])
-	divs = [n2 for n2 in preds if len (set ([n3
-		for n3 in p.nodes[n2].get_conts ()
-			if n3 in preds or n3 == head])) > 1
-		if n2 not in p.loop_data]
 
-	trace ('find_case_split: possible divs %s.' % divs)
+		(pair, _) = pair_eqs[0]
+		trace ('Testing guess for pair: %s' % str (pair))
+		eqs = mk_pairing_v_eqs (knowledge, pair, endorsed = False)
+		knowledge.eqs_add_model (eqs)
 
-	rep = mk_graph_slice (p)
-	err_restrs = restr_others (p, restrs, 2)
-	if tags:
-		l_tag, r_tag = tags
-	else:
-		l_tag, r_tag = p.pairing.tags
-	hvis_restrs = tuple ([(head, rep_graph.vc_num (0))]) + restrs
-	
-	lhyps = hyps + [rep_graph.pc_false_hyp ((('Err', err_restrs), r_tag)),
-		rep_graph.pc_true_hyp (((head, hvis_restrs),
-			p.node_tags[head][0]))]
+def trace_search_fail (knowledge):
+	trace (('Exhausted split candidates for %s' % knowledge.name))
+	fails = [it for it in knowledge.pairs.items ()
+		if it[1][0] == 'Failed']
+	last_failed_pairings.append (fails)
+	del last_failed_pairings[:-10]
+	fails10 = fails[:10]
+	trace ('  %d of %d failed pairings:' % (len (fails10),
+		len (fails)))
+	for f in fails10:
+		trace ('    %s' % (f,))
+	ind_fails = [it for it in fails
+		if str (it[1][1]) == 'InductFailed']
+	if ind_fails:
+		trace (  'Inductive failures!')
+	for f in ind_fails:
+		trace ('    %s' % (f,))
+	return ind_fails
 
-	# for this to be a usable case split, both paths must be possible
-	for div in divs:
-		dhyps = lhyps + [rep_graph.pc_true_hyp (((div, restrs),
-			p.node_tags[div][0]))]
-		assert p.nodes[div].kind == 'Cond'
-		(_, env) = rep.get_node_pc_env ((div, restrs))
-		c = to_smt_expr (p.nodes[div].cond, env, rep.solv)
-		if (rep.test_hyp_whyps (c, dhyps)
-				or rep.test_hyp_whyps (mk_not (c), dhyps)):
+def find_split (rep, head, restrs, hyps, i_opts, j_opts,
+		unfold_limit, tags = None):
+	knowledge = setup_split_search (rep, head, restrs, hyps,
+		i_opts, j_opts, unfold_limit, tags)
+
+	res = split_search (head, knowledge)
+
+	if res[0]:
+		return res
+
+	(models, facts, n_vcs) = most_common_path (head, knowledge)
+	if not n_vcs:
+		return res
+
+	[tag, _] = knowledge.tags
+	knowledge = setup_split_search (rep, head, restrs,
+		hyps + [rep_graph.pc_true_hyp ((n_vc, tag)) for n_vc in n_vcs],
+		i_opts, j_opts, unfold_limit, tags)
+	knowledge.facts.update (facts)
+	for m in models:
+		knowledge.add_model (m)
+	res = split_search (head, knowledge)
+
+	if res[0] == None:
+		return res
+
+	return derive_case_split (rep, restrs, hyps, n_vcs, res)
+
+def most_common_path (head, knowledge):
+	rep = knowledge.rep
+	[tag, _] = knowledge.tags
+	data = logic.dict_list ([(tuple (entry_path (rep, tag, m, head)), m)
+		for m in knowledge.model_trace])
+	if len (data) < 2:
+		return (None, None, None)
+
+	(_, path) = max ([(len (data[path]), path) for path in data])
+	models = data[path]
+	facts = knowledge.facts
+	other_n_vcs = set.intersection (* [set (path2) for path2 in data
+		if path2 != path])
+
+	n_vcs = []
+	pcs = set ()
+	for n_vc in path:
+		if n_vc in other_n_vcs:
 			continue
-		trace ("attempting case split at %d" % div)
-		sides = [n for n in p.nodes[div].get_conts ()
-			if n not in p.loop_data
-			if p.preds[n] == [div]]
-		if not sides:
-			trace ("skipping case split, no notable succ")
-		n = sides[0]
-		return ('CaseSplit', (n, p.node_tags[n][0]))
-	trace ('find_case_split: no case splits possible')
-	return (None, ())
+		if rep.p.loop_id (n_vc[0]):
+			continue
+		pc = rep.get_pc (n_vc)
+		if pc not in pcs:
+			pcs.add (pc)
+			n_vcs.append (n_vc)
+	assert n_vcs
+
+	return (models, facts, n_vcs)
+
+def entry_path (rep, tag, m, head):
+	n_vcs = []
+	for (tag2, n, vc) in rep.node_pc_env_order:
+		if n == head:
+			break
+		if tag2 != tag:
+			continue
+		hit = eval_model_expr (m, rep.solv, rep.get_pc ((n, vc), tag))
+		assert hit in [syntax.true_term, syntax.false_term]
+		if hit == syntax.true_term:
+			n_vcs.append ((n, vc))
+	return n_vcs
+
+def derive_case_split (rep, restrs, hyps, n_vcs, (_, split)):
+	for (n, vc) in n_vcs:
+		tag = p.node_tags[n][0]
+		hyps2 = hyps + [rep_graph.pc_true_hyp (((n, vc), tag))]
+		checks = check.split_init_step_checks (rep.p, restrs,
+			hyps2, split)
+		(verdict, _) = check.test_hyp_group (rep, checks)
+		if verdict:
+			return ('CaseSplit', (n, tag))
+	assert not 'key n_vc found', (n_vcs, split)
 
 def mk_seq_eqs (p, split, step, with_rodata):
 	# eqs take the form of a number of constant expressions
@@ -742,7 +750,8 @@ def v_eqs_to_split (p, pair, v_eqs, restrs, hyps, tags = None):
 		+ c_memory_loop_invariant (p, r_n, l_n))
 
 	eqs = [(v_i[0], mk_cast (v_j[0], v_i[0].typ))
-		for (v_i, v_j) in v_eqs if v_j != 'Const']
+		for (v_i, v_j) in v_eqs if v_j != 'Const'
+		if v_i[0] != syntax.mk_word32 (0)]
 
 	n = 2
 	split = (l_details, r_details, eqs, n, (n * r_step) - 1)

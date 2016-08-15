@@ -537,14 +537,22 @@ def mk_align_valid_ineq (typ, p):
 			mk_less_eq (p, mk_uminus (size)))])
 
 # generic operations on function/problem graphs
+def dict_list (xys, keys = None):
+	d = {}
+	for (x, y) in xys:
+		d.setdefault (x, [])
+		d[x].append (y)
+	if keys:
+		for x in keys:
+			d.setdefault (x, [])
+	return d
+
 def compute_preds (nodes):
-	preds = {'Ret': [], 'Err': []}
-	for n in nodes.iterkeys ():
+	preds = dict_list ([(c, n) for n in nodes
+			for c in nodes[n].get_conts ()],
+		keys = nodes)
+	for n in ['Ret', 'Err']:
 		preds.setdefault (n, [])
-		for c in nodes[n].get_conts ():
-			preds.setdefault (c, [])
-			if n not in preds[c]:
-				preds[c].append (n)
 	return preds
 
 def simplify_node_elementary(node):
