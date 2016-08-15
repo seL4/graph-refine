@@ -103,11 +103,8 @@ def toplevel_check (pair, check_loops = True, report = False, count = None):
 		traceback.print_exception (etype, evalue, tb,
 			file = sys.stdout)
 
-	if not report:
-		printout ('Time taken to check %s for pair %s: %f'
-			% (result, pair, end_time - start_time))
-	elif result in ['ProofNoSplit', 'ProofEXCEPT', 'CheckEXCEPT']:
-		printout ('Proof process failure (%s).' % result)
+	printout ('Result %s for pair %s, time taken: %f'
+		% (result, pair, end_time - start_time))
 	sys.stdout.flush ()
 
 	return str (result)

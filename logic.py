@@ -553,6 +553,8 @@ def compute_preds (nodes):
 		keys = nodes)
 	for n in ['Ret', 'Err']:
 		preds.setdefault (n, [])
+	preds = dict ([(n, sorted (set (ps)))
+		for (n, ps) in preds.iteritems ()])
 	return preds
 
 def simplify_node_elementary(node):

@@ -422,8 +422,8 @@ def mk_pairing_v_eqs (knowledge, pair, endorsed = True):
 	zero = mk_word32 (0)
 	for v_i in lvs:
 		(k, const) = knowledge.v_ids[v_i]
-		if const and v_i[0] != zero:
-			if eq_known (knowledge, (v_i, 'Const')):
+		if const:
+			if not endorsed or eq_known (knowledge, (v_i, 'Const')):
 				v_eqs.append ((v_i, 'Const'))
 				continue
 		vs_j = [v_j for v_j in rvs if knowledge.v_ids[v_j][0] == k]
@@ -587,13 +587,15 @@ def split_search (head, knowledge):
 				trace ('Tested v_eqs!')
 				return ('Split', split)
 			else:
-				pairs[pair] = ('Failed', 'InductFailed', eqs)
+				knowledge.pairs[pair] = ('Failed',
+					'InductFailed', eqs)
 		if endorsed:
 			continue
 
 		(pair, _) = pair_eqs[0]
 		trace ('Testing guess for pair: %s' % str (pair))
 		eqs = mk_pairing_v_eqs (knowledge, pair, endorsed = False)
+		assert eqs, pair
 		knowledge.eqs_add_model (eqs)
 
 def trace_search_fail (knowledge):
