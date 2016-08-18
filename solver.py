@@ -399,6 +399,7 @@ def smt_expr_memacc (m, p, typ, solv):
 		sexp = '(load-word%d %s %s)' % (typ.num, m, p)
 	else:
 		assert not 'word load type supported'
+	solv.note_model_expr (p, syntax.word32T)
 	solv.note_model_expr (sexp, typ)
 	return sexp
 
@@ -418,12 +419,14 @@ def smt_expr_memupd (m, p, v, typ, solv):
 	elif typ.num == 8:
 		p = solv.cache_large_expr (p, 'memupd_pointer', syntax.word32T)
 		p_align = '(bvand %s #xfffffffd)' % p
+		solv.note_model_expr (p_align, syntax.word32T)
 		solv.note_model_expr ('(load-word32 %s %s)' % (m, p_align),
 			syntax.word32T)
 		return '(store-word8 %s %s %s)' % (m, p, v)
 	elif typ.num in [32, 64]:
 		solv.note_model_expr ('(load-word%d %s %s)' % (typ.num, m, p),
 			typ)
+		solv.note_model_expr (p, syntax.word32T)
 		return '(store-word%d %s %s %s)' % (typ.num, m, p, v)
 	else:
 		assert not 'MemUpdate word width supported', typ
@@ -775,7 +778,8 @@ class Solver:
 		return self.solver_loop (lambda:
 			self.prompt_s_expression_inner (prompt))
 
-	def hyps_sat_raw_inner (self, hyps, model, unsat_core):
+	def hyps_sat_raw_inner (self, hyps, model, unsat_core,
+			recursion = False):
 		self.send_inner ('(push 1)', replay = False)
 		for hyp in hyps:
 			self.send_inner ('(assert %s)' % hyp, replay = False,
@@ -903,7 +907,8 @@ class Solver:
 		return '(! %s :named %s)' % (hyp, name)
 
 	def hyps_sat_raw (self, hyps, model = None, unsat_core = None,
-			force_solv = False, recursion = False):
+			force_solv = False, recursion = False,
+			slow_solver = None):
 		assert self.unsat_cores or unsat_core == None
 
 		hyp_dict = {}
@@ -917,11 +922,16 @@ class Solver:
 			for (hyp, _) in raw_hyps:
 				trace ('  ' + hyp)
 			l = lambda: self.hyps_sat_raw_inner (hyps,
-                                        model != None, unsat_core != None)
+                                        model != None, unsat_core != None,
+					recursion = recursion)
 			try:
 				(response, m, ucs, succ) = self.solver_loop (l)
 			except ConversationProblem, e:
 				response = 'ConversationProblem'
+
+		if succ and m:
+			succ = self.check_model ([h for (h, _) in raw_hyps],
+					m, recursion = recursion)
 
 		if ((not succ or response not in ['sat', 'unsat'])
 				and self.slow_solver and force_solv != 'Fast'):
@@ -930,8 +940,11 @@ class Solver:
 					% self.fast_solver.name)
 			trace ('running %s' % self.slow_solver.name)
 			self.close ()
-			response = self.use_slow_solver (raw_hyps, model = model,
-				unsat_core = unsat_core)
+			response = self.use_slow_solver (raw_hyps,
+				model = model, unsat_core = unsat_core,
+				use_this_solver = slow_solver)
+		elif not succ:
+			pass
 		elif m:
 			model.clear ()
 			model.update (m)
@@ -943,7 +956,7 @@ class Solver:
 			if not recursion:
 				last_satisfiable_hyps[0] = list (raw_hyps)
 			if model:
-				self.check_model ([h for (h, _) in raw_hyps],
+				assert self.check_model ([h for (h, _) in raw_hyps],
 					model, recursion = recursion)
 		elif response == 'unsat':
 			fact = '(not (and %s))' % ' '.join ([h
@@ -1007,7 +1020,7 @@ class Solver:
 		return (proc, proc.stdout)
 
 	def use_slow_solver (self, hyps, model = None, unsat_core = None,
-			use_safe_solver = None):
+			use_this_solver = None):
 		start = time.time ()
 
 		cmds = ['(assert %s)' % hyp for (hyp, _) in hyps
@@ -1016,7 +1029,10 @@ class Solver:
 		if model != None:
 			cmds.append (self.fetch_model_request ())
 
-		solver = self.slow_solver
+		if use_this_solver:
+			solver = use_this_solver
+		else:
+			solver = self.slow_solver
 
 		(_, output) = self.exec_slow_solver (cmds,
 			timeout = solver.timeout, use_this_solver = solver)
@@ -1044,12 +1060,16 @@ class Solver:
 				comments = ['reference time %s seconds' % (end - start)])
 
 		if model:
-			self.check_model ([h for (h, _) in hyps], model)
+			assert self.check_model ([h for (h, _) in hyps], model)
 
 		return response
 
-	def add_parallel_solver (self, k, hyps, use_this_solver = None):
+	def add_parallel_solver (self, k, hyps, model = None,
+			use_this_solver = None):
 		cmds = ['(assert %s)' % hyp for hyp in hyps] + ['(check-sat)']
+
+		if model != None:
+			cmds.append (self.fetch_model_request ())
 
 		for hyp in hyps:
 			trace ('  %s' % hyp)
@@ -1062,22 +1082,27 @@ class Solver:
 			solver = use_this_solver
 		(proc, output) = self.exec_slow_solver (cmds,
 			timeout = solver.timeout, use_this_solver = solver)
-		self.parallel_solvers[k] = (hyps, proc, output, solver)
+		self.parallel_solvers[k] = (hyps, proc, output, solver, model)
 
 	def wait_parallel_solver (self):
 		import select
 		assert self.parallel_solvers
-		fds = dict ([(output.fileno (), k) for (k, (_, _, output, _))
+		fds = dict ([(output.fileno (), k) for (k, (_, _, output, _, _))
 			in self.parallel_solvers.iteritems ()])
 		(rlist, _, _) = select.select (fds.keys (), [], [])
 		k = fds[rlist.pop ()]
-		(hyps, proc, output, solver) = self.parallel_solvers[k]
+		(hyps, proc, output, solver, model) = self.parallel_solvers[k]
 		del self.parallel_solvers[k]
 		response = output.readline ().strip ()
-		output.close ()
 		if response not in ['sat', 'unsat']:
 			trace ('SMT conversation problem in parallel solver')
 		trace ('Got %r from %s in parallel.' % (response, solver.name))
+		if model != None and response == 'sat':
+			assert self.fetch_model_response (model,
+				stream = output)
+			assert self.check_model (hyps, model)
+		output.close ()
+
 		return (k, hyps, response)
 
 	def close_parallel_solvers (self, ks = None):
@@ -1085,7 +1110,7 @@ class Solver:
 			ks = self.parallel_solvers.keys ()
 		else:
 			ks = [k for k in ks if k in self.parallel_solvers]
-		solvs = [(proc, output) for (_, proc, output, _)
+		solvs = [(proc, output) for (_, proc, output, _, _)
 			in [self.parallel_solvers[k] for k in ks]]
 		for k in ks:
 			del self.parallel_solvers[k]
@@ -1099,7 +1124,7 @@ class Solver:
 			os.killpg (proc.pid, signal.SIGKILL)
 			proc.wait ()
 
-	def parallel_test_hyps (self, hyps, env):
+	def parallel_check_hyps (self, hyps, env, model = None):
 		"""test a series of keyed hypotheses [(k1, h1), (k2, h2) ..etc]
 		either returns (True, -) all hypotheses true
 		or (False, ki) i-th hypothesis unprovable"""
@@ -1108,12 +1133,13 @@ class Solver:
 				catch = True)]
 		assert not self.parallel_solvers
 		if not hyps:
-			return (True, None)
+			return ('unsat', None)
 		all_hyps = foldr1 (syntax.mk_and, [h for (k, h) in hyps])
 		def spawn ((k, hyp), stratkey):
 			goal = smt_expr (syntax.mk_not (hyp), env, self)
 			[self.add_parallel_solver ((solver.name, strat, k),
-					[goal], use_this_solver = solver)
+					[goal], use_this_solver = solver,
+					model = model)
 				for (solver, strat) in self.strategy
 				if strat == stratkey]
 		if len (hyps) > 1:
@@ -1143,6 +1169,10 @@ class Solver:
 				trace ('  - all solvers timed out or failed.')
 				break
 		self.close_parallel_solvers ()
+		return (res, k)
+
+	def parallel_test_hyps (self, hyps, env, model = None):
+		(res, k) = self.parallel_check_hyps (hyps, env, model)
 		return (res == 'unsat', k)
 
 	def slow_solver_multisat (self, hyps, model = None, timeout = 300):
@@ -1177,7 +1207,7 @@ class Solver:
 				break
 
 		if model:
-			self.check_model (most_sat, model)
+			assert self.check_model (most_sat, model)
 
 		trace ('multisat final result: %r' % response)
 
@@ -1193,7 +1223,7 @@ class Solver:
 		vs2 = tuple (vs) + tuple ([nm for (nm, typ) in exprs.values ()])
 		return '(get-value (%s))' % ' '.join (vs2)
 
-	def fetch_model_response (self, model, stream = None):
+	def fetch_model_response (self, model, stream = None, recursion = False):
 		if stream == None: 
 			stream = self.online_solver.stdout
 		values = get_s_expression (stream,
@@ -1202,14 +1232,22 @@ class Solver:
 			trace ('Failed to fetch model!')
 			return None
 
-		if 'as-array' in flat_s_expression (values):
-			trace ('Got unusable array-equality model.')
-			return None
+		filt_values = [(nm, v) for (nm, v) in values
+			if type (v) == str or '_' in v]
+		dropped = len (values) - len (filt_values)
+		if dropped:
+			trace ('Dropped %d of %d values' % (dropped, len (values)))
+			if recursion:
+				trace (' .. aborting recursive attempt.')
+				return None
 
 		abbrvs = [(sexp, name) for (sexp, (name, typ))
 			in self.model_exprs.iteritems ()]
 
-		return make_model (values, model, abbrvs)
+		r = make_model (filt_values, model, abbrvs)
+		if dropped:
+			model[('IsIncomplete', None)] = True
+		return r
 
 	def get_arbitrary_vars (self, typ):
 		self.arbitrary_vars.setdefault (typ, [])
@@ -1252,13 +1290,17 @@ class Solver:
 		orig_hyps = [(hyp, None) for hyp in hyps]
 		model_hyps = [('(= %s %s)' % (flat_s_expression (x),
 				smt_expr (v, {}, self)), None)
-			for (x, v) in model.iteritems ()]
+			for (x, v) in model.iteritems ()
+			if x != ('IsIncomplete', None)]
 
 		res = self.hyps_sat_raw (orig_hyps + model_hyps,
 			recursion = True)
-		if res == 'sat':
+		if res == 'sat' and not model.get (('IsIncomplete', None)):
 			trace ('model checks out!')
-			return
+			return True
+
+		if recursion:
+			return False
 
 		model_hyps2 = [('(= %s %s)' % (x, smt_expr (v, {}, self)), None)
 			for (x, v) in model.iteritems ()
@@ -1282,13 +1324,15 @@ class Solver:
 		model.clear ()
 		model.update (m)
 		trace ('fixed model!')
+		return True
 
-	def fetch_model (self, model):
+	def fetch_model (self, model, recursion = False):
+
 		try:
 			self.write (self.fetch_model_request ())
 		except IOError, e:
 			raise ConversationProblem ('fetch-model', 'IOError')
-		return self.fetch_model_response (model)
+		return self.fetch_model_response (model, recursion = recursion)
 
 	def get_unsat_core (self):
 		res = self.prompt_s_expression_inner ('(get-unsat-core)')
@@ -1779,7 +1823,8 @@ def make_model (sexp, m, abbrvs = [], mem_defs = {}):
 				return False
 			m_pre[nm] = smt_to_val (v)
 		for (abbrv_sexp, nm) in abbrvs:
-			m_pre[abbrv_sexp] = m_pre[nm]
+			if nm in m_pre:
+				m_pre[abbrv_sexp] = m_pre[nm]
 	except IndexError, e:
 		print 'Error with make_model'
 		print sexp
