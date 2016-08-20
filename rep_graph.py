@@ -158,6 +158,23 @@ class Hyp:
 			assert not 'hyp kind understood'
 		return 'Hyp (%r, %s)' % (self.kind, ', '.join (vals))
 
+	def hyp_tuple (self):
+		if self.kind == 'PCImp':
+			return ('PCImp', self.pcs[0], self.pcs[1])
+		elif self.kind == 'Eq':
+			return ('Eq', self.vals[0], self.vals[1], self.induct)
+		else:
+			assert not 'hyp kind understood'
+
+	def __hash__ (self):
+		return hash (self.hyp_tuple ())
+
+	def __ne__ (self, other):
+		return not other or not (self == other)
+
+	def __cmp__ (self, other):
+		return cmp (self.hyp_tuple (), other.hyp_tuple ())
+
 	def visits (self):
 		if self.kind == 'PCImp':
 			return [vis for vis in self.pcs

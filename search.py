@@ -113,6 +113,8 @@ def init_case_splits (p, hyps, tags = None):
 	p.cached_analysis['init_case_splits'] = split_pairs
 	return split_pairs
 
+case_split_tr = []
+
 def init_proof_case_split (p, restrs, hyps):
 	ps = init_case_splits (p, hyps)
 	p.cached_analysis.setdefault ('finished_init_case_splits', [])
@@ -122,14 +124,14 @@ def init_proof_case_split (p, restrs, hyps):
 		if rs <= known_s:
 			return None
 	rep = rep_graph.mk_graph_slice (p)
-	all_ns = sorted ([n for ns in ps for n in ns])
-	for (i, n) in enumerate (all_ns):
-		pc = rep.get_pc ((n, ()))
+	for (n1, n2) in ps:
+		pc = rep.get_pc ((n1, ()))
 		if rep.test_hyp_whyps (pc, hyps):
 			continue
 		if rep.test_hyp_whyps (mk_not (pc), hyps):
 			continue
-		return ('CaseSplit', ((n, ()), all_ns[i:]))
+		case_split_tr.append ((n1, restrs, hyps))
+		return ('CaseSplit', ((n1, p.node_tags[n1][0]), [n1, n2]))
 	fin.append (known_s)
 	return None
 
