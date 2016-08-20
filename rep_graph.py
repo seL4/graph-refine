@@ -975,11 +975,8 @@ class GraphSlice:
 
 		self.solv.add_pvalid_dom_assertions ()
 
-		if model == None:
-			(result, _) = self.solv.parallel_test_hyps (
-				[(None, expr)], {})
-		else:
-			result = self.solv.test_hyp (expr, {}, model = model)
+		(result, _) = self.solv.parallel_test_hyps ([(None, expr)], {},
+			model = model)
 		trace ('Result: %s' % result, push = -1)
 		if cache != None:
 			cache[expr_s] = result
