@@ -307,6 +307,8 @@ class Problem:
 		def is_triv (n):
 			if n not in self.nodes:
 				return False
+			if len (self.preds[n]) != 1:
+				return False
 			node = self.nodes[n]
 			if node.kind == 'Basic':
 				return (True, node.cont)

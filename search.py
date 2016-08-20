@@ -89,14 +89,122 @@ def find_split_limit (p, n, restrs, hyps, kind, bound = 51, must_find = True,
 		assert not 'split limit found'
 	return None
 
+def init_case_splits (p, hyps, tags = None):
+	if 'init_case_splits' in p.cached_analysis:
+		return p.cached_analysis['init_case_splits']
+	if tags == None:
+		tags = p.pairing.tags
+	poss = logic.possible_graph_divs (p)
+	if len (set ([p.node_tags[n][0] for n in poss])) < 2:
+		return None
+	rep = rep_graph.mk_graph_slice (p)
+	assert all ([p.nodes[n].kind == 'Cond' for n in poss])
+	pc_map = logic.dict_list ([(rep.get_pc ((c, ())), c)
+		for n in poss for c in p.nodes[n].get_conts ()
+		if c not in p.loop_data])
+	knowledge = EqSearchKnowledge (rep, hyps, list (pc_map))
+	pc_ids = knowledge.classify_vs ()
+	id_n_map = logic.dict_list ([(i, n) for (pc, i) in pc_ids.iteritems ()
+		for n in pc_map[pc]])
+	tag_div_ns = [[[n for n in ns if p.node_tags[n][0] == t] for t in tags]
+		for (i, ns) in id_n_map.iteritems ()]
+	split_pairs = [(l_ns[0], r_ns[0]) for (l_ns, r_ns) in tag_div_ns
+		if l_ns and r_ns]
+	p.cached_analysis['init_case_splits'] = split_pairs
+	return split_pairs
+
+def init_proof_case_split (p, restrs, hyps):
+	ps = init_case_splits (p, hyps)
+	p.cached_analysis.setdefault ('finished_init_case_splits', [])
+	fin = p.cached_analysis['finished_init_case_splits']
+	known_s = set.union (set (restrs), set (hyps))
+	for rs in fin:
+		if rs <= known_s:
+			return None
+	rep = rep_graph.mk_graph_slice (p)
+	all_ns = sorted ([n for ns in ps for n in ns])
+	for (i, n) in enumerate (all_ns):
+		pc = rep.get_pc ((n, ()))
+		if rep.test_hyp_whyps (pc, hyps):
+			continue
+		if rep.test_hyp_whyps (mk_not (pc), hyps):
+			continue
+		return ('CaseSplit', ((n, ()), all_ns[i:]))
+	fin.append (known_s)
+	return None
+
+# TODO: deal with all the code duplication between these two searches
+class EqSearchKnowledge:
+	def __init__ (self, rep, hyps, vs):
+		self.rep = rep
+		self.hyps = hyps
+		self.v_ids = dict ([(v, 1) for v in vs])
+		self.model_trace = []
+		self.facts = set ()
+		self.premise = foldr1 (mk_and, map (rep.interpret_hyp, hyps))
+
+	def add_model (self, m):
+		self.model_trace.append (m)
+		update_v_ids_for_model2 (self, self.v_ids, m)
+
+	def hyps_add_model (self, hyps):
+		if hyps:
+			test_expr = foldr1 (mk_and, hyps)
+		else:
+			# we want to learn something, either a new model, or
+			# that all hyps are true. if there are no hyps,
+			# learning they're all true is learning nothing.
+			# instead force a model
+			test_expr = false_term
+		test_expr = mk_implies (self.premise, test_expr)
+		m = {}
+		(r, _) = self.rep.solv.parallel_check_hyps ([(1, test_expr)],
+			{}, model = m)
+		if r == 'unsat':
+			if not hyps:
+				trace ('WARNING: EqSearchKnowledge: premise unsat.')
+				trace ("  ... learning procedure isn't going to work.")
+			for hyp in hyps:
+				self.facts.add (hyp)
+		else:
+			assert r == 'sat', r
+			self.add_model (m)
+
+	def classify_vs (self):
+		while not self.facts:
+			hyps = v_id_eq_hyps (self.v_ids)
+			self.hyps_add_model (hyps)
+		return self.v_ids
+
+def update_v_ids_for_model2 (knowledge, v_ids, m):
+	# first update the live variables
+	ev = lambda v: eval_model_expr (m, knowledge.rep.solv, v)
+	groups = logic.dict_list ([((k, ev (v)), v)
+		for (v, k) in v_ids.iteritems ()])
+	v_ids.clear ()
+	for (i, kt) in enumerate (sorted (groups)):
+		for v in groups[kt]:
+			v_ids[v] = i
+
+def v_id_eq_hyps (v_ids):
+	groups = logic.dict_list ([(k, v) for (v, k) in v_ids.iteritems ()])
+	hyps = []
+	for vs in groups.itervalues ():
+		for v in vs[1:]:
+			hyps.append (mk_eq (v, vs[0]))
+	return hyps
+
 class SearchKnowledge:
-	def __init__ (self, rep, name, restrs, hyps, tags, cand_elts):
+	def __init__ (self, rep, name, restrs, hyps, tags, cand_elts = None):
 		self.rep = rep
 		self.name = name
 		self.restrs = restrs
 		self.hyps = hyps
 		self.tags = tags
-		(loop_elts, r_elts) = cand_elts
+		if cand_elts != None:
+			(loop_elts, r_elts) = cand_elts
+		else:
+			(loop_elts, r_elts) = ([], [])
 		(pairs, vs) = init_knowledge_pairs (rep, loop_elts, r_elts)
 		self.pairs = pairs
 		self.v_ids = vs
@@ -119,7 +227,8 @@ class SearchKnowledge:
 			test_expr = false_term
 		test_expr = mk_implies (self.premise, test_expr)
 		m = {}
-		r = self.rep.solv.check_hyp (test_expr, {}, model = m)
+		(r, _) = self.rep.solv.parallel_check_hyps ([(1, test_expr)],
+			{}, model = m)
 		if r == 'unsat':
 			if not hyps:
 				trace ('WARNING: SearchKnowledge: premise unsat.')
@@ -440,7 +549,7 @@ def eq_known (knowledge, vpair):
 	preds = expand_var_eqs (knowledge, vpair)
 	return set (preds) <= knowledge.facts
 
-def find_split_loop (p, head, restrs, hyps):
+def find_split_loop (p, head, restrs, hyps, unfold_limit = 9):
 	assert p.loop_data[head][0] == 'Head'
 	assert p.node_tags[head][0] == p.pairing.tags[0]
 	
@@ -464,9 +573,11 @@ def find_split_loop (p, head, restrs, hyps):
 
 	ind_fails = []
 
+	lims = [l for l in sorted (opts_by_lim) if l <= unfold_limit]
+
 	i_opts = []
 	j_opts = []
-	for unfold_limit in sorted (opts_by_lim):
+	for unfold_limit in lims:
 		trace ('Split search at %d with unfold limit %d.' % (head,
 			unfold_limit), push = 1)
 		i_opts.extend (opts_by_lim[unfold_limit][0])
@@ -479,11 +590,6 @@ def find_split_loop (p, head, restrs, hyps):
 			return result
 		ind_fails.extend (result[1])
 
-	result = find_case_split (p, head, restrs, hyps)
-	if result[0] != None:
-		return result
-
-	trace ('All split strategies exhausted.')
 	if ind_fails:
 		trace ('Warning: inductive failures: %s' % ind_fails)
 	raise NoSplit ()
@@ -689,13 +795,13 @@ def entry_path (rep, tag, m, head):
 
 def derive_case_split (rep, restrs, hyps, n_vcs, (_, split)):
 	for (n, vc) in n_vcs:
-		tag = p.node_tags[n][0]
+		tag = rep.p.node_tags[n][0]
 		hyps2 = hyps + [rep_graph.pc_true_hyp (((n, vc), tag))]
 		checks = check.split_init_step_checks (rep.p, restrs,
 			hyps2, split)
 		(verdict, _) = check.test_hyp_group (rep, checks)
 		if verdict:
-			return ('CaseSplit', (n, tag))
+			return ('CaseSplit', ((n, tag), [n]))
 	assert not 'key n_vc found', (n_vcs, split)
 
 def mk_seq_eqs (p, split, step, with_rodata):
@@ -874,12 +980,15 @@ def build_proof_rec (searcher, p, restrs, hyps):
 		return ProofNode ('Leaf', None, ())
 	assert kind in ['CaseSplit', 'Split']
 	split = details
+	if kind == 'CaseSplit':
+		(split, hints) = details
 	[(_, hyps1, _), (_, hyps2, _)] = check.proof_subproblems (p, kind,
 		split, restrs, hyps, '')
 	if kind == 'CaseSplit':
-		return ProofNode ('CaseSplit', split,
-			[build_proof_rec (searcher, p, restrs, hyps1),
-				build_proof_rec (searcher, p, restrs, hyps2)])
+		subpfs = [build_proof_rec_with_restrs (hints, 'Number',
+				searcher, p, restrs, hyps_i, must_find = False)
+			for hyps_i in [hyps1, hyps2]]
+		return ProofNode ('CaseSplit', split, subpfs)
 	split_points = check.split_heads (split)
 	no_loop_proof = build_proof_rec_with_restrs (split_points,
 		'Number', searcher, p, restrs, hyps1)
@@ -888,31 +997,69 @@ def build_proof_rec (searcher, p, restrs, hyps):
 	return ProofNode ('Split', split,
 		[no_loop_proof, loop_proof])
 
-def build_proof_rec_with_restrs (split_points, kind, searcher, p, restrs, hyps):
+def build_proof_rec_with_restrs (split_points, kind, searcher, p, restrs,
+		hyps, must_find = True):
+	if not split_points:
+		return build_proof_rec (searcher, p, restrs, hyps)
+
 	sp = split_points[0]
 	use_hyps = list (hyps)
 	if p.node_tags[sp][0] != p.pairing.tags[1]:
 		nrerr_hyp = check.non_r_err_pc_hyp (p.pairing.tags,
 			restr_others (p, restrs, 2))
 		use_hyps = use_hyps + [nrerr_hyp]
-	limit = find_split_limit (p, sp, restrs, use_hyps, kind)
-	# double-check this limit with a rep constructed without the 'fast' flag
-	limit = find_split_limit (p, sp, restrs, use_hyps, kind,
-		hints = [limit, limit + 1], use_rep = mk_graph_slice (p))
-	if kind == 'Number':
-		vc_opts = vc_upto (limit + 1)
-	else:
-		vc_opts = vc_offset_upto (limit + 1)
-	restrs = restrs + ((sp, vc_opts), )
-	if len (split_points) == 1:
-		subproof = build_proof_rec (searcher, p, restrs, hyps)
-	else:
-		subproof = build_proof_rec_with_restrs (split_points[1:],
-			kind, searcher, p, restrs, hyps)
 
-	return ProofNode ('Restr', (sp, (kind, (0, limit + 1))), [subproof])
+	if p.loop_id (sp):
+		lim_pair = get_proof_split_limit (p, sp, restrs, use_hyps,
+			kind, must_find = must_find)
+	else:
+		lim_pair = get_proof_visit_restr (p, sp, restrs, use_hyps,
+			kind, must_find = must_find)
+
+	if not lim_pair:
+		assert not must_find
+		return build_proof_rec_with_restrs (split_points[1:],
+			kind, searcher, p, restrs, hyps, must_find = must_find)
+
+	(min_v, max_v) = lim_pair
+	if kind == 'Number':
+		vc_opts = rep_graph.vc_options (range (min_v, max_v), [])
+	else:
+		vc_opts = rep_graph.vc_options ([], range (min_v, max_v))
+
+	restrs = restrs + ((sp, vc_opts), )
+	subproof = build_proof_rec_with_restrs (split_points[1:],
+		kind, searcher, p, restrs, hyps, must_find = must_find)
+
+	return ProofNode ('Restr', (sp, (kind, (min_v, max_v))), [subproof])
+
+def get_proof_split_limit (p, sp, restrs, hyps, kind, must_find = False):
+	limit = find_split_limit (p, sp, restrs, hyps, kind,
+		must_find = must_find)
+	if limit == None:
+		return None
+	# double-check this limit with a rep constructed without the 'fast' flag
+	limit = find_split_limit (p, sp, restrs, hyps, kind,
+		hints = [limit, limit + 1], use_rep = mk_graph_slice (p))
+	return (0, limit + 1)
+
+def get_proof_visit_restr (p, sp, restrs, hyps, kind, must_find = False):
+	rep = rep_graph.mk_graph_slice (p)
+	pc = rep.get_pc ((sp, restrs))
+	if rep.test_hyp_whyps (pc, hyps):
+		return (1, 2)
+	elif rep.test_hyp_whyps (mk_not (pc), hyps):
+		return (0, 1)
+	else:
+		assert not must_find
+		return None
 
 def default_searcher (p, restrs, hyps):
+	# use any handy init splits
+	res = init_proof_case_split (p, restrs, hyps)
+	if res:
+		return res
+
 	# detect any un-split loops
 	to_split_init = init_loops_to_split (p, restrs)
 	rep = mk_graph_slice (p, fast = True)

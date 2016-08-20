@@ -717,6 +717,51 @@ def minimal_loop_node_set (p):
 		return r
 	return set ([n for n in loop_ns if is_really_in_loop (n)])
 
+def possible_graph_divs (p, min_cost = 20, max_cost = 20, ratio = 0.85,
+		trace = None):
+	es = [e[0] for e in p.entries]
+	divs = []
+	direct_costs = {}
+	future_costs = {'Ret': set (), 'Err': set ()}
+	prev_costs = {}
+	int_costs = {}
+	fracs = {}
+	for n in p.nodes:
+		node = p.nodes[n]
+		if node.kind == 'Call':
+			cost = set ([(n, 20)])
+		elif p.loop_id (n):
+			cost = set ([(p.loop_id (n), 50)])
+		else:
+			cost = set ([(n, len (node.get_mem_accesses ()))])
+			cost.discard ((n, 0))
+		direct_costs[n] = cost
+	for n in p.tarjan_order:
+		prev_costs[n] = set.union (* ([direct_costs[n]]
+			+ [prev_costs.get (c, set ()) for c in p.preds[n]]))
+	for n in reversed (p.tarjan_order):
+		cont_costs = [future_costs.get (c, set ())
+			for c in p.nodes[n].get_conts ()]
+		cost = set.union (* ([direct_costs[n]] + cont_costs))
+		p_ct = sum ([c for (_, c) in prev_costs[n]])
+		future_costs[n] = cost
+		if p.nodes[n].kind != 'Cond' or p_ct > max_cost:
+			continue
+		ct = sum ([c for (_, c) in set.union (cost, prev_costs[n])])
+		if ct < min_cost:
+			continue
+		[c1, c2] = [sum ([c for (_, c)
+				in set.union (cs, prev_costs[n])])
+			for cs in cont_costs]
+		fracs[n] = ((c1 * c1) + (c2 * c2)) / (ct * ct * 1.0)
+		if fracs[n] < ratio:
+			divs.append (n)
+	divs.reverse ()
+	if trace != None:
+		trace[0] = (direct_costs, future_costs, prev_costs,
+			int_costs, fracs)
+	return divs
+
 def compute_var_deps (nodes, outputs, preds, override_lvals_rvals = {}):
 	# outs = list of (outname, retvars)
 	var_deps = {}

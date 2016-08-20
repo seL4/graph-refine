@@ -138,6 +138,11 @@ def check_search (s, tags = None, report_mode = False,
 		return toplevel_check (pair, report = report_mode,
 			check_loops = check_loops)
 
+def problem_search (s):
+	pair = name_search (s)
+	print pair.name
+	return check.build_problem (pair)
+
 # somewhat arbitrary assignment of return codes to outcomes.
 # larger numbers are (roughly) worse outcomes.
 result_nums = {
