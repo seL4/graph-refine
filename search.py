@@ -117,6 +117,8 @@ case_split_tr = []
 
 def init_proof_case_split (p, restrs, hyps):
 	ps = init_case_splits (p, hyps)
+	if ps == None:
+		return None
 	p.cached_analysis.setdefault ('finished_init_case_splits', [])
 	fin = p.cached_analysis['finished_init_case_splits']
 	known_s = set.union (set (restrs), set (hyps))
