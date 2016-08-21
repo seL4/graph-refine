@@ -102,7 +102,11 @@ def init_case_splits (p, hyps, tags = None):
 	pc_map = logic.dict_list ([(rep.get_pc ((c, ())), c)
 		for n in poss for c in p.nodes[n].get_conts ()
 		if c not in p.loop_data])
-	knowledge = EqSearchKnowledge (rep, hyps, list (pc_map))
+	no_loop_restrs = tuple ([(n, vc_num (0)) for n in p.loop_heads ()])
+	err_pc_hyps = [rep_graph.pc_false_hyp ((('Err', no_loop_restrs), tag))
+		for tag in p.pairing.tags]
+	knowledge = EqSearchKnowledge (rep, hyps + err_pc_hyps, list (pc_map))
+	last_knowledge[0] = knowledge
 	pc_ids = knowledge.classify_vs ()
 	id_n_map = logic.dict_list ([(i, n) for (pc, i) in pc_ids.iteritems ()
 		for n in pc_map[pc]])
@@ -180,6 +184,8 @@ class EqSearchKnowledge:
 	def classify_vs (self):
 		while not self.facts:
 			hyps = v_id_eq_hyps (self.v_ids)
+			if not hyps:
+				break
 			self.hyps_add_model (hyps)
 		return self.v_ids
 
