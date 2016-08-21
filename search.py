@@ -126,11 +126,14 @@ def init_proof_case_split (p, restrs, hyps):
 		if rs <= known_s:
 			return None
 	rep = rep_graph.mk_graph_slice (p)
+	no_loop_restrs = tuple ([(n, vc_num (0)) for n in p.loop_heads ()])
+	err_pc_hyps = [rep_graph.pc_false_hyp ((('Err', no_loop_restrs), tag))
+		for tag in p.pairing.tags]
 	for (n1, n2) in ps:
 		pc = rep.get_pc ((n1, ()))
-		if rep.test_hyp_whyps (pc, hyps):
+		if rep.test_hyp_whyps (pc, hyps + err_pc_hyps):
 			continue
-		if rep.test_hyp_whyps (mk_not (pc), hyps):
+		if rep.test_hyp_whyps (mk_not (pc), hyps + err_pc_hyps):
 			continue
 		case_split_tr.append ((n1, restrs, hyps))
 		return ('CaseSplit', ((n1, p.node_tags[n1][0]), [n1, n2]))
