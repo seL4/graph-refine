@@ -896,15 +896,16 @@ class GraphSlice:
 
 		vcount_d = dict (vcount)
 		vcount_d2 = dict (vcount2)
-		if n in vcount_d:
-			assert vcount_d[n].kind != 'Options'
+		if n in vcount_d2:
+			if n in vcount_d:
+				assert vcount_d[n].kind != 'Options'
 			vcount_d2[n] = vcount_d2[n].incr (-1)
 
 		if not vcount_d <= vcount_d2:
 			trace ('Restrictions not subset.')
 			return False
 
-		for (split, count) in vcount2:
+		for (split, count) in vcount_d2.iteritems ():
 			if split in vcount_d:
 				continue
 			if self.get_reachable (split, n):
