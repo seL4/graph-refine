@@ -49,7 +49,9 @@ def addr_of_node (preds, n):
   return n
 
 def all_asm_functions ():
-    return stack_logic.get_functions_with_tag ('ASM')
+    ss = stack_logic.get_functions_with_tag ('ASM')
+    return [s for s in ss if not s.startswith ("instruction'")
+        if not s.startswith ("impl'")]
 
 call_site_set = {}
 
