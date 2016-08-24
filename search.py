@@ -978,15 +978,17 @@ def loop_no_match (rep, restrs, hyps, split, other_tag):
 
 last_searcher_results = []
 
-def build_proof_rec (searcher, p, restrs, hyps):
+def build_proof_rec (searcher, p, restrs, hyps, name = "problem"):
 	trace ('doing build proof rec with restrs = %r, hyps = %r' % (restrs, hyps))
 
 	(kind, details) = searcher (p, restrs, hyps)
 	last_searcher_results.append ((p, restrs, hyps, kind, details))
 	del last_searcher_results[:-10]
-	trace ('proof searcher found %s, %s' % (kind, details))
 	if kind == 'Restr':
 		(restr_kind, restr_points) = details
+		printout ("Discovered that loop points %s can be bounded"
+			% list (restr_points))
+		printout ("  (in %s)" % name)
 		return build_proof_rec_with_restrs (restr_points, restr_kind,
 			searcher, p, restrs, hyps)
 	elif kind == 'Leaf':
@@ -995,25 +997,30 @@ def build_proof_rec (searcher, p, restrs, hyps):
 	split = details
 	if kind == 'CaseSplit':
 		(split, hints) = details
-	[(_, hyps1, _), (_, hyps2, _)] = check.proof_subproblems (p, kind,
+	[(_, hyps1, nm1), (_, hyps2, nm2)] = check.proof_subproblems (p, kind,
 		split, restrs, hyps, '')
 	if kind == 'CaseSplit':
-		subpfs = [build_proof_rec_with_restrs (hints, 'Number',
-				searcher, p, restrs, hyps_i, must_find = False)
-			for hyps_i in [hyps1, hyps2]]
-		return ProofNode ('CaseSplit', split, subpfs)
-	split_points = check.split_heads (split)
-	no_loop_proof = build_proof_rec_with_restrs (split_points,
-		'Number', searcher, p, restrs, hyps1)
-	loop_proof = build_proof_rec_with_restrs (split_points,
-		'Offset', searcher, p, restrs, hyps2)
-	return ProofNode ('Split', split,
-		[no_loop_proof, loop_proof])
+		printout ("Decided to case split at %s" % split)
+		printout ("  (in %s)" % name)
+		restr_points = hints
+		kinds = ['Number', 'Number']
+	else:
+		restr_points = check.split_heads (split)
+		kinds = ['Number', 'Offset']
+		printout ("Discovered a loop relation for split points %s"
+			% list (restr_points))
+		printout ("  (in %s)" % name)
+	subpfs = [build_proof_rec_with_restrs (restr_points, k,
+			searcher, p, restrs, hyps_i, must_find = False,
+			name = nm)
+		for (nm, hyps_i, k)
+		in [(nm1, hyps1, kinds[0]), (nm2, hyps2, kinds[1])]]
+	return ProofNode (kind, split, subpfs)
 
 def build_proof_rec_with_restrs (split_points, kind, searcher, p, restrs,
-		hyps, must_find = True):
+		hyps, must_find = True, name = "problem"):
 	if not split_points:
-		return build_proof_rec (searcher, p, restrs, hyps)
+		return build_proof_rec (searcher, p, restrs, hyps, name = name)
 
 	sp = split_points[0]
 	use_hyps = list (hyps)
