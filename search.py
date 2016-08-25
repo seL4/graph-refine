@@ -767,7 +767,8 @@ def find_split (rep, head, restrs, hyps, i_opts, j_opts,
 def most_common_path (head, knowledge):
 	rep = knowledge.rep
 	[tag, _] = knowledge.tags
-	data = logic.dict_list ([(tuple (entry_path (rep, tag, m, head)), m)
+	data = logic.dict_list ([(tuple (entry_path_no_loops (rep,
+			tag, m, head)), m)
 		for m in knowledge.model_trace])
 	if len (data) < 2:
 		return (None, None, None)
@@ -805,6 +806,11 @@ def entry_path (rep, tag, m, head):
 		if hit == syntax.true_term:
 			n_vcs.append ((n, vc))
 	return n_vcs
+
+def entry_path_no_loops (rep, tag, m, head):
+	n_vcs = entry_path (rep, tag, m, head)
+	return [(n, vc) for (n, vc) in n_vcs
+		if not rep.p.loop_id (n)]
 
 def derive_case_split (rep, restrs, hyps, n_vcs, (_, split)):
 	for (n, vc) in n_vcs:
@@ -1000,7 +1006,7 @@ def build_proof_rec (searcher, p, restrs, hyps, name = "problem"):
 	[(_, hyps1, nm1), (_, hyps2, nm2)] = check.proof_subproblems (p, kind,
 		split, restrs, hyps, '')
 	if kind == 'CaseSplit':
-		printout ("Decided to case split at %s" % split)
+		printout ("Decided to case split at %s" % str (split))
 		printout ("  (in %s)" % name)
 		restr_points = hints
 		kinds = ['Number', 'Number']
