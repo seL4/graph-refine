@@ -1118,6 +1118,12 @@ def loop_no_match (rep, restrs, hyps, split, other_tag):
 
 last_searcher_results = []
 
+def restr_point_name (p, n):
+	if p.loop_id (n):
+		return '%s (in loop %d)' % (n, p.loop_id (n))
+	else:
+		return str (n)
+
 def build_proof_rec (searcher, p, restrs, hyps, name = "problem"):
 	trace ('doing build proof rec with restrs = %r, hyps = %r' % (restrs, hyps))
 
@@ -1126,8 +1132,9 @@ def build_proof_rec (searcher, p, restrs, hyps, name = "problem"):
 	del last_searcher_results[:-10]
 	if kind == 'Restr':
 		(restr_kind, restr_points) = details
-		printout ("Discovered that loop points %s can be bounded"
-			% list (restr_points))
+		printout ("Discovered that points [%s] can be bounded"
+			% ', '.join ([restr_point_name (p, n)
+				for n in restr_points]))
 		printout ("  (in %s)" % name)
 		return build_proof_rec_with_restrs (restr_points, restr_kind,
 			searcher, p, restrs, hyps, name = name)
