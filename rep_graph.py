@@ -1002,8 +1002,9 @@ class GraphSlice:
 			last_failed_test[0] = last_test[0]
 		return result
 
-	def test_hyp_imp (self, hyps, hyp):
-		return self.test_hyp_whyps (self.interpret_hyp (hyp), hyps)
+	def test_hyp_imp (self, hyps, hyp, model = None):
+		return self.test_hyp_whyps (self.interpret_hyp (hyp), hyps,
+			model = model)
 
 	def test_hyp_imps (self, imps):
 		last_hyp_imps[0] = imps

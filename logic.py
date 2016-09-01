@@ -91,7 +91,7 @@ def mk_fun_eqs (as_f, c_f, prunes = None):
 	(var_c_args, c_imem, glob_c_args) = split_scalar_pairs (c_f.inputs)
 	(var_a_rets, a_omem, glob_a_rets) = split_scalar_pairs (as_f.outputs)
 	(var_c_rets, c_omem, glob_c_rets) = split_scalar_pairs (c_f.outputs)
-	
+
 	(mem_ieqs, mem_oeqs) = mk_mem_eqs (a_imem, c_imem, a_omem, c_omem,
 		['ASM', 'C'])
 
@@ -136,7 +136,7 @@ def mk_eqs_arm_none_eabi_gnu (var_c_args, var_c_rets, c_imem, c_omem,
 	st = mk_var ('stack', builtinTs['Mem'])
 	r0_input = mk_var ('r0_input', word32T)
 	sregs = mk_stack_sequence (sp, 4, st, word32T, len (var_c_args) + 1)
-	
+
 	ret = mk_var ('ret', word32T)
 	preconds = [mk_aligned (sp, 2), mk_eq (ret, mk_var ('r14', word32T)),
 		mk_aligned (ret, 2), mk_eq (r0_input, r0),
@@ -235,7 +235,7 @@ def mk_pairing (functions, c_f, as_f, prunes = None, cpu = None):
 	fs = (functions[as_f], functions[c_f])
 	if cpu:
 		eqs = mk_fun_eqs_CPU (fs[0], fs[1], cpu,
-			funcall_depth = funcall_depth (functions, c_f)) 
+			funcall_depth = funcall_depth (functions, c_f))
 	else:
 		eqs = mk_fun_eqs (fs[0], fs[1], prunes = prunes)
 	return Pairing (['ASM', 'C'], {'C': c_f, 'ASM': as_f}, eqs)
@@ -389,7 +389,7 @@ def pvalid_assertion1 ((typ, k, p, pv), (typ2, k2, p2, pv2)):
 	cond1 = get_styp_condition (offs1, typ, typ2)
 	offs2 = mk_minus (p2, p)
 	cond2 = get_styp_condition (offs2, typ2, typ)
-	
+
 	out1 = mk_less (end_addr (p, typ), p2)
 	out2 = mk_less (end_addr (p2, typ2), p)
 	return mk_implies (mk_and (pv, pv2), foldr1 (mk_or,
@@ -596,7 +596,7 @@ def compute_var_flows (nodes, outputs, preds, override_lvals_rvals = {}):
 	vs = set ([v for k in graph for (_, _, v) in graph[k]])
 	for v in vs:
 		for n in nodes:
-			graph.setdefault ((n, 'Post', v), [(n, 'Pre', v)]) 
+			graph.setdefault ((n, 'Post', v), [(n, 'Pre', v)])
 			graph[(n, 'Pre', v)] = [(n2, 'Post', v)
 				for n2 in preds[n]]
 
@@ -638,7 +638,7 @@ def contextual_conds (nodes, preds):
 			conds = set ()
 		else:
 			conds = set.intersection (* in_arc_conds)
-		if pre_conds.get (n) == conds:	
+		if pre_conds.get (n) == conds:
 			continue
 		pre_conds[n] = conds
 		if n not in nodes:
@@ -652,7 +652,7 @@ def contextual_conds (nodes, preds):
 		else:
 			upds = set (nodes[n].get_lvals ())
 			c_conds = [set ([c for c in conds if
-				not set.intersection (upds, 
+				not set.intersection (upds,
 					syntax.get_expr_var_set (c))])]
 		for (cont, conds) in zip (nodes[n].get_conts (), c_conds):
 			arc_conds[(n, cont)] = conds
@@ -664,7 +664,7 @@ def contextual_cond_simps (nodes, preds):
 	a sequence of instructions with the same condition.
 	we can usually then reduce to a single contional block.
 	  b   e    =>    b-e
-	 / \ / \   =>   /   \ 
+	 / \ / \   =>   /   \
 	a-c-d-f-g  =>  a-c-f-g
 	this is sometimes important if b calculates a register that e uses
 	since variable dependency analysis will see this register escape via
@@ -936,6 +936,127 @@ def compute_var_cycle_analysis (nodes, n, loop, preds, const_vars, vs,
 			vca[v] = 'LoopVariable'
 	return vca
 
+expr_linear_sum = set (['Plus', 'Minus', 'Times'])
+expr_linear_cast = set (['WordCast', 'WordCastSigned'])
+
+def lv_expr (expr, env):
+	if expr in env:
+		return env[expr]
+	elif expr.kind in set (['Num', 'Symbol', 'Type', 'Token']):
+		return (expr, 'LoopConst')
+	elif expr.kind == 'Var':
+		return (None, None)
+	elif expr.kind != 'Op':
+		assert expr in env, expr
+
+	rs = [lv_expr (v, env)[1] for v in expr.vals]
+	if None in rs:
+		return (None, None)
+	if set (rs) == set (['LoopConst']):
+		return (expr, 'LoopConst')
+	if expr.is_op (expr_linear_sum):
+		if set (rs) == set (['LoopLinearSeries', 'LoopConst']):
+			return (expr, 'LoopLinearSeries')
+	if expr.is_op ('ShiftLeft'):
+		if rs == ['LoopLinearSeries', 'LoopConst']:
+			return (expr, 'LoopLinearSeries')
+	if expr.is_op (expr_linear_cast):
+		if rs == ['LoopLinearSeries']:
+			return (expr, 'LoopLinearSeries')
+	return (None, None)
+
+# FIXME: this should probably be unified with compute_var_cycle_analysis,
+# but doing so is complicated
+def linear_series_exprs (p, loop, va, ret_inner = False):
+	def lv_init (data):
+		if data[0] == 'LoopLinearSeries':
+			return 'LoopLinearSeries'
+		elif data == 'LoopConst':
+			return 'LoopConst'
+		else:
+			return None
+	cache = {loop: dict ([(v, (v, lv_init (data))) for (v, data) in va])}
+	post_cache = {}
+	loop_body = p.loop_body (loop)
+	frontier = [n2 for n2 in p.nodes[loop].get_conts ()
+		if n2 in loop_body]
+	def lv_merge ((v1, lv1), (v2, lv2)):
+		if v1 != v2:
+			return (None, None)
+		assert lv1 == lv2
+		return (v1, lv1)
+	def compute_post (n):
+		if n in post_cache:
+			return post_cache[n]
+		pre_env = cache[n]
+		env = dict (cache[n])
+		if p.nodes[n].kind == 'Basic':
+			for ((v, typ), rexpr) in p.nodes[n].upds:
+				env[mk_var (v, typ)] = lv_expr (rexpr, pre_env)
+		elif p.nodes[n].kind == 'Call':
+			for (v, typ) in p.nodes[n].get_lvals ():
+				env[mk_var (v, typ)] = (None, None)
+		post_cache[n] = env
+		return env
+	while frontier:
+		n = frontier.pop ()
+		if [n2 for n2 in p.preds[n] if n2 in loop_body
+				if n2 not in cache]:
+			continue
+		if n in cache:
+			continue
+		envs = [compute_post (n2) for n2 in p.preds[n]
+			if n2 in loop_body]
+		all_vs = set.union (* [set (env) for env in envs])
+		cache[n] = dict ([(v, foldr1 (lv_merge,
+				[env.get (v, (None, None)) for env in envs]))
+			for v in all_vs])
+		frontier.extend ([n2 for n2 in p.nodes[n].get_conts ()
+			if n2 in loop_body])
+	if ret_inner:
+		return cache
+	return dict ([(n, dict ([(v, lv)
+			for (v, (_, lv)) in cache[n].iteritems ()]))
+		for n in cache])
+
+def interesting_linear_series_exprs (p, loop, va, tags = None,
+		use_pairings = True):
+	if tags == None:
+		tags = p.pairing.tags
+	expr_env = linear_series_exprs (p, loop, va,
+		ret_inner = True)
+	res_env = {}
+	for (n, env) in expr_env.iteritems ():
+		vs = [(kind, ptr)
+			for (kind, ptr, v, m) in p.nodes[n].get_mem_accesses ()]
+
+		node = p.nodes[n]
+		if node.kind == 'Call' and use_pairings:
+			tag = p.node_tags[n][0]
+			from target_objects import functions, pairings
+			import solver
+			fun = functions[node.fname]
+			arg_input_map = dict (azip (fun.inputs, node.args))
+			[pair] = [pair for pair in pairings[node.fname]
+				if pair.tags == tags]
+			in_eq_vs = [(('Call', node.fname, i),
+					var_subst (v, arg_input_map))
+				for (i, ((lhs, l_s), (rhs, r_s)))
+					in enumerate (pair.eqs[0])
+				if l_s.endswith ('_IN') and r_s.endswith ('_IN')
+				if l_s != r_s
+				if solver.typ_representable (lhs.typ)
+				for (v, site) in [(lhs, l_s), (rhs, r_s)]
+				if site == '%s_IN' % tag]
+			vs.extend (in_eq_vs)
+
+		vs = [(kind, v, lv_expr (v, env)) for (kind, v) in vs]
+		vs = [(kind, v) for (kind, v, (_, lv)) in vs
+			if lv == 'LoopLinearSeries']
+		if vs:
+			res_env[n] = vs
+	return res_env
+
 def mk_var_renames (xs, ys):
 	renames = {}
 	for (x, y) in azip (xs, ys):
@@ -1014,7 +1135,7 @@ def tarjan1 (graph, v, data, stack, stack_set, comps):
 			data[v][1] = min (data[v][1], data[c][1])
 		elif c in stack_set:
 			data[v][1] = min (data[v][1], data[c][0])
-	
+
 	vs.reverse ()
 	for (v2, c) in vs:
 		data[v2][1] = min (data[v2][1], data[c][1])

@@ -571,30 +571,21 @@ def find_split_loop (p, head, restrs, hyps, unfold_limit = 9):
 	# large problems like finaliseSlot)
 
 	rep = mk_graph_slice (p, fast = True)
-	
-	i_seq_opts = [(0, 1), (1, 1), (2, 1), (3, 1)]
-	j_seq_opts = [(0, 1), (0, 2), (1, 1), (1, 2), (2, 1), (2, 2), (3, 1)]
-	opts_by_lim = {}
-	for (start, step) in i_seq_opts:
-		limit = start + (2 * step) + 1
-		opts_by_lim.setdefault (limit, ([], []))
-		opts_by_lim[limit][0].append ((start, step))
-	for (start, step) in j_seq_opts:
-		limit = start + (2 * step) + 1
-		opts_by_lim.setdefault (limit, ([], []))
-		opts_by_lim[limit][1].append ((start, step))
+
+	nec = get_necessary_split_opts (p, head, restrs, hyps)
+	if nec and nec[0] == 'CaseSplit':
+		return nec
+	elif nec:
+		i_j_opts = nec
+	else:
+		i_j_opts = default_i_j_opts (unfold_limit)
 
 	ind_fails = []
-
-	lims = [l for l in sorted (opts_by_lim) if l <= unfold_limit]
-
-	i_opts = []
-	j_opts = []
-	for unfold_limit in lims:
+	for (i_opts, j_opts) in i_j_opts:
+		unfold_limit = max ([start + (2 * step) + 1
+			for (start, step) in i_opts + j_opts])
 		trace ('Split search at %d with unfold limit %d.' % (head,
 			unfold_limit), push = 1)
-		i_opts.extend (opts_by_lim[unfold_limit][0])
-		j_opts.extend (opts_by_lim[unfold_limit][1])
 		result = find_split (rep, head, restrs, hyps,
 			i_opts, j_opts, unfold_limit)
 		trace ('Split search with unfold limit %d result: %r'
@@ -607,6 +598,125 @@ def find_split_loop (p, head, restrs, hyps, unfold_limit = 9):
 		trace ('Warning: inductive failures: %s' % ind_fails)
 	raise NoSplit ()
 
+def default_i_j_opts (unfold_limit):
+	i_seq_opts = [(0, 1), (1, 1), (2, 1), (3, 1)]
+	j_seq_opts = [(0, 1), (0, 2), (1, 1), (1, 2), (2, 1), (2, 2), (3, 1)]
+
+	def filt (opts, lim):
+		return [(start, step) for (start, step) in opts
+			if start + (2 * step) + 1 <= lim]
+
+	lims = [(filt (i_seq_opts, lim), filt (j_seq_opts, lim))
+		for lim in range (unfold_limit)]
+	lims = [(i_opts, j_opts) for (i_opts, j_opts) in lims
+		if i_opts and j_opts]
+	return lims
+
+necessary_split_opts_trace = []
+
+def get_interesting_linear_series_exprs (p, head):
+	k = ('interesting_linear_series', head)
+	if k in p.cached_analysis:
+		return p.cached_analysis[k]
+	res = logic.interesting_linear_series_exprs (p, head,
+		get_loop_var_analysis_at (p, head))
+	p.cached_analysis[k] = res
+	return res
+
+def get_necessary_split_opts (p, head, restrs, hyps, tags = None):
+	if not tags:
+		tags = p.pairing.tags
+
+	[l_tag, r_tag] = tags
+	assert p.node_tags[head][0] == l_tag
+	l_seq_vs = get_interesting_linear_series_exprs (p, head)
+	if not l_seq_vs:
+		return None
+	r_seq_vs = {}
+	for n in init_loops_to_split (p, restrs):
+		if p.node_tags[n][0] == r_tag:
+			vs = get_interesting_linear_series_exprs (p, n)
+			r_seq_vs.update (vs)
+	if not r_seq_vs:
+		return None
+
+	rep = rep_graph.mk_graph_slice (p)
+	def vis (n, i):
+		if n != p.loop_id (n):
+			i = i + 1
+		return (n, tuple ([(p.loop_id (n), vc_num (i))]) + restrs)
+	smt = lambda expr, n, i: rep.to_smt_expr (expr, vis (n, i))
+
+	# remove duplicates by concretising
+	l_seq_vs = dict ([(smt (expr, n, 2), (kind, n, expr))
+		for n in l_seq_vs for (kind, expr) in l_seq_vs[n]]).values ()
+	r_seq_vs = dict ([(smt (expr, n, 2), (kind, n, expr))
+                for n in r_seq_vs for (kind, expr) in r_seq_vs[n]]).values ()
+
+	hyps = hyps + [rep_graph.pc_true_hyp ((vis (n, 15), r_tag))
+		for n in set ([n for (_, n, _) in r_seq_vs])]
+	hyps = hyps + [rep_graph.pc_true_hyp ((vis (n, 9), l_tag))
+		for n in set ([n for (_, n, _) in l_seq_vs])]
+	necessary_split_opts_trace[:] = []
+	for (kind, n, expr) in sorted (l_seq_vs):
+		m = {}
+		eq = mk_eq (smt (expr, n, 1), smt (expr, n, 9))
+		res = rep.test_hyp_whyps (eq, hyps, model = m)
+		if not m:
+			necessary_split_opts_trace.append ((n, None))
+			continue
+		seq_eq = get_linear_seq_eq (rep, m, smt, (kind, n, expr),
+			r_seq_vs)
+		necessary_split_opts_trace.append ((n, ('Seq', seq_eq)))
+		if not seq_eq:
+			continue
+		((n2, expr2), (l_start, l_step), (r_start, r_step)) = seq_eq
+		eqs = [rep_graph.eq_hyp ((expr,
+			(vis (n, l_start + (i * l_step)), l_tag)),
+			(expr2, (vis (n2, r_start + (i * r_step)), r_tag)))
+			for i in range (10)
+			if l_start + (i * l_step) <= 9
+			if r_start + (i * r_step) <= 15]
+		eq = foldr1 (mk_and, map (rep.interpret_hyp, eqs))
+		if rep.test_hyp_whyps (eq, hyps):
+			return [([(l_start, l_step)], [(r_start, r_step)]),
+				([(l_start + l_step, l_step)], [(r_start + r_step, r_step)])]
+		n_vcs = entry_path_no_loops (rep, l_tag, m, head)
+		path_hyps = [rep_graph.pc_true_hyp ((n_vc, l_tag)) for n_vc in n_vcs]
+		if rep.test_hyp_whyps (eq, hyps + path_hyps):
+			# immediate case split on difference between entry paths
+			checks = [(hyps, eq_hyp, 'eq') for eq_hyp in eqs]
+			return derive_case_split (rep, n_vcs, checks)
+		necessary_split_opts_trace.append ((n, 'Seq check failed'))
+	return None
+
+linear_seq_eq_trace = []
+
+def get_linear_seq_eq (rep, m, smt, expr1, expr2s):
+	def get_seq ((_, n, expr), k):
+		return [eval_model_expr (m, rep.solv, smt (expr, n, i))
+			for i in range (k)]
+	l_seq = get_seq (expr1, 10)
+	r_seqs = [(n, expr, get_seq ((kind, n, expr), 16))
+		for (kind, n, expr) in expr2s
+		if kind == expr1[0]]
+
+	for (n, expr, r_seq) in sorted (r_seqs):
+		r_seq_ids = dict ([(v, i) for (i, v) in enumerate (r_seq)])
+		k_seq = [r_seq_ids.get (v) for v in l_seq]
+		linear_seq_eq_trace.append ((n, expr, k_seq))
+		linear_seq_eq_trace[:-10] = []
+		if None in k_seq[1:4]:
+			continue
+		ds = [k_seq[i + 1] - k_seq[i] for i in range (1, 3)]
+		if len (set (ds)) > 1:
+			continue
+		if k_seq[0] != None:
+			return ((n, expr), (0, 1), (k_seq[0], ds.pop ()))
+		else:
+			return ((n, expr), (1, 1), (k_seq[1], ds.pop ()))
+	return None
+
 last_failed_pairings = []
 
 def setup_split_search (rep, head, restrs, hyps,
@@ -616,7 +726,7 @@ def setup_split_search (rep, head, restrs, hyps,
 	if not tags:
 		tags = p.pairing.tags
 	l_tag, r_tag = tags
-	loop_elts = [(n, start, step) for n in p.loop_data[head][1]
+	loop_elts = [(n, start, step) for n in p.loop_body (head)
 		if p.loop_splittables[n]
 		for (start, step) in i_opts]
 	init_to_split = init_loops_to_split (p, restrs)
@@ -761,8 +871,11 @@ def find_split (rep, head, restrs, hyps, i_opts, j_opts,
 
 	if res[0] == None:
 		return res
+	(_, split) = res
+	checks = check.split_init_step_checks (rep.p, restrs,
+                        hyps, split)
 
-	return derive_case_split (rep, restrs, hyps, n_vcs, res)
+	return derive_case_split (rep, n_vcs, checks)
 
 def most_common_path (head, knowledge):
 	rep = knowledge.rep
@@ -794,34 +907,55 @@ def most_common_path (head, knowledge):
 
 	return (models, facts, n_vcs)
 
+def eval_pc (rep, m, n_vc, tag = None):
+	hit = eval_model_expr (m, rep.solv, rep.get_pc (n_vc, tag = tag))
+	assert hit in [syntax.true_term, syntax.false_term], (n_vc, hit)
+	return hit == syntax.true_term
+
 def entry_path (rep, tag, m, head):
 	n_vcs = []
 	for (tag2, n, vc) in rep.node_pc_env_order:
 		if n == head:
 			break
-		if tag2 != tag:
-			continue
-		hit = eval_model_expr (m, rep.solv, rep.get_pc ((n, vc), tag))
-		assert hit in [syntax.true_term, syntax.false_term]
-		if hit == syntax.true_term:
+		if eval_pc (rep, m, (n, vc), tag):
 			n_vcs.append ((n, vc))
 	return n_vcs
 
-def entry_path_no_loops (rep, tag, m, head):
+def entry_path_no_loops (rep, tag, m, head = None):
 	n_vcs = entry_path (rep, tag, m, head)
 	return [(n, vc) for (n, vc) in n_vcs
 		if not rep.p.loop_id (n)]
 
-def derive_case_split (rep, restrs, hyps, n_vcs, (_, split)):
-	for (n, vc) in n_vcs:
-		tag = rep.p.node_tags[n][0]
-		hyps2 = hyps + [rep_graph.pc_true_hyp (((n, vc), tag))]
-		checks = check.split_init_step_checks (rep.p, restrs,
-			hyps2, split)
-		(verdict, _) = check.test_hyp_group (rep, checks)
+last_derive_case_split = [0]
+
+def derive_case_split (rep, n_vcs, checks):
+	last_derive_case_split[0] = (rep.p, n_vcs, checks)
+	# remove duplicate pcs
+	n_vcs_uniq = dict ([(rep.get_pc (n_vc), (i, n_vc))
+		for (i, n_vc) in enumerate (n_vcs)]).values ()
+	n_vcs = [n_vc for (i, n_vc) in sorted (n_vcs_uniq)]
+	assert n_vcs
+	tag = rep.p.node_tags[n_vcs[0][0]][0]
+	keep_n_vcs = []
+	test_n_vcs = n_vcs
+	mk_thyps = lambda n_vcs: [rep_graph.pc_true_hyp ((n_vc, tag))
+		for n_vc in n_vcs]
+	while len (test_n_vcs) > 1:
+		i = len (test_n_vcs) / 2
+		test_in = test_n_vcs[:i]
+		test_out = test_n_vcs[i:]
+		checks2 = [(hyps + mk_thyps (test_in + keep_n_vcs), hyp, nm)
+			for (hyps, hyp, nm) in checks]
+		(verdict, _) = check.test_hyp_group (rep, checks2)
 		if verdict:
-			return ('CaseSplit', ((n, tag), [n]))
-	assert not 'key n_vc found', (n_vcs, split)
+			# forget n_vcs that were tested out
+			test_n_vcs = test_in
+		else:
+			# focus on n_vcs that were tested out
+			test_n_vcs = test_out
+			keep_n_vcs.extend (test_in)
+	[(n, vc)] = test_n_vcs
+	return ('CaseSplit', ((n, tag), [n]))
 
 def mk_seq_eqs (p, split, step, with_rodata):
 	# eqs take the form of a number of constant expressions
@@ -988,7 +1122,7 @@ def build_proof_rec (searcher, p, restrs, hyps, name = "problem"):
 	trace ('doing build proof rec with restrs = %r, hyps = %r' % (restrs, hyps))
 
 	(kind, details) = searcher (p, restrs, hyps)
-	last_searcher_results.append ((p, restrs, hyps, kind, details))
+	last_searcher_results.append ((p, restrs, hyps, kind, details, name))
 	del last_searcher_results[:-10]
 	if kind == 'Restr':
 		(restr_kind, restr_points) = details
@@ -996,7 +1130,7 @@ def build_proof_rec (searcher, p, restrs, hyps, name = "problem"):
 			% list (restr_points))
 		printout ("  (in %s)" % name)
 		return build_proof_rec_with_restrs (restr_points, restr_kind,
-			searcher, p, restrs, hyps)
+			searcher, p, restrs, hyps, name = name)
 	elif kind == 'Leaf':
 		return ProofNode ('Leaf', None, ())
 	assert kind in ['CaseSplit', 'Split']
@@ -1004,7 +1138,7 @@ def build_proof_rec (searcher, p, restrs, hyps, name = "problem"):
 	if kind == 'CaseSplit':
 		(split, hints) = details
 	[(_, hyps1, nm1), (_, hyps2, nm2)] = check.proof_subproblems (p, kind,
-		split, restrs, hyps, '')
+		split, restrs, hyps, name)
 	if kind == 'CaseSplit':
 		printout ("Decided to case split at %s" % str (split))
 		printout ("  (in %s)" % name)
@@ -1045,7 +1179,8 @@ def build_proof_rec_with_restrs (split_points, kind, searcher, p, restrs,
 	if not lim_pair:
 		assert not must_find
 		return build_proof_rec_with_restrs (split_points[1:],
-			kind, searcher, p, restrs, hyps, must_find = must_find)
+			kind, searcher, p, restrs, hyps, must_find = must_find,
+			name = name)
 
 	(min_v, max_v) = lim_pair
 	if kind == 'Number':
@@ -1055,7 +1190,8 @@ def build_proof_rec_with_restrs (split_points, kind, searcher, p, restrs,
 
 	restrs = restrs + ((sp, vc_opts), )
 	subproof = build_proof_rec_with_restrs (split_points[1:],
-		kind, searcher, p, restrs, hyps, must_find = must_find)
+		kind, searcher, p, restrs, hyps, must_find = must_find,
+		name = name)
 
 	return ProofNode ('Restr', (sp, (kind, (min_v, max_v))), [subproof])
 
