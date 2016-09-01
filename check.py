@@ -372,7 +372,15 @@ def split_loop_hyps (tags, split, restrs, exit):
 def loops_to_split (p, restrs):
 	loop_heads_with_split = set ([p.loop_id (n)
 		for (n, visit_set) in restrs])
-	return list (set (p.loop_heads ()) - loop_heads_with_split)
+	rem_loop_heads = set (p.loop_heads ()) - loop_heads_with_split
+	for (n, visit_set) in restrs:
+		if not visit_set.has_zero ():
+			# n must be visited, so loop heads must be
+			# reachable from n (or on another tag)
+			rem_loop_heads = [lh for lh in rem_loop_heads
+				if p.is_reachable_from (n, lh)
+				or p.node_tags[n][0] != p.node_tags[lh][0]]
+	return rem_loop_heads
 
 def restr_others (p, restrs, n):
 	extras = [(sp, vc_upto (n)) for sp in loops_to_split (p, restrs)]

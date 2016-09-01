@@ -285,7 +285,6 @@ class GraphSlice:
 		self.node_pc_envs = {}
 		self.node_pc_env_order = []
 		self.arc_pc_envs = {}
-		self.reachables = {}
 		self.inliner = inliner
 		self.funcs = {}
 		self.pc_env_requests = set ()
@@ -304,23 +303,7 @@ class GraphSlice:
 			self.inp_envs[entry] = mk_inp_env (entry, args, self)
 
 	def get_reachable (self, split, n):
-		if split in self.reachables and n in self.reachables[split]:
-			return self.reachables[split][n]
-		visit = [split]
-		reachable = {}
-		while visit:
-			n2 = visit.pop ()
-			if type (n2) == str:
-				continue
-			for n3 in self.p.nodes[n2].get_conts ():
-				if n3 not in reachable:
-					reachable[n3] = True
-					visit.append (n3)
-		for n2 in list (self.p.nodes) + ['Ret', 'Err']:
-			if n2 not in reachable:
-				reachable[n2] = False
-		self.reachables[split] = reachable
-		return reachable[n]
+		return self.p.is_reachable_from (split, n)
 
 	class TooGeneral (Exception):
 		def __init__ (self, split):
@@ -745,7 +728,6 @@ class GraphSlice:
 		self.node_pc_env_order = []
 		self.node_pc_envs = {}
 		self.arc_pc_envs = {}
-		self.reachables = {}
 		self.funcs = {}
 		self.pc_env_requests = set ()
 		self.induct_var_env = {}

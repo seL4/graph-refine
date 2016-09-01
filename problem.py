@@ -404,6 +404,52 @@ class Problem:
 		if script:
 			self.do_analysis ()
 
+	def is_reachable_from (self, source, target):
+		'''discover if graph addr "target" is reachable
+			from starting node "source"'''
+		k = ('is_reachable_from', source)
+		if k in self.cached_analysis:
+			reachable = self.cached_analysis[k]
+			if target in reachable:
+				return reachable[target]
+
+		reachable = {}
+		visit = [source]
+		while visit:
+			n = visit.pop ()
+			if n not in self.nodes:
+				continue
+			for n2 in self.nodes[n].get_conts ():
+				if n2 not in reachable:
+					reachable[n2] = True
+					visit.append (n2)
+		for n in list (self.nodes) + ['Ret', 'Err']:
+			if n not in reachable:
+				reachable[n] = False
+		self.cached_analysis[k] = reachable
+		return reachable[target]
+
+	def is_reachable_without (self, cutpoint, target):
+		'''discover if graph addr "target" is reachable
+			without visiting node "cutpoint"
+			(an oddity: cutpoint itself is considered reachable)'''
+		k = ('is_reachable_without', cutpoint)
+		if k in self.cached_analysis:
+			reachable = self.cached_analysis[k]
+			if target in reachable:
+				return reachable[target]
+
+		reachable = dict ([(self.get_entry (t), True)
+			for t in self.tags ()])
+		for n in self.tarjan_order + ['Ret', 'Err']:
+			if n in reachable:
+				continue
+			reachable[n] = bool ([pred for pred in self.preds[n]
+				if pred != cutpoint
+				if reachable.get (pred) == True])
+		self.cached_analysis[k] = reachable
+		return reachable[target]
+
 def deserialise (name, lines):
 	assert lines[0] == 'Problem', lines[0]
 	assert lines[-1] == 'EndProblem', lines[-1]

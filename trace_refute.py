@@ -291,10 +291,10 @@ def build_compound_problem_with_links (call_stack, f):
 	return (p, hyps + [h for hs in call_hyps for h in hs]
 		+ wcet_hyps, addr_map)
 
-def all_reachable (rep, addrs):
+def all_reachable (p, addrs):
 	assert set (addrs) <= set (rep.p.nodes)
-	return all ([rep.get_reachable (addrs[i], addrs[j]) or
-			rep.get_reachable (addrs[j], addrs[i])
+	return all ([p.is_reachable_from (addrs[i], addrs[j]) or
+			p.is_reachable_from (addrs[j], addrs[i])
 		for i in range (len (addrs))
 		for j in range (i + 1, len (addrs))])
 
@@ -305,9 +305,8 @@ def call_stack_parent_arc_extras (stack, ctxt_arcs, max_length):
 		prev_stack = stack[:i]
 		f = body_addrs[stack[i]]
 		p = functions[f].as_problem (problem.Problem)
-		rep = rep_graph.mk_graph_slice (p)
 		arcs = ctxt_arcs[tuple (prev_stack)]
-		arcs = [a for a in arcs if all_reachable (rep, a + [stack[i]])]
+		arcs = [a for a in arcs if all_reachable (p, a + [stack[i]])]
 		arcs = sorted ([(len (a), a) for a in arcs])
 		if arcs:
 			(_, arc) = arcs[-1]

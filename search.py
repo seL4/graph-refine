@@ -62,12 +62,13 @@ def split_sample_set (bound):
 		+ range (100, 1000, 50))
 	return [n for n in ns if n < bound]
 
+last_find_split_limit = [0]
+
 def find_split_limit (p, n, restrs, hyps, kind, bound = 51, must_find = True,
 		hints = [], use_rep = None):
 	tag = p.node_tags[n][0]
-	trace ('Finding split limit: %d (%s) %s' % (n, tag, restrs))
-	trace ('  (restrs = %s)' % (restrs, ))
-	trace ('  (hyps = %s)' % (hyps, ), push = 1)
+	trace ('Finding split limit: %d (%s)' % (n, tag))
+	last_find_split_limit[0] = (p, n, restrs, hyps, kind)
 	if use_rep == None:
 		rep = mk_graph_slice (p, fast = True)
 	else:
@@ -1081,10 +1082,9 @@ def check_split_induct (p, restrs, hyps, split, tags = None):
 def init_loops_to_split (p, restrs):
 	to_split = loops_to_split (p, restrs)
 
-	rep = mk_graph_slice (p)
 	return [n for n in to_split
 		if not [n2 for n2 in to_split if n2 != n
-			and rep.get_reachable (n2, n)]]
+			and p.is_reachable_from (n2, n)]]
 
 def restr_others_both (p, restrs, n, m):
 	extras = [(sp, vc_double_range (n, m))
@@ -1120,6 +1120,8 @@ last_searcher_results = []
 
 def restr_point_name (p, n):
 	if p.loop_id (n):
+		return '%s (loop head)' % n
+	elif p.loop_id (n):
 		return '%s (in loop %d)' % (n, p.loop_id (n))
 	else:
 		return str (n)
