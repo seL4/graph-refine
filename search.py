@@ -230,7 +230,7 @@ class SearchKnowledge:
 		self.model_trace.append (m)
 		update_v_ids_for_model (self, self.pairs, self.v_ids, m)
 
-	def hyps_add_model (self, hyps):
+	def hyps_add_model (self, hyps, assert_progress = True):
 		if hyps:
 			test_expr = foldr1 (mk_and, hyps)
 		else:
@@ -248,20 +248,23 @@ class SearchKnowledge:
 				trace ('WARNING: SearchKnowledge: premise unsat.')
 				trace ("  ... learning procedure isn't going to work.")
 				return
-			assert not (set (hyps) <= self.facts), hyps
+			if assert_progress:
+				assert not (set (hyps) <= self.facts), hyps
 			for hyp in hyps:
 				self.facts.add (hyp)
 		else:
 			assert r == 'sat', r
 			self.add_model (m)
-			assert self.model_trace[-2:-1] != [m]
+			if assert_progress:
+				assert self.model_trace[-2:-1] != [m]
 
-	def eqs_add_model (self, eqs):
+	def eqs_add_model (self, eqs, assert_progress = True):
 		preds = [pred for vpair in eqs
 			for pred in expand_var_eqs (self, vpair)
 			if pred not in self.facts]
 
-		self.hyps_add_model (preds)
+		self.hyps_add_model (preds,
+			assert_progress = assert_progress)
 
 def init_knowledge_pairs (rep, loop_elts, cand_r_loop_elts):
 	v_is = [(i, i_offs, i_step,
@@ -801,7 +804,8 @@ def split_search (head, knowledge):
 	v_eq_cache = p.cached_analysis[('v_eqs', head)]
 	for (pair, eqs) in v_eq_cache:
 		if pair in knowledge.pairs:
-			knowledge.eqs_add_model (list (eqs))
+			knowledge.eqs_add_model (list (eqs),
+				assert_progress = False)
 
 	while True:
 		trace ('In %s' % knowledge.name)
