@@ -918,6 +918,8 @@ def entry_path (rep, tag, m, head):
 	for (tag2, n, vc) in rep.node_pc_env_order:
 		if n == head:
 			break
+		if tag2 != tag:
+			continue
 		if eval_pc (rep, m, (n, vc), tag):
 			n_vcs.append ((n, vc))
 	return n_vcs
