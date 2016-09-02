@@ -247,11 +247,14 @@ class SearchKnowledge:
 			if not hyps:
 				trace ('WARNING: SearchKnowledge: premise unsat.')
 				trace ("  ... learning procedure isn't going to work.")
+				return
+			assert not (set (hyps) <= self.facts), hyps
 			for hyp in hyps:
 				self.facts.add (hyp)
 		else:
 			assert r == 'sat', r
 			self.add_model (m)
+			assert self.model_trace[-2:-1] != [m]
 
 	def eqs_add_model (self, eqs):
 		preds = [pred for vpair in eqs
@@ -545,7 +548,7 @@ def mk_pairing_v_eqs (knowledge, pair, endorsed = True):
 	zero = mk_word32 (0)
 	for v_i in lvs:
 		(k, const) = knowledge.v_ids[v_i]
-		if const:
+		if const and v_i[0] != zero:
 			if not endorsed or eq_known (knowledge, (v_i, 'Const')):
 				v_eqs.append ((v_i, 'Const'))
 				continue
@@ -583,14 +586,8 @@ def find_split_loop (p, head, restrs, hyps, unfold_limit = 9):
 
 	ind_fails = []
 	for (i_opts, j_opts) in i_j_opts:
-		unfold_limit = max ([start + (2 * step) + 1
-			for (start, step) in i_opts + j_opts])
-		trace ('Split search at %d with unfold limit %d.' % (head,
-			unfold_limit), push = 1)
 		result = find_split (rep, head, restrs, hyps,
-			i_opts, j_opts, unfold_limit)
-		trace ('Split search with unfold limit %d result: %r'
-			% (unfold_limit, result), push = -1)
+			i_opts, j_opts)
 		if result[0] != None:
 			return result
 		ind_fails.extend (result[1])
@@ -721,11 +718,17 @@ def get_linear_seq_eq (rep, m, smt, expr1, expr2s):
 last_failed_pairings = []
 
 def setup_split_search (rep, head, restrs, hyps,
-		i_opts, j_opts, unfold_limit, tags = None):
+		i_opts, j_opts, unfold_limit = None, tags = None):
 	p = rep.p
 
 	if not tags:
 		tags = p.pairing.tags
+	if unfold_limit == None:
+		unfold_limit = max ([start + (2 * step) + 1
+			for (start, step) in i_opts + j_opts])
+
+	trace ('Split search at %d, unfold limit %d.' % (head, unfold_limit))
+
 	l_tag, r_tag = tags
 	loop_elts = [(n, start, step) for n in p.loop_body (head)
 		if p.loop_splittables[n]
@@ -777,6 +780,18 @@ def setup_split_search (rep, head, restrs, hyps,
 
 	return knowledge
 
+def rebuild_knowledge (head, knowledge):
+	i_opts = sorted (set ([(start, step)
+		for ((_, start, step), _) in knowledge.pairs]))
+	j_opts = sorted (set ([(start, step)
+		for (_, (_, start, step)) in knowledge.pairs]))
+	knowledge2 = setup_split_search (knowledge.rep, head, knowledge.restrs,
+		knowledge.hyps, i_opts, j_opts)
+	knowledge2.facts.update (knowledge.facts)
+	for m in knowledge.models:
+		knowledge2.add_model (m)
+	return knowledge2
+
 def split_search (head, knowledge):
 	rep = knowledge.rep
 	p = rep.p
@@ -810,10 +825,10 @@ def split_search (head, knowledge):
 				knowledge.pairs[pair] = ('Failed',
 					'SplitWeak', eqs)
 				continue
-			v_eq_cache.add ((pair, tuple (eqs)))
 			if check_split_induct (p, knowledge.restrs,
 					knowledge.hyps, split,
 					tags = knowledge.tags):
+				v_eq_cache.add ((pair, tuple (eqs)))
 				trace ('Tested v_eqs!')
 				return ('Split', split)
 			else:
@@ -848,9 +863,10 @@ def trace_search_fail (knowledge):
 	return ind_fails
 
 def find_split (rep, head, restrs, hyps, i_opts, j_opts,
-		unfold_limit, tags = None):
+		unfold_limit = None, tags = None):
 	knowledge = setup_split_search (rep, head, restrs, hyps,
-		i_opts, j_opts, unfold_limit, tags)
+		i_opts, j_opts, unfold_limit = unfold_limit,
+		tags = tags)
 
 	res = split_search (head, knowledge)
 
