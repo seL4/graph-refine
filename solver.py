@@ -60,6 +60,7 @@ class SolverImpl:
 		self.args = args
 		self.timeout = timeout
 		self.origname = name
+		self.mem_mode = None
 		if self.fast:
 			self.name = name + ' (online)'
 		else:
@@ -89,7 +90,7 @@ def parse_solver (bits):
 		timeout = 30
 	return SolverImpl (name, fast, args, timeout)
 
-def get_solver_set ():
+def find_solverlist_file ():
 	import os
 	import sys
 	path = os.path.abspath (os.getcwd ())
@@ -101,10 +102,14 @@ def get_solver_set ():
 			print solverlist_format
 			sys.exit (1)
 		path = parent
-	solverlist_file[0] = os.path.join (path, '.solverlist')
+	fname = os.path.join (path, '.solverlist')
+	solverlist_file[0] = fname
+	return fname
+
+def get_solver_set ():
 	solvers = []
 	strategy = None
-	for line in open (solverlist_file[0]):
+	for line in open (find_solverlist_file ()):
 		line = line.strip ()
 		if not line or line.startswith ('#'):
 			continue
@@ -112,6 +117,10 @@ def get_solver_set ():
 		if bits[0] == 'strategy':
 			[_, strat] = bits
 			strategy = parse_strategy (strat)
+		elif bits[0] == 'config':
+			[_, config] = bits
+			assert solvers
+			parse_config_change (config, solvers[-1])
 		else:
 			solvers.append (parse_solver (bits))
 	return (solvers, strategy)
@@ -128,6 +137,19 @@ def parse_strategy (strat):
 			sys.exit (1)
 		strategy.append (tuple (bits))
 	return strategy
+
+def parse_config_change (config, solver):
+	for assign in config.split (','):
+		bits = assign.split ('=')
+		assert len (bits) == 2, bits
+		[lhs, rhs] = bits
+		lhs = lhs.strip ().lower ()
+		rhs = rhs.strip ().lower ()
+		if lhs == 'mem_mode':
+			assert rhs in ['8', '32']
+			solver.mem_mode = rhs
+		else:
+			assert not 'config understood', assign
 
 def load_solver_set ():
 	import sys
@@ -522,12 +544,20 @@ mem_word8_preamble = [
 	(bvadd p #x00000002) ((_ extract 23 16) v))
 	(bvadd p #x00000003) ((_ extract 31 24) v))
 ) ''',
+'''(define-fun load-word8 ((m {MemSort}) (p (_ BitVec 32))) (_ BitVec 8)
+(select m p))''',
+'''(define-fun store-word8 ((m {MemSort}) (p (_ BitVec 32)) (v (_ BitVec 8)))
+	{MemSort}
+(store m p v))''',
 '''(define-fun mem-dom ((p (_ BitVec 32)) (d {MemDomSort})) Bool
 (not (= (select d p) #b0)))''',
+'''(define-fun mem-eq ((x {MemSort}) (y {MemSort})) Bool (= x y))''',
+'''(define-fun word32-eq ((x (_ BitVec 32)) (y (_ BitVec 32)))
+    Bool (= x y))''',
 '''(define-fun word2-xor-scramble ((a (_ BitVec 2)) (x (_ BitVec 2))
    (b (_ BitVec 2)) (c (_ BitVec 2)) (y (_ BitVec 2)) (d (_ BitVec 2))) Bool
 (bvult (bvadd (bvxor a x) b) (bvadd (bvxor c y) d)))''',
-'''(declare-fun unspecified-precond () Bool)'''
+'''(declare-fun unspecified-precond () Bool)''',
 ]
 
 mem_word32_preamble = [
@@ -569,8 +599,9 @@ mem_word32_preamble = [
 '''(declare-fun unspecified-precond () Bool)'''
 ]
 
-preamble = mem_word32_preamble
-smt_convs = {'MemSort': '(Array (_ BitVec 30) (_ BitVec 32))',
+word32_smt_convs = {'MemSort': '(Array (_ BitVec 30) (_ BitVec 32))',
+	'MemDomSort': '(Array (_ BitVec 32) (_ BitVec 1))'}
+word8_smt_convs = {'MemSort': '(Array (_ BitVec 32) (_ BitVec 8))',
 	'MemDomSort': '(Array (_ BitVec 32) (_ BitVec 1))'}
 
 def preexec (timeout):
@@ -619,7 +650,7 @@ def get_s_expression_inner (stdout, prompt):
 			emps = 0
 	return parse_s_expressions (responses)
 
-class SolverFailure(Exception):
+class SolverFailure (Exception):
 	def __init__ (self, msg):
 		self.msg = msg
 
@@ -629,7 +660,6 @@ class SolverFailure(Exception):
 class Solver:
 	def __init__ (self, produce_unsat_cores = False):
 		self.replayable = []
-		self.init_replay = []
 		self.unsat_cores = produce_unsat_cores
 		self.online_solver = None
 		self.parallel_solvers = {}
@@ -650,34 +680,36 @@ class Solver:
 		self.mem_naming = {}
 		self.tokens = {}
 
-		self.written = []
 		self.num_hyps = 0
 
 		self.pvalid_doms = None
+		if produce_unsat_cores:
+			self.assertions = []
 
 		self.fast_solver = fast_solver
 		self.slow_solver = slow_solver
 		self.strategy = strategy
 
-		self.send('(set-option :print-success true)')
-		self.send('(set-logic QF_AUFBV)')
-		self.send('(set-option :produce-models true)')
-		if produce_unsat_cores:
-			self.assertions = []
-			self.send('(set-option :produce-unsat-cores true)')
-
-		for defn in mem_word32_preamble:
-			self.send(defn)
-
 		self.define_clzs (32)
 
 		self.add_rodata_def ()
 
-		self.init_replay = self.replayable
-		self.init_replay = [msg for (msg, _) in self.init_replay]
-		self.replayable = []
-
 		last_solver[0] = self
+
+	def preamble (self, solver_impl):
+		preamble = []
+		if solver_impl.fast:
+			preamble += ['(set-option :print-success true)']
+		preamble += ['(set-logic QF_AUFBV)',
+			'(set-option :produce-models true)']
+		if self.unsat_cores:
+			preamble += ['(set-option :produce-unsat-cores true)']
+
+		if solver_impl.mem_mode == '8':
+			preamble.extend (mem_word8_preamble)
+		else:
+			preamble.extend (mem_word32_preamble)
+		return preamble
 
 	def startup_solver (self, use_this_solver = None):
 		active_solvers.append (self)
@@ -693,9 +725,7 @@ class Solver:
 			stdin = subprocess.PIPE, stdout = subprocess.PIPE,
 			preexec_fn = preexec (solver.timeout))
 
-		self.written = []
-
-		for msg in self.init_replay:
+		for msg in self.preamble (solver):
 			self.send (msg, replay=False)
 		for (msg, _) in self.replayable:
 			self.send (msg, replay=False)
@@ -721,17 +751,13 @@ class Solver:
 
 	def write (self, msg):
 		self.online_solver.stdin.write (msg + '\n')
-		self.written.append (msg)
 		self.online_solver.stdin.flush()
 
 	def send_inner (self, msg, replay = True, is_model = True):
 		if self.online_solver == None:
 			self.startup_solver ()
 
-		msg = msg.format (** smt_convs)
-		if replay:
-			for line in msg.splitlines():
-				trace ('to smt%s %s' % (self.name_ext, line))
+		msg = msg.format (** word32_smt_convs)
 		try:
 			self.write (msg)
 			response = self.online_solver.stdout.readline().strip()
@@ -739,8 +765,6 @@ class Solver:
 			raise ConversationProblem (msg, 'IOError')
 		if response != 'success':
 			raise ConversationProblem (msg, response)
-		if replay:
-			self.replayable.append((msg, is_model))
 
 	def solver_loop (self, attempt):
 		err = None
@@ -763,6 +787,8 @@ class Solver:
 	def send (self, msg, replay = True, is_model = True):
 		self.solver_loop (lambda: self.send_inner (msg,
 			replay = replay, is_model = is_model))
+		if replay:
+			self.replayable.append ((msg, is_model))
 
 	def get_s_expression (self, prompt):
 		return get_s_expression (self.online_solver.stdout, prompt)
@@ -984,15 +1010,23 @@ class Solver:
 		trace ('uc tags: %s' % core)
 		return core
 
-	def write_solv_script (self, f, input_msgs):
-		for msg in self.init_replay:
-			if (':print-success' not in msg
-					and ':produce-unsat-cores' not in msg):
-				f.write (msg + '\n')
-		for (msg, _) in self.replayable:
+	def write_solv_script (self, f, input_msgs, solver = slow_solver,
+			only_if_is_model = False):
+		if solver.mem_mode == '8':
+			smt_convs = word8_smt_convs
+		else:
+			smt_convs = word32_smt_convs
+		for msg in self.preamble (solver):
+			msg = msg.format (** smt_convs)
+			f.write (msg + '\n')
+		for (msg, is_model) in self.replayable:
+			if only_if_is_model and not is_model:
+				continue
+			msg = msg.format (** smt_convs)
 			f.write (msg + '\n')
 
 		for msg in input_msgs:
+			msg = msg.format (** smt_convs)
 			f.write (msg + '\n')
 
 		f.flush ()
@@ -1008,9 +1042,10 @@ class Solver:
 		(fd, name) = tempfile.mkstemp (suffix='.txt',
 			prefix='graph-refine-problem-')
 		tmpfile_write = open (name, 'w')
-		self.write_solv_script (tmpfile_write, input_msgs)
+		self.write_solv_script (tmpfile_write, input_msgs,
+			solver = solver)
 		tmpfile_write.close ()
-		
+
 		proc = subprocess.Popen (solver.args,
 			stdin = fd, stdout = subprocess.PIPE,
 			preexec_fn = preexec (timeout))
@@ -1224,7 +1259,7 @@ class Solver:
 		return '(get-value (%s))' % ' '.join (vs2)
 
 	def fetch_model_response (self, model, stream = None, recursion = False):
-		if stream == None: 
+		if stream == None:
 			stream = self.online_solver.stdout
 		values = get_s_expression (stream,
 				'fetch_model_response')
@@ -1489,13 +1524,13 @@ class Solver:
 		else:
 			assert type (m) == str
 			accum.add (m)
-		
+
 	def get_basis_mems (self, m):
 		# the obvious implementation requires exponential exploration
 		# and may overrun the recursion limit.
 		mems = set ()
 		processed_defs = set ()
-		
+
 		self.get_imm_basis_mems (m, mems)
 		while True:
 			proc = [m for m in mems if m in self.defs
@@ -1609,15 +1644,11 @@ class Solver:
 		self.pvalid_doms = pvalid_doms
 
 	def narrow_unsat_core (self, solver, asserts):
-		model = ([s for s in self.init_replay
-			if not ':print-success' in s]
-			+ [s for ss in self.replayable
-			for (s, is_model) in ss if is_model])
 		process = subprocess.Popen (solver[1],
 			stdin = subprocess.PIPE, stdout = subprocess.PIPE,
 			preexec_fn = preexec (solver[2]))
-		for s in model:
-			process.stdin.write (s + '\n')
+		self.write_solv_script (process.stdin, [], solver = solver,
+			only_if_is_model = True)
 		asserts = list (asserts)
 		for (i, (ass, tag)) in enumerate (asserts):
 			process.stdin.write ('(assert (! %s :named uc%d))\n'
@@ -1712,7 +1743,7 @@ def merge_envs_pcs (pc_envs, solv):
 		pcs = list (set ([pc for (pc, _) in pc_envs]))
 		path_cond = fold_assoc_balanced (mk_or, pcs)
 	env = merge_envs (pc_envs, solv)
-	
+
 	return (path_cond, env, len (pc_envs) > 1)
 
 def hash_test_hyp (solv, hyp, env, cache):
@@ -1869,7 +1900,6 @@ def cond_tests ():
 
 #def compile_struct_pvalid ():
 #def compile_pvalids ():
-	
 def quick_test (force_solv = False):
 	"""quick test that the solver supports the needed features."""
 	fs = force_solv
