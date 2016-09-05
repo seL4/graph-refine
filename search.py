@@ -632,13 +632,6 @@ def default_i_j_opts (unfold_limit = 9):
 		if i_opts and j_opts]
 	return lims
 
-def default_i_j_opts_with_step (i_step, j_step, unfold_limit = 9):
-	r = [([(st, step) for (st, step) in i_opts if step == i_step],
-		[(st, step) for (st, step) in j_opts if step == j_step])
-		for (i_opts, j_opts) in default_i_j_opts (unfold_limit)]
-	return [(i_opts, j_opts) for (i_opts, j_opts) in r
-		if i_opts and j_opts]
-
 necessary_split_opts_trace = []
 
 def get_interesting_linear_series_exprs (p, head):
@@ -706,11 +699,10 @@ def get_necessary_split_opts (p, head, restrs, hyps, tags = None):
 			if r_start + (i * r_step) <= 15]
 		eq = foldr1 (mk_and, map (rep.interpret_hyp, eqs))
 		if rep.test_hyp_whyps (eq, hyps):
-			deflt = default_i_j_opts_with_step (l_step, r_step)
-			if deflt:
-				return deflt
-			return [([(l_start, l_step)], [(r_start, r_step)]),
-				([(l_start + l_step, l_step)], [(r_start + r_step, r_step)])]
+			mk_i = lambda i: (l_start + (i * l_step), l_step)
+			mk_j = lambda j: (r_start + (j * r_step), r_step)
+			return [([mk_i (0)], [mk_j (0)]),
+				([mk_i (0), mk_i (1)], [mk_j (0), mk_j (1)])]
 		n_vcs = entry_path_no_loops (rep, l_tag, m, head)
 		path_hyps = [rep_graph.pc_true_hyp ((n_vc, l_tag)) for n_vc in n_vcs]
 		if rep.test_hyp_whyps (eq, hyps + path_hyps):
