@@ -29,12 +29,18 @@ class NoSplit(Exception):
 	pass
 
 def get_loop_var_analysis_at (p, n):
+	k = ('search_loop_var_analysis', n)
+	if k in p.cached_analysis:
+		return p.cached_analysis[k]
 	for hook in target_objects.hooks ('loop_var_analysis'):
 		res = hook (p, n)
 		if res != None:
+			p.cached_analysis[k] = res
 			return res
 	var_deps = p.compute_var_dependencies ()
-	return p.get_loop_var_analysis (var_deps, n)
+	res = p.get_loop_var_analysis (var_deps, n)
+	p.cached_analysis[k] = res
+	return res
 
 def get_loop_vars_at (p, n):
 	vs = [var for (var, data) in get_loop_var_analysis_at (p, n)
@@ -224,6 +230,7 @@ class SearchKnowledge:
 		self.v_ids = vs
 		self.model_trace = []
 		self.facts = set ()
+		self.weak_splits = set ()
 		self.premise = syntax.true_term
 
 	def add_model (self, m):
@@ -266,7 +273,18 @@ class SearchKnowledge:
 		self.hyps_add_model (preds,
 			assert_progress = assert_progress)
 
+	def add_weak_split (self, eqs):
+		preds = [pred for vpair in eqs
+                        for pred in expand_var_eqs (self, vpair)]
+		self.weak_splits.add (tuple (sorted (preds)))
+
+	def is_weak_split (self, eqs):
+		preds = [pred for vpair in eqs
+                        for pred in expand_var_eqs (self, vpair)]
+		return tuple (sorted (preds)) in self.weak_splits
+
 def init_knowledge_pairs (rep, loop_elts, cand_r_loop_elts):
+	trace ('Doing search knowledge setup now.')
 	v_is = [(i, i_offs, i_step,
 		[(v, i, i_offs, i_step) for v in get_loop_vars_at (rep.p, i)])
 		for (i, i_offs, i_step) in sorted (loop_elts)]
@@ -284,6 +302,7 @@ def init_knowledge_pairs (rep, loop_elts, cand_r_loop_elts):
 		for (j, j_offs, j_step, j_vs) in v_js:
 			pair = ((i, i_offs, i_step), (j, j_offs, j_step))
 			pairs[pair] = (i_vs, j_vs)
+	trace ('... done.')
 	return (pairs, vs)
 
 def update_v_ids_for_model (knowledge, pairs, vs, m):
@@ -599,7 +618,7 @@ def find_split_loop (p, head, restrs, hyps, unfold_limit = 9):
 		trace ('Warning: inductive failures: %s' % ind_fails)
 	raise NoSplit ()
 
-def default_i_j_opts (unfold_limit):
+def default_i_j_opts (unfold_limit = 9):
 	i_seq_opts = [(0, 1), (1, 1), (2, 1), (3, 1)]
 	j_seq_opts = [(0, 1), (0, 2), (1, 1), (1, 2), (2, 1), (2, 2), (3, 1)]
 
@@ -612,6 +631,13 @@ def default_i_j_opts (unfold_limit):
 	lims = [(i_opts, j_opts) for (i_opts, j_opts) in lims
 		if i_opts and j_opts]
 	return lims
+
+def default_i_j_opts_with_step (i_step, j_step, unfold_limit = 9):
+	r = [([(st, step) for (st, step) in i_opts if step == i_step],
+		[(st, step) for (st, step) in j_opts if step == j_step])
+		for (i_opts, j_opts) in default_i_j_opts (unfold_limit)]
+	return [(i_opts, j_opts) for (i_opts, j_opts) in r
+		if i_opts and j_opts]
 
 necessary_split_opts_trace = []
 
@@ -680,6 +706,9 @@ def get_necessary_split_opts (p, head, restrs, hyps, tags = None):
 			if r_start + (i * r_step) <= 15]
 		eq = foldr1 (mk_and, map (rep.interpret_hyp, eqs))
 		if rep.test_hyp_whyps (eq, hyps):
+			deflt = default_i_j_opts_with_step (l_step, r_step)
+			if deflt:
+				return deflt
 			return [([(l_start, l_step)], [(r_start, r_step)]),
 				([(l_start + l_step, l_step)], [(r_start + r_step, r_step)])]
 		n_vcs = entry_path_no_loops (rep, l_tag, m, head)
@@ -791,7 +820,7 @@ def rebuild_knowledge (head, knowledge):
 	knowledge2 = setup_split_search (knowledge.rep, head, knowledge.restrs,
 		knowledge.hyps, i_opts, j_opts)
 	knowledge2.facts.update (knowledge.facts)
-	for m in knowledge.models:
+	for m in knowledge.model_trace:
 		knowledge2.add_model (m)
 	return knowledge2
 
@@ -822,12 +851,18 @@ def split_search (head, knowledge):
 		trace (' ... %d live pairings, %d endorsed' %
 			(len (pair_eqs), len (endorsed)))
 		for (pair, eqs) in endorsed:
+			if knowledge.is_weak_split (eqs):
+				trace ('  dropping endorsed - probably weak.')
+				knowledge.pairs[pair] = ('Failed',
+					'ExpectedSplitWeak', eqs)
+				continue
 			split = v_eqs_to_split (p, pair, eqs,
 				knowledge.restrs, knowledge.hyps,
 				tags = knowledge.tags)
 			if split == None:
 				knowledge.pairs[pair] = ('Failed',
 					'SplitWeak', eqs)
+				knowledge.add_weak_split (eqs)
 				continue
 			if check_split_induct (p, knowledge.restrs,
 					knowledge.hyps, split,

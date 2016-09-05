@@ -269,11 +269,14 @@ class Problem:
 		return self.outputs[self.node_tags[n][0]]
 
 	def compute_var_dependencies (self):
+		if 'var_dependencies' in self.cached_analysis:
+			return self.cached_analysis['var_dependencies']
 		var_deps = logic.compute_var_deps (self.nodes,
 			self.var_dep_outputs, self.preds)
 		var_deps2 = dict ([(n, dict ([(v, None)
 				for v in var_deps.get (n, [])]))
 			for n in self.nodes])
+		self.cached_analysis['var_dependencies'] = var_deps2
 		return var_deps2
 
 	def get_loop_var_analysis (self, var_deps, n):

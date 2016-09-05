@@ -342,9 +342,6 @@ class GraphSlice:
 		if request:
 			self.pc_env_requests.add (((n, vcount), tag))
 
-		trace ("getting pc/env %s"
-			% self.local_name_before ('env', (n, vcount)), push = 1)
-
 		self.warm_pc_env_cache ((n, vcount), tag)
 
 		pc_env = self.get_node_pc_env_raw ((n, vcount), tag)
@@ -356,8 +353,6 @@ class GraphSlice:
 		self.node_pc_envs[(tag, n, vcount)] = pc_env
 		if pc_env:
 			self.node_pc_env_order.append ((tag, n, vcount))
-
-		trace ("  .. done getting pc/env", push = -1)
 
 		return pc_env
 
