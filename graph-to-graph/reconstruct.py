@@ -37,6 +37,16 @@ id_to_context = {}
 
 global elf_file
 
+def buildBBAddrToSize():
+    ret = {}
+    global tcfg_to_bb_map
+    for bb_id in tcfg_to_bb_map:
+        (bb_addr, bb_size, bb_contexts, loop_id) = tcfg_to_bb_map[bb_id]
+        #print "bb_addr: %x, bb_size: %x" % (bb_addr, bb_size)
+        if bb_addr not in ret or (ret[bb_addr] < bb_size):
+            ret[bb_addr] = bb_size
+    return ret
+
 def read_variables(input_filename):
     var_re = re.compile(r'^d(\d+|Sta)_(\d+)\s+([\d.]+)$')
     b_var_re = re.compile(r'^b(\d+)\s+([\d.]+)$')
@@ -380,12 +390,45 @@ def parse(elf_file_name, fun_name):
     read_tcfg_map()
 
 def profile():
-    maxi = 0 
+    bb_addr_to_count = {}
+    funs_to_bb_addrs = {}
+    funs_to_count = {}
+    total_inst_ran = 0
+    global tcfg_to_bb_map
+    maxi = 0
     for i in path_counts:
       for j in path_counts[i]:
-	if path_counts[i][j] > maxi:
-          maxi = path_counts[i][j]
-	  max_edge = (i,j)           
+
+        bb_addr = id_to_bb_addr[j]
+        inst_count = path_counts[i][j] * tcfg_to_bb_map[j][1]
+        total_inst_ran += inst_count
+        if inst_count == 0:
+            continue
+        if (bb_addr not in bb_addr_to_count):
+            bb_addr_to_count[bb_addr] = 0
+        bb_addr_to_count[bb_addr] += inst_count
+
+        if path_counts[i][j] > maxi:
+            maxi = path_counts[i][j]
+            max_edge = (i,j)
+
+    for bb_addr in bb_addr_to_count:
+        fun = elfFile().addrs_to_f[bb_addr]
+        if fun not in funs_to_count:
+            funs_to_count[fun] = 0
+            funs_to_bb_addrs[fun] = []
+        funs_to_bb_addrs[fun].append( bb_addr )
+        funs_to_count[fun] += bb_addr_to_count[bb_addr]
+
+    bb_addr_to_size = buildBBAddrToSize()
+    for fun in sorted(funs_to_count, key= lambda x: funs_to_count[x], reverse=True):
+        count = funs_to_count[fun]
+        print "%s: %u insturctions / %.2f %%" % (fun, count, float (count) / total_inst_ran * 100)
+        for bb_addr in sorted(funs_to_bb_addrs[fun]):
+            print "     %x-%x : %u " % (bb_addr, bb_addr + bb_addr_to_size[bb_addr] -4, bb_addr_to_count[bb_addr])
+
+    '''
+
     i,j = max_edge
     print 'max edge %d -> %d : %d' % (int(i),int(j), maxi)
     i_bb = id_to_bb_addr[i]
@@ -395,7 +438,7 @@ def profile():
     print '         context:'
     print_context(id_to_context[i])
     maxi=0
-    
+
     for b_id in b_id_counts:
       count = b_id_counts[b_id]
       if count > maxi:
@@ -404,7 +447,8 @@ def profile():
 	print 't: max_id b%d, count %d' % (max_id, maxi)
     print 'max_id b%d, count %d' % (max_id, maxi)
     print 'max_bb_addr: %x' % id_to_bb_addr[str(max_id)]
-    print_context(id_to_context[str(max_id)])
+    '''
+    #print_context(id_to_context[str(max_id)])
 
 if __name__ == '__main__':
 	argv = list(sys.argv)
