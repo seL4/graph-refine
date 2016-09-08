@@ -200,7 +200,7 @@ available with their SMTLIB2 names. The operators are:
   - Comparison relations on words (result is bool):
     + Less/bvult, LessEquals/bvule, SignedLess/bvslt, SignedLessEquals/bvsle
   - Unary operators on words:
-    + BWNot/bvnot, CountLeadingZeroes
+    + BWNot/bvnot, CountLeadingZeroes, WordReverse
   - Cast operators on words - result type may be different to argument type:
     + WordCast, WordCastSigned
   - Memory operations:
@@ -958,7 +958,7 @@ ops = {'Plus':2, 'Minus':2, 'Times':2, 'Modulus':2,
 	'Or':2, 'Implies':2, 'Equals':2, 'Less':2,
 	'LessEquals':2, 'SignedLess':2, 'SignedLessEquals':2,
 	'ShiftLeft':2, 'ShiftRight':2, 'CountLeadingZeroes':1,
-	'SignedShiftRight':2,
+	'WordReverse':1, 'SignedShiftRight':2,
 	'Not':1, 'BWNot':1, 'WordCast':1, 'WordCastSigned':1,
 	'True':0, 'False':0, 'UnspecifiedPrecond':0,
 	'MemUpdate':3, 'MemAcc':2, 'IfThenElse':3, 'ArrayIndex':2,
@@ -1342,15 +1342,13 @@ def mk_shift_gen (name, x, n):
 mk_shiftr = lambda x, n: mk_shift_gen ('ShiftRight', x, n)
 
 def mk_clz (x):
-	return Expr ('Op', word32T, name = "CountLeadingZeroes", vals = [x])
+	return Expr ('Op', x.typ, name = "CountLeadingZeroes", vals = [x])
+
+def mk_word_reverse (x):
+	return Expr ('Op', x.typ, name = "WordReverse", vals = [x])
 
 def mk_ctz (x):
-	# if x = 0, ctz = <x-width>
-	# otherwise (x & -x) has one 1 and the same trailing zeroes,
-	# subtract from leading zeroes
-	return mk_if (mk_eq (x, mk_word32 (0)), mk_word32 (x.typ.num),
-		mk_minus (mk_word32 (x.typ.num - 1),
-			mk_clz (mk_bwand (x, mk_uminus (x)))))
+	return mk_clz (mk_word_reverse (x))
 
 def foldr1 (f, xs):
 	x = xs[-1]

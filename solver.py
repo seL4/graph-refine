@@ -301,11 +301,12 @@ def smt_expr (expr, env, solv):
 		op = '(_ %s %d %d)' % tuple ([oname + expr.typ.nums])
 		vs = [smt_expr (v, env, solv) for v in expr.vals]
 		return '(%s %s)' % (op, ' '.join (vs))
-	elif expr.is_op ('CountLeadingZeroes'):
+	elif expr.is_op (['CountLeadingZeroes', 'WordReverse']):
 		[v] = expr.vals
 		assert expr.typ.kind == 'Word' and expr.typ == v.typ
-		ex = smt_expr (v, env, solv)
-		return '(bvclz_%d %s)' % (expr.typ.num, ex)
+		v = smt_expr (v, env, solv)
+		oper = solv.get_smt_derived_oper (expr.name, expr.typ.num)
+		return '(%s %s)' % (oper, v)
 	elif expr.is_op (['PValid', 'PGlobalValid',
 			'PWeakValid', 'PArrayValid']):
 		if expr.name == 'PArrayValid':
@@ -679,6 +680,7 @@ class Solver:
 		self.stack_eqs = {}
 		self.mem_naming = {}
 		self.tokens = {}
+		self.smt_derived_ops = {}
 
 		self.num_hyps = 0
 
@@ -689,8 +691,6 @@ class Solver:
 		self.fast_solver = fast_solver
 		self.slow_solver = slow_solver
 		self.strategy = strategy
-
-		self.define_clzs (32)
 
 		self.add_rodata_def ()
 
@@ -946,7 +946,10 @@ class Solver:
 		if force_solv != 'Slow':
 			trace ('testing group of %d hyps:' % len (hyps))
 			for (hyp, _) in raw_hyps:
-				trace ('  ' + hyp)
+				if not recursion:
+					trace ('  ' + hyp)
+			if recursion:
+				trace ('  (recursion)')
 			l = lambda: self.hyps_sat_raw_inner (hyps,
                                         model != None, unsat_core != None,
 					recursion = recursion)
@@ -1407,23 +1410,47 @@ class Solver:
 		fact = smt_expr (fact, env, self)
 		self.assert_fact_smt (fact, unsat_tag = unsat_tag)
 
-	def define_clzs (self, n):
-		if n == 1:
-			self.send ('(define-fun bvclz_1 ((x (_ BitVec 1)))'
-				+ ' (_ BitVec 1) (ite (= x #b0) #b1 #b0))')
-		else:
+	def get_smt_derived_oper (self, name, n):
+		if (name, n) in self.smt_derived_ops:
+			return self.smt_derived_ops[(name, n)]
+		if n != 1:
 			m = n / 2
-			self.define_clzs (m)
 			top = '((_ extract %d %d) x)' % (n - 1, m)
 			bot = '((_ extract %d 0) x)' % (m - 1)
-			rec = '_ zero_extend %d) (bvclz_%d ' % (m, m)
-			self.send (('(define-fun bvclz_%d ((x (_ BitVec %d)))'
-				+ ' (_ BitVec %d) (ite (= %s %s)'
-				+ ' (bvadd ((%s %s)) %s) ((%s %s)) ))')
-					% (n, n, n, top, smt_num (0, m),
-						rec, bot, smt_num (m, n), rec, top))
+			top_app = '(%s %s)' % (self.get_smt_derived_oper (
+				name, n - m), top)
+			top_appx = '((_ zero_extend %d) %s)' % (m, top_app)
+			bot_app = '(%s %s)' % (self.get_smt_derived_oper (
+				name, m), bot)
+			bot_appx = '((_ zero_extend %d) %s)' % (n - m, bot_app)
+		if name == 'CountLeadingZeroes':
+			fname = 'bvclz_%d' % n
+		elif name == 'WordReverse':
+			fname = 'bvrev_%d' % n
+		else:
+			assert not 'name understood', (name, n)
+		fname = self.smt_name (fname, kind = 'Fun')
 
-		return
+		if name == 'CountLeadingZeroes' and n == 1:
+			self.send ('(define-fun %s ((x (_ BitVec 1)))' % fname
+				+ ' (_ BitVec 1) (ite (= x #b0) #b1 #b0))')
+		elif name == 'CountLeadingZeroes':
+			self.send (('(define-fun %s ((x (_ BitVec %d)))'
+				+ ' (_ BitVec %d) (ite (= %s %s)'
+				+ ' (bvadd %s %s) %s))')
+				% (fname, n, n, top, smt_num (0, n - m),
+					bot_appx, smt_num (m, n), top_appx))
+		elif name == 'WordReverse' and n == 1:
+			self.send ('(define-fun %s ((x (_ BitVec 1)))' % fname
+				+ ' (_ BitVec 1) x)')
+		elif name == 'WordReverse':
+			self.send (('(define-fun %s ((x (_ BitVec %d)))'
+				+ ' (_ BitVec %d) (concat %s %s))')
+				% (fname, n, n, bot_app, top_app))
+		else:
+			assert not True
+		self.smt_derived_ops[(name, n)] = fname
+		return fname
 
 		# this is how you would test it
 		num = random.randrange (0, 2 ** n)
