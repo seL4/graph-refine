@@ -356,6 +356,8 @@ def emitInconsistent(fout, context,visits):
   return
 
 def emit_f_conflicts (fout, line):
+  '''
+  '''
   bbAddr = immFunc().bbAddr
   match = re.search(r'\s*\[(?P<infeas>.*)\]\s*:\s*(?P<kind>.*$)', line)
   print 'infeas: %s' % match.group('infeas')
@@ -381,57 +383,56 @@ def process_conflict(fout, conflict_files):
     fake_preemption_points = []
     for conflict_file in conflict_files:
             f = open(conflict_file,'r')
-
-    global bb_addr_to_id
-    fout.write('\ === conflict constraints from %s === \n\n' % conflict_file)
-    last_bb_id = 0
-    bbAddr = immFunc().bbAddr
-    while True:
-        line = f.readline()
-        if line == '':
-                break
-        #get rid of all white spaces
-        line = line.replace(' ', '')
-        line = line.rstrip()
-        if line.startswith('#') or line=='':
-                #comment line
-                continue
-        if line.rstrip() == '':
-                continue
-        match = re.search(r'.*:\s*(?P<kind>.*$)', line)
-        kind = match.group('kind')
-        #print 'kind: %s' % kind
-        if kind == 'possible':
-                continue
-        elif kind == 'f_conflicts':
-                emit_f_conflicts (fout, line)
-        elif kind == 'phantom_preemp_point':
-                match = re.search(r'\[(?P<addr>.*)\]:(?P<kind>.*$)', line)
-                fake_preemption_points.append(int(match.group('addr'),16))
-        elif kind == 'times':
-                match = re.search(r'\s*\[(?P<addr>.*)\]\s*:\s*\[(?P<times>.*)\]\s*:\s*(?P<kind>.*$)', line)
-                addr = int(match.group('addr'),16)
-                times = int(match.group('times'))
-                print 'addr: %x' % addr
-                print 'times: %d' % times  
-                times_limit(fout,[addr],times)
-        else:
-            bits = line.split(':')
-            [stack,visits,verdict] = bits
-            assert 'impossible' in verdict
-            stack = trace_refute.parse_num_list(stack)
-            visits = trace_refute.parse_num_arrow_list(visits)
-            bb_visits = [(bbAddr(x[0]),x[1]) for x in visits]
-            in_loops = [x for x in (stack[1:] + [x[0] for x in visits]) if inFunLoop(x)]
-            if in_loops:
-                print '!!! loops in inconsistent !!!'
-                print '%r' % in_loops
-                print 'rejected line: %s\n\n' % line
-                continue
-            print 'line: %s' % line
-            emitInconsistent(fout, stack,bb_visits)
+            global bb_addr_to_id
+            fout.write('\ === conflict constraints from %s === \n\n' % conflict_file)
+            last_bb_id = 0
+            bbAddr = immFunc().bbAddr
+            while True:
+                line = f.readline()
+                if line == '':
+                        break
+                #get rid of all white spaces
+                line = line.replace(' ', '')
+                line = line.rstrip()
+                if line.startswith('#') or line=='':
+                        #comment line
+                        continue
+                if line.rstrip() == '':
+                        continue
+                match = re.search(r'.*:\s*(?P<kind>.*$)', line)
+                kind = match.group('kind')
+                #print 'kind: %s' % kind
+                if kind == 'possible':
+                        continue
+                elif kind == 'f_conflicts':
+                        emit_f_conflicts (fout, line)
+                elif kind == 'phantom_preemp_point':
+                        match = re.search(r'\[(?P<addr>.*)\]:(?P<kind>.*$)', line)
+                        fake_preemption_points.append(int(match.group('addr'),16))
+                elif kind == 'times':
+                        match = re.search(r'\s*\[(?P<addr>.*)\]\s*:\s*\[(?P<times>.*)\]\s*:\s*(?P<kind>.*$)', line)
+                        addr = int(match.group('addr'),16)
+                        times = int(match.group('times'))
+                        print 'addr: %x' % addr
+                        print 'times: %d' % times  
+                        times_limit(fout,[addr],times)
+                else:
+                    bits = line.split(':')
+                    [stack,visits,verdict] = bits
+                    assert 'impossible' in verdict
+                    stack = trace_refute.parse_num_list(stack)
+                    visits = trace_refute.parse_num_arrow_list(visits)
+                    bb_visits = [(bbAddr(x[0]),x[1]) for x in visits]
+                    in_loops = [x for x in (stack[1:] + [x[0] for x in visits]) if inFunLoop(x)]
+                    if in_loops:
+                        print '!!! loops in inconsistent !!!'
+                        print '%r' % in_loops
+                        print 'rejected line: %s\n\n' % line
+                        continue
+                    print 'line: %s' % line
+                    emitInconsistent(fout, stack,bb_visits)
+                f.close()
     fout.write("\n");
-    f.close()
     return fake_preemption_points 
 
 def add_impossible_contexts(fout):

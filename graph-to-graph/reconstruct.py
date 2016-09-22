@@ -427,8 +427,7 @@ def profile():
         for bb_addr in sorted(funs_to_bb_addrs[fun]):
             print "     %x-%x : %u " % (bb_addr, bb_addr + bb_addr_to_size[bb_addr] -4, bb_addr_to_count[bb_addr])
 
-    '''
-
+    print "\n\n Dominating executing path:"
     i,j = max_edge
     print 'max edge %d -> %d : %d' % (int(i),int(j), maxi)
     i_bb = id_to_bb_addr[i]
@@ -447,8 +446,8 @@ def profile():
 	print 't: max_id b%d, count %d' % (max_id, maxi)
     print 'max_id b%d, count %d' % (max_id, maxi)
     print 'max_bb_addr: %x' % id_to_bb_addr[str(max_id)]
-    '''
-    #print_context(id_to_context[str(max_id)])
+    
+    print_context(id_to_context[str(max_id)])
 
 if __name__ == '__main__':
 	argv = list(sys.argv)
@@ -468,7 +467,6 @@ if __name__ == '__main__':
 	sol_file = argv[2]
 	tcfg_map_f = argv[3]
 	elf_file = argv[4]
-	print 'reconstruct: sol_file %s' % sol_file
 	read_variables(sol_file)
 	#print 'Reading tcfg'
 	read_tcfg_map(tcfg_map_f)

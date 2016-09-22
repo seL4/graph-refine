@@ -322,7 +322,7 @@ class immFunc (Borg):
         self.f_problems = {}
         if self.name not in elfFile().tcg:
             print elfFile().tcg.keys()
-        tc_fs = elfFile().tcg[self.name]
+        tc_fs = list(elfFile().tcg[self.name])
         for f in tc_fs + [self.name]:
             assert '.' not in f
             if self.isSpecInsFunc(f):

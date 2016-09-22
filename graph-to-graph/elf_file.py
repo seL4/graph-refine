@@ -112,3 +112,8 @@ def rawVals(addr,inst_only=False):
     match = re.search(r'^.*:\s+(?P<raw>[a-f0-9]+)\s*(?P<text>.*)$',inst)
     return  ( match.group('text'), int(match.group('raw'),16))
 
+def isSpecIns(fun_name):
+    return fun_name.startswith("instruction'") or \
+           fun_name.startswith("asm_instruction'") or \
+           fun_name.startswith("impl'")
+
