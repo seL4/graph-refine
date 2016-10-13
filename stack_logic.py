@@ -192,9 +192,13 @@ def get_extra_sp_defs (rep, tag):
 	# FIXME how to parametrise this?
 	sp = mk_var ('r13', syntax.word32T)
 	defs = {}
+
+	assume_sp_equal = bool (target_objects.hooks ('assume_sp_equal'))
+
 	items = [(n_vc, x) for (n_vc, x) in rep.funcs.iteritems ()
 		if logic.is_int (n_vc[0])
-		if get_asm_calling_convention (rep.p.nodes[n_vc[0]].fname)]
+		if get_asm_calling_convention (rep.p.nodes[n_vc[0]].fname)
+			or assume_sp_equal]
 	for ((n, vc), (inputs, outputs, _)) in items:
 		if rep.p.node_tags[n][0] == tag:
 			inp_sp = solver.smt_expr (sp, inputs, rep.solv)
@@ -848,8 +852,8 @@ def get_asm_calling_convention (fname):
 		return asm_cc_cache[fname]
 	if fname not in pre_pairings:
 		bits = fname.split ("'")
-		if bits[:1] not in [["impl", "instruction"]], (fname, bits):
-			trace ("Warning: unusual unmatched function %s."
+		if bits[:1] not in [["impl", "instruction"]]:
+			trace ("Warning: unusual unmatched function (%s, %s)."
 				% (fname, bits))
 		return None
 	pair = pre_pairings[fname]

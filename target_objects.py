@@ -36,7 +36,9 @@ pre_pairings = {}
 use_hooks = set ()
 avail_hooks = {'problem_var_rep': {}, 'loop_var_analysis': {},
 	'rep_unsafe_const_ret': {}, 'fun_calling_convention': {},
-	'extra_wcet_assertions': {}, 'wcet_function_limits': {}}
+	'extra_wcet_assertions': {}, 'wcet_function_limits': {},
+	'assume_sp_equal': {}
+}
 
 def add_hook (hook_key, module_key, hook):
 	avail_hooks[hook_key][module_key] = hook
