@@ -754,14 +754,12 @@ def setup_split_search (rep, head, restrs, hyps,
 	trace ('Split search at %d, unfold limit %d.' % (head, unfold_limit))
 
 	l_tag, r_tag = tags
-	loop_elts = [(n, start, step) for n in p.loop_body (head)
-		if p.loop_splittables[n]
+	loop_elts = [(n, start, step) for n in p.splittable_points (head)
 		for (start, step) in i_opts]
 	init_to_split = init_loops_to_split (p, restrs)
 	r_to_split = [n for n in init_to_split if p.node_tags[n][0] == r_tag] 
 	cand_r_loop_elts = [(n2, start, step) for n in r_to_split
-		for n2 in p.loop_data[n][1]
-		if p.loop_splittables[n2]
+		for n2 in p.splittable_points (n)
 		for (start, step) in j_opts]
 
 	err_restrs = restr_others (p, tuple ([(sp, vc_upto (unfold_limit))

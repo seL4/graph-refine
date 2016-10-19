@@ -753,8 +753,7 @@ def get_bound_super_ctxt_inner (split, call_ctxt,
 def function_limit_bound (fname, split):
     p = functions[fname].as_problem (problem.Problem)
     p.do_loop_analysis (skipInnerLoopCheck = True)
-    [p_split] = [n for n in p.loop_heads () if split in p.loop_body (n)]
-    splits = [n for n in p.loop_body (p_split) if p.loop_splittables[n]]
+    splits = p.splittable_points (split)
     # doesn't cover a really odd case, but I think it's good enough
     for n in splits:
       if p.nodes[n].kind == 'Call':

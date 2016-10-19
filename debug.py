@@ -640,10 +640,7 @@ def test_interesting_linear_series_exprs ():
 	pairs = set ([pair for f in pairings for pair in pairings[f]])
 	notes = {}
 	for pair in pairs:
-		try:
-			p = check.build_problem (pair)
-		except problem.Abort:
-			continue
+		p = check.build_problem (pair)
 		for n in search.init_loops_to_split (p, ()):
 			intr = logic.interesting_linear_series_exprs (p, n,
 				search.get_loop_var_analysis_at (p, n))

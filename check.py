@@ -24,8 +24,7 @@ from syntax import (true_term, false_term, boolT, mk_var, mk_word32, mk_word8,
 	rename_expr)
 import syntax
 
-def build_problem (pairing, force_inline = None,
-		skip_underspec = False):
+def build_problem (pairing, force_inline = None, avoid_abort = False):
 	p = Problem (pairing)
 
 	for (tag, fname) in pairing.funs.items ():
@@ -34,16 +33,19 @@ def build_problem (pairing, force_inline = None,
 	p.do_analysis ()
 
 	# FIXME: the inlining is heuristic and belongs in 'search'
-	inline_completely_unmatched (p, skip_underspec = skip_underspec)
+	inline_completely_unmatched (p, skip_underspec = avoid_abort)
 	
 	# now do any C inlining
 	inline_reachable_unmatched_C (p, force_inline,
-		skip_underspec = skip_underspec)
+		skip_underspec = avoid_abort)
 
 	trace ('Done inlining.')
 
 	p.pad_merge_points ()
 	p.do_analysis ()
+
+	if not avoid_abort:
+		p.check_no_inner_loops ()
 
 	return p
 

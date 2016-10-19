@@ -703,7 +703,7 @@ def minimal_loop_node_set (p):
 			ns.append (n)
 			if n not in loop_ns:
 				r = False
-			elif p.loop_splittables[n]:
+			elif n in p.splittable_points (n):
 				r = True
 			else:
 				conts = [n2 for n2 in nodes[n].get_conts ()
@@ -1151,45 +1151,98 @@ def tarjan1 (graph, v, data, stack, stack_set, comps):
 				comp.append (x)
 			comps.append ((v2, comp))
 
-def get_one_loop_splittable (p, loop_set):
-	"""discover a component of a strongly connected
-	component which, when removed, disconnects the component.
+def strongly_connected_split_points1 (graph):
+	"""find the nodes of a strongly connected
+	component which, when removed, disconnect the component.
 	complex loops lack such a split point."""
-	candidate_splittables = set (loop_set)
-	graph = dict ([(x, [y for y in p.nodes[x].get_conts ()
-		if y in loop_set]) for x in loop_set])
-	while candidate_splittables:
-		n = candidate_splittables.pop ()
-		graph2 = dict ([(x, [y for y in graph[x] if y != n])
-			for x in graph])
-		comps = logic.tarjan (graph2, [n])
-		if not [comp for comp in comps if comp[1]]:
-			return n
-		loop2 = find_loop_avoiding (graph, loop_set,
-			candidate_splittables)
-		candidate_splittables = set.intersection (loop2,
-			candidate_splittables)
-	return None
 
-def find_loop_avoiding (graph, loop, avoid):
-	n = (list (loop - avoid) + list (loop))[0]
-	arc = [n]
-	visited = set ([n])
-	while True:
-		cs = set (graph[n])
-		acs = cs - avoid
-		vcs = set.intersection (cs, visited)
-		if vcs:
-			n = vcs.pop ()
-			break
-		elif acs:
-			n = acs.pop ()
+	# find one simple cycle in the graph
+	walk = []
+	walk_set = set ()
+	n = min (graph)
+	while n not in walk_set:
+		walk.append (n)
+		walk_set.add (n)
+		n = graph[n][0]
+	i = walk.index (n)
+	cycle = walk[i:]
+
+	def subgraph_test (subgraph):
+		graph2 = dict ([(n, [n2 for n2 in graph[n] if n2 in subgraph])
+			for n in subgraph])
+		graph2['HEAD'] = list (subgraph)
+		comps = tarjan (graph2, ['HEAD'])
+		return bool ([h for (h, t) in comps if t])
+
+	cycle_set = set (cycle)
+	cycle = [('Node', set ([n]), False,
+			[n2 for n2 in graph[n] if n2 != graph[n][0]])
+		for n in cycle]
+	i = 0
+	while i < len (cycle):
+		print i, cycle
+		(kind, ns, test, unvisited) = cycle[i]
+		if not unvisited:
+			i += 1
+			continue
+		n = unvisited.pop ()
+		arc_set = set ()
+		while n not in cycle_set:
+			if n in arc_set:
+				# found two totally disjoint loops, so there
+				# are no splitting points
+				return set ()
+			arc_set.add (n)
+			n = graph[n][0]
+		if n in ns:
+			if kind == 'Node':
+				# only this node can be a splittable now.
+				if subgraph_test (set (graph) - set ([n])):
+					return set ()
+				else:
+					return set ([n])
+			else:
+				cycle[i] = (kind, ns, True, unvisited)
+				ns.update (arc_set)
+				continue
+		j = (i + 1) % len (cycle)
+		new_ns = set ()
+		new_unvisited = set ()
+		new_test = False
+		while n not in cycle[j][1]:
+			new_ns.update (cycle[j][1])
+			new_unvisited.update (cycle[j][3])
+			new_test = cycle[j][2] or new_test
+			j = (j + 1) % len (cycle)
+		new_ns.update (arc_set)
+		new_unvisited.update ([n3 for n2 in arc_set for n3 in graph[n2]])
+		new_v = ('Group', new_ns, new_test, list (new_unvisited - new_ns))
+		print i, j, n
+		if j > i:
+			cycle[i + 1:j] = [new_v]
 		else:
-			n = cs.pop ()
-		visited.add (n)
-		arc.append (n)
-	[i] = [i for (i, n2) in enumerate (arc) if n2 == n]
-	return set (arc[i:])
+			cycle = [cycle[i], new_v] + cycle[j:i]
+			i = 0
+		cycle_set.update (new_ns)
+	for (kind, ns, test, unvisited) in cycle:
+		if test and subgraph_test (ns):
+			return set ()
+	return set ([n for (kind, ns, _, _) in cycle
+		if kind == 'Node' for n in ns])
+
+def strongly_connected_split_points (graph):
+	res = strongly_connected_split_points1 (graph)
+	res2 = set ()
+	for n in graph:
+		graph2 = dict (graph)
+		graph2[n] = []
+		graph2['ENTRY'] = list (graph)
+		comps = tarjan (graph2, ['ENTRY'])
+		if not [comp for comp in comps if comp[1]]:
+			res2.add (n)
+	assert res == res2, (graph, res, res2)
+	return res
+
 # non-equality relations in proof hypotheses are recorded as a pretend
 # equality and reverted to their 'real' meaning here.
 def mk_stack_wrapper (stack_ptr, stack, excepts):

@@ -532,6 +532,7 @@ def check_before_guess_asm_stack_depth (fun):
 	p = fun.as_problem (problem.Problem, name = 'Target')
 	try:
 		p.do_analysis ()
+		p.check_no_inner_loops ()
 	except problem.Abort, e:
 		return None
 	rep = rep_graph.mk_graph_slice (p, fast = True)

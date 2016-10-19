@@ -32,7 +32,6 @@ class Problem:
 		self.next_node_name = 1
 		self.preds = {}
 		self.loop_data = {}
-		self.loop_splittables = {}
 		self.node_tags = {}
 		self.node_tag_revs = {}
 		self.inline_scripts = {}
@@ -158,10 +157,9 @@ class Problem:
 		self.compute_preds ()
 		self.do_loop_analysis ()
 
-	def do_loop_analysis (self,skipInnerLoopCheck=False):
+	def do_loop_analysis (self):
 		entries = [e for (e, tag, nm, args) in self.entries]
 		self.loop_data = {}
-		self.loop_splittables = {}
 
 		graph = dict([(n, [c for c in self.nodes[n].get_conts ()
 				if type (c) != str])
@@ -175,8 +173,6 @@ class Problem:
 			if not tail and head not in graph[head]:
 				continue
 			trace ('Loop (%d, %s)' % (head, tail))
-			if not skipInnerLoopCheck:
-				check_no_inner_loop (head, tail, graph, self)
 
 			loop_set = set (tail)
 			loop_set.add (head)
@@ -192,10 +188,12 @@ class Problem:
 			for t in tail:
 				self.loop_data[t] = ('Mem', head)
 
-			self.add_loop_splittables (head, loop_set)
-
 		# put this in first-to-last order.
 		self.tarjan_order.reverse ()
+
+	def check_no_inner_loops (self):
+		for loop in self.loop_heads ():
+			check_no_inner_loop (self, loop)
 
 	def force_single_loop_return (self, head, loop_set):
 		rets = [n for n in self.preds[head] if n in loop_set]
@@ -210,19 +208,39 @@ class Problem:
 				({}, {head: r}))
 		return r
 
-	def add_loop_splittables (self, head, loop):
-		for n in loop:
-			self.loop_splittables[n] = False
+	def splittable_points (self, n):
+		"""splittable points are points which when removed, the loop
+		'splits' and ceases to be a loop.
+
+		equivalently, the set of splittable points is the intersection
+		of all sub-loops of the loop."""
+		head = self.loop_id (n)
+		assert head != None
+		k = ('Splittables', head)
+		if k in self.cached_analysis:
+			return self.cached_analysis[k]
+
+		# current algorithm will not work with inner loop
+		# that is, with the head point not a split point itself
+		check_no_inner_loop (self, head)
+
+		splits = self.get_loop_splittables (head)
+		self.cached_analysis[k] = splits
+		return splits
+
+	def get_loop_splittables (self, head):
+		loop_set = self.loop_body (head)
+		splittable = dict ([(n, False) for n in loop_set])
 		arc = [head]
 		n = head
 		while True:
 			ns = [n2 for n2 in self.nodes[n].get_conts ()
-				if n2 in loop]
+				if n2 in loop_set]
 			ns2 = [x for x in ns if x == head or x not in arc]
 			#n = ns[0]
 			n = ns2[0]
 			arc.append (n)
-			self.loop_splittables[n] = True
+			splittable[n] = True
 			if n == head:
 				break
 		last_descs = {}
@@ -231,7 +249,8 @@ class Problem:
 		def last_desc (n):
 			if n in last_descs:
 				return last_descs[n]
-			n2s = [n2 for n2 in self.nodes[n].get_conts() if n2 in loop]
+			n2s = [n2 for n2 in self.nodes[n].get_conts()
+				if n2 in loop_set]
 			last_descs[n] = None
 			for n2 in n2s:
 			  x = last_desc(n2)
@@ -241,9 +260,10 @@ class Problem:
 		for i in range (len (arc)):
 			max_arc = max ([last_desc (n)
 				for n in self.nodes[arc[i]].get_conts ()
-				if n in loop])
+				if n in loop_set])
 			for j in range (i + 1, max_arc):
-				self.loop_splittables[arc[j]] = False
+				splittable[arc[j]] = False
+		return set ([n for n in splittable if splittable[n]])
 
 	def loop_heads (self):
 		return [n for n in self.loop_data
@@ -728,16 +748,19 @@ def consider_inline_c (c_funs, tag, force_inline, skip_underspec = False):
         return lambda (p, n): consider_inline_c1 (p, n, c_funs, tag,
 		force_inline, skip_underspec)
 
-def check_no_inner_loop (head, tail, graph, p):
-	graph = dict ([(x, [y for y in graph[x] if y in tail])
-		for x in [head] + tail])
+def check_no_inner_loop (p, head):
+	loop_set_all = p.loop_body (head)
+	loop_set = set (loop_set_all) - set ([head])
+	graph = dict([(n, [c for c in p.nodes[n].get_conts ()
+			if c in loop_set])
+		for n in loop_set_all])
 
-	comps2 = logic.tarjan (graph, [head])
-	assert sum([1 + len (t) for (_, t) in comps2]) == 1 + len (tail)
-	subs = [comp2 for comp2 in comps2 if comp2[1]]
+	comps = logic.tarjan (graph, [head])
+	assert sum ([1 + len (t) for (_, t) in comps]) == len (loop_set_all)
+	subs = [comp for comp in comps if comp[1]]
 	if subs:
 		trace ('Aborting %s, complex loop' % p.name)
-		trace ('  sub-loops %s of %s' % (subs, (head, tail)))
+		trace ('  sub-loops %s of loop at %s' % (subs, head))
 		for (h, _) in subs:
 			trace ('    head %d tagged %s' % (h, p.node_tags[h]))
 		raise Abort ()

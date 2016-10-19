@@ -92,7 +92,7 @@ problem_inline_scripts = {}
 def get_problem_inline_scripts (pair):
 	if pair.name in problem_inline_scripts:
 		return problem_inline_scripts[pair.name]
-	p = check.build_problem (pair, skip_underspec = True)
+	p = check.build_problem (pair, avoid_abort = True)
 	scripts = p.inline_scripts
 	problem_inline_scripts[pair.name] = scripts
 	return scripts
