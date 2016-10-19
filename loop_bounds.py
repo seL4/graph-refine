@@ -752,14 +752,20 @@ def get_bound_super_ctxt_inner (split, call_ctxt,
 
 def function_limit_bound (fname, split):
     p = functions[fname].as_problem (problem.Problem)
-    p.do_loop_analysis (skipInnerLoopCheck = True)
-    splits = p.splittable_points (split)
-    # doesn't cover a really odd case, but I think it's good enough
-    for n in splits:
-      if p.nodes[n].kind == 'Call':
-        if function_limit (p.nodes[n].fname) != None:
-          return (function_limit (p.nodes[n].fname), 'FunctionLimit')
-    return None
+    p.do_analysis ()
+    cuts = [n for n in p.loop_body (split)
+        if p.nodes[n].kind == 'Call'
+        if function_limit (p.nodes[n].fname) != None]
+    if not cuts:
+      return None
+    graph = p.mk_node_graph (p.loop_body (split))
+    # it is not possible to iterate the loop without visiting a bounded
+    # function. naively, this sets the limit to the sum of all the possible
+    # bounds, plus one because we can enter the loop a final time without
+    # visiting any function call site yet.
+    if logic.divides_loop (graph, set (cuts)):
+      fnames = set ([p.nodes[n].fname for n in cuts])
+      return (sum ([function_limit (f) for f in fnames]) + 1, 'FunctionLimit')
 
 def loop_bound_difficulty_estimates (split, ctxt):
     # various guesses at how hard the loop bounding problem is.

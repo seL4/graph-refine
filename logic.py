@@ -1151,6 +1151,15 @@ def tarjan1 (graph, v, data, stack, stack_set, comps):
 				comp.append (x)
 			comps.append ((v2, comp))
 
+def divides_loop (graph, split_set):
+	graph2 = dict (graph)
+	for n in split_set:
+		graph2[n] = []
+	assert 'ENTRY_POINT' not in graph2
+	graph2['ENTRY_POINT'] = list (graph)
+	comps = tarjan (graph2, ['ENTRY_POINT'])
+	return not ([(h, t) for (h, t) in comps if t])
+
 def strongly_connected_split_points1 (graph):
 	"""find the nodes of a strongly connected
 	component which, when removed, disconnect the component.
@@ -1242,6 +1251,50 @@ def strongly_connected_split_points (graph):
 			res2.add (n)
 	assert res == res2, (graph, res, res2)
 	return res
+
+def get_one_loop_splittable (p, loop_set):
+	"""discover a component of a strongly connected
+	component which, when removed, disconnects the component.
+	complex loops lack such a split point."""
+	candidates = set (loop_set)
+	graph = dict ([(x, [y for y in p.nodes[x].get_conts ()
+		if y in loop_set]) for x in loop_set])
+	while candidates:
+		loop2 = find_loop_avoiding (graph, loop_set, candidates)
+		candidates = set.intersection (loop2, candidates)
+		if not candidates:
+			return None
+		n = candidates.pop ()
+		graph2 = dict ([(x, [y for y in graph[x] if y != n])
+			for x in graph])
+		comps = tarjan (graph2, [n])
+		comps = [(h, t) for (h, t) in comps if t]
+		if not comps:
+			return n
+		for (h, t) in comps:
+			s = set ([h] + t)
+			candidates = set.intersection (s, candidates)
+	return None
+
+def find_loop_avoiding (graph, loop, avoid):
+	n = (list (loop - avoid) + list (loop))[0]
+	arc = [n]
+	visited = set ([n])
+	while True:
+		cs = set (graph[n])
+		acs = cs - avoid
+		vcs = set.intersection (cs, visited)
+		if vcs:
+			n = vcs.pop ()
+			break
+		elif acs:
+			n = acs.pop ()
+		else:
+			n = cs.pop ()
+		visited.add (n)
+		arc.append (n)
+	[i] = [i for (i, n2) in enumerate (arc) if n2 == n]
+	return set (arc[i:])
 
 # non-equality relations in proof hypotheses are recorded as a pretend
 # equality and reverted to their 'real' meaning here.

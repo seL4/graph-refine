@@ -157,13 +157,18 @@ class Problem:
 		self.compute_preds ()
 		self.do_loop_analysis ()
 
+	def mk_node_graph (self, node_subset = None):
+		if node_subset == None:
+			node_subset = self.nodes
+		return dict ([(n, [c for c in self.nodes[n].get_conts ()
+				if c in node_subset])
+			for n in node_subset])
+
 	def do_loop_analysis (self):
 		entries = [e for (e, tag, nm, args) in self.entries]
 		self.loop_data = {}
 
-		graph = dict([(n, [c for c in self.nodes[n].get_conts ()
-				if type (c) != str])
-			for n in self.nodes])
+		graph = self.mk_node_graph ()
 		comps = logic.tarjan (graph, entries)
 		self.tarjan_order = []
 
@@ -220,9 +225,15 @@ class Problem:
 		if k in self.cached_analysis:
 			return self.cached_analysis[k]
 
-		# current algorithm will not work with inner loop
-		# that is, with the head point not a split point itself
-		check_no_inner_loop (self, head)
+		# check if the head point is a split (the inner loop
+		# check does exactly that)
+		try:
+			check_no_inner_loop (self, head)
+		except Abort:
+			head = logic.get_one_loop_splittable (self,
+				self.loop_body (head))
+			if head == None:
+				return set ()
 
 		splits = self.get_loop_splittables (head)
 		self.cached_analysis[k] = splits
@@ -302,7 +313,7 @@ class Problem:
 	def get_loop_var_analysis (self, var_deps, n):
 		head = self.loop_id (n)
 		assert head, n
-		assert self.loop_splittables[n], n
+		assert n in self.splittable_points (n)
 		loop_sort = tuple (sorted (self.loop_body (head)))
 		node_data = [(self.nodes[n2], sorted (self.preds[n]),
 				sorted (var_deps[n2].keys ()))
