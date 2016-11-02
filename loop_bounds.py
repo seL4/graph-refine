@@ -874,7 +874,7 @@ def get_loop_heads (fun):
     for h in p.loop_heads ():
       # any address in the loop will do. pick the smallest one
       addr = min ([n for n in p.loop_body (h) if trace_refute.is_addr (n)])
-      loops.add (addr)
+      loops.add ((addr, fun.name, problem.has_inner_loop (p, h)))
     return list (loops)
 
 def get_all_loop_heads ():
@@ -889,9 +889,13 @@ def get_all_loop_heads ():
       trace ('Cannot analyse loops in: %s' % ', '.join (abort_funs))
     return loops
 
+def get_complex_loops ():
+    return [(loop, name) for (loop, name, compl) in get_all_loop_heads ()
+        if compl]
+
 def search_all_loops ():
     all_loops = get_all_loop_heads ()
-    for loop in all_loops:
+    for (loop, _, _) in all_loops:
       get_bound_super_ctxt (loop, [])
 
 main = search_all_loops

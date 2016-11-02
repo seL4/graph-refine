@@ -227,9 +227,7 @@ class Problem:
 
 		# check if the head point is a split (the inner loop
 		# check does exactly that)
-		try:
-			check_no_inner_loop (self, head)
-		except Abort:
+		if has_inner_loop (self, head):
 			head = logic.get_one_loop_splittable (self,
 				self.loop_body (head))
 			if head == None:
@@ -759,7 +757,7 @@ def consider_inline_c (c_funs, tag, force_inline, skip_underspec = False):
         return lambda (p, n): consider_inline_c1 (p, n, c_funs, tag,
 		force_inline, skip_underspec)
 
-def check_no_inner_loop (p, head):
+def loop_inner_loops (p, head):
 	loop_set_all = p.loop_body (head)
 	loop_set = set (loop_set_all) - set ([head])
 	graph = dict([(n, [c for c in p.nodes[n].get_conts ()
@@ -768,13 +766,19 @@ def check_no_inner_loop (p, head):
 
 	comps = logic.tarjan (graph, [head])
 	assert sum ([1 + len (t) for (_, t) in comps]) == len (loop_set_all)
-	subs = [comp for comp in comps if comp[1]]
+	return [comp for comp in comps if comp[1]]
+
+def check_no_inner_loop (p, head):
+	subs = loop_inner_loops (p, head)
 	if subs:
 		trace ('Aborting %s, complex loop' % p.name)
 		trace ('  sub-loops %s of loop at %s' % (subs, head))
 		for (h, _) in subs:
 			trace ('    head %d tagged %s' % (h, p.node_tags[h]))
 		raise Abort ()
+
+def has_inner_loop (p, head):
+	return bool (loop_inner_loops (p, head))
 
 def loop_var_analysis (p, head, tail):
 	# getting the set of variables that go round the loop
