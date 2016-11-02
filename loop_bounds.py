@@ -216,14 +216,13 @@ def linear_eq_induct_base_checks (p, restrs, hyps, tag, split, eqs):
                 restrs, vc_num (i))])
     return tests
 
-def linear_eq_induct_step_checks (p, restrs, hyps, tag, split, eqs):
-    details = (split, (0, 1), eqs)
+def linear_eq_induct_step_checks (p, restrs, hyps, tag, split,
+                eqs_assume, eqs):
+    details = (split, (0, 1), eqs_assume + eqs)
     cont = split_visit_one_visit (tag, details, restrs, vc_offs (1))
-    # the 'trivial' hyp here ensures the representation includes a loop
-    # of the rhs when proving const equations on the lhs
     hyps = ([pc_true_hyp (cont)] + hyps
             + [h for (h, _) in linear_eq_hyps_at_visit (tag, split,
-            eqs, restrs, vc_offs (0))])
+                    eqs_assume + eqs, restrs, vc_offs (0))])
 
     return [(hyps, hyp, 'Induct check (%s) at inductive step for %d'
             % (desc, split))
@@ -242,8 +241,9 @@ def get_linear_series_hyps (p, split,restrs,hyps):
 
     rep = rep_graph.mk_graph_slice (p, fast = True)
 
-    def do_checks (eqs):
-        checks = (linear_eq_induct_step_checks (p, restrs, hyps, tag, split, eqs)
+    def do_checks (eqs_assume, eqs):
+        checks = (linear_eq_induct_step_checks (p, restrs, hyps, tag, split,
+                eqs_assume, eqs)
             + linear_eq_induct_base_checks (p, restrs, hyps, tag, split, eqs))
 
         groups = check.proof_check_groups (checks)
@@ -257,12 +257,15 @@ def get_linear_series_hyps (p, split,restrs,hyps):
     failed = []
     while cands:
         cand = cands.pop ()
-        if do_checks (eqs + [cand]):
+        if do_checks (eqs, [cand]):
             eqs.append (cand)
+            failed.reverse ()
             cands = failed + cands
             failed = []
         else:
             failed.append (cand)
+
+    assert do_checks ([], eqs)
 
     hyps = [h for (h, _) in linear_eq_hyps_at_visit (tag, split, eqs,
              restrs, vc_offs (0))]
@@ -704,7 +707,12 @@ def get_bound_super_ctxt (split, call_ctxt, no_splitting=False,
     save_bound (True, split, call_ctxt, get_functions_hash (), None, bound)
     return bound
 
-from trace_refute import function_limit, ctxt_within_function_limits
+from trace_refute import (function_limit, ctxt_within_function_limits)
+
+def call_ctxt_computable (split, call_ctxt):
+    fs = [trace_refute.identify_function ([], [call_site])
+      for call_site in call_ctxt]
+    return not ([f for f in fs if trace_refute.has_complex_loop (f)])
 
 def get_bound_super_ctxt_inner (split, call_ctxt,
       no_splitting = (False, None)):
@@ -719,7 +727,9 @@ def get_bound_super_ctxt_inner (split, call_ctxt,
       return (0, 'FunctionLimit')
 
     if len (call_ctxt) < 3 and len (safe_call_sites) == 1:
-      return get_bound_super_ctxt (split, list (safe_call_sites) + call_ctxt)
+      call_ctxt2 = list (safe_call_sites) + call_ctxt
+      if call_ctxt_computable (split, call_ctxt2):
+        return get_bound_super_ctxt (split, call_ctxt2)
 
     fname = trace_refute.identify_function (call_ctxt, [split])
     bound = function_limit_bound (fname, split)
@@ -735,11 +745,16 @@ def get_bound_super_ctxt_inner (split, call_ctxt,
       no_splitting[1][0] = True
       return None
 
+    # try to split over potential call sites
     if len (call_ctxt) >= 3:
       return None
 
     if len (call_sites) == 0:
       # either entry point or nonsense
+      return None
+
+    if [call_site for call_site in safe_call_sites
+        if not call_ctxt_computable (split, [call_site] + call_ctxt)]:
       return None
 
     anc_bounds = [get_bound_super_ctxt (split, [call_site] + call_ctxt,
