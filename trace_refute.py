@@ -323,26 +323,13 @@ last_refute_attempt = [None]
 has_complex_loop_cache = {}
 
 def has_complex_loop (fname):
-	print fname
 	if fname in has_complex_loop_cache:
 		return has_complex_loop_cache[fname]
 	p = functions[fname].as_problem (problem.Problem)
-	def get_loops_within (ns):
-		graph = dict ([(n, p.nodes[n].get_conts ()) for n in ns])
-		graph['ENTRYPOINT'] = list (ns)
-		for n in ns:
-			for c in p.nodes[n].get_conts ():
-				graph.setdefault (c, [])
-		res = logic.tarjan (graph, ['ENTRYPOINT'])
-		return [(head, tail) for (head, tail) in res if tail]
-	loops = get_loops_within (p.nodes)
-	for (head, tail) in loops:
-		assert head not in set (tail)
-		if get_loops_within (tail):
-			has_complex_loop_cache[fname] = True
-			return True
-	has_complex_loop_cache[fname] = False
-	return False
+	result = bool ([h for h in p.loop_heads ()
+		if problem.has_inner_loop (p, h)])
+	has_complex_loop_cache[fname] = result
+	return result
 
 def refute_function_arcs (call_stack, arcs, ctxt_arcs):
 	last_refute_attempt[0] = (call_stack, arcs, ctxt_arcs)
