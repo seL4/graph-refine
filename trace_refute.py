@@ -21,6 +21,7 @@ from target_objects import functions, trace, pairings, symbols, printout
 import target_objects
 
 from logic import azip
+import sys
 
 def parse_num_list (s):
 	s = s.strip()

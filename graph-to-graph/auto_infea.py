@@ -90,17 +90,19 @@ def auto_infea(dir_name, entry_point_function, manual_conflicts_file, results_di
         assert ret == 0
         
         f_refutables.close()
-#now call trace_refute
+        #now call trace_refute
         t = time.localtime()
         c1 = time.clock()
         print 'calling trace_refute, time is: day %d, hour: %d, min: %d' % (t.tm_mday, t.tm_hour, t.tm_min)
         results_f.write(' trace_refute called at: day %d, hour: %d, min: %d\n' % (t.tm_mday, t.tm_hour, t.tm_min))
-
-#but before we do, supress output.
-        (saved_fds, null_fds) = silence()
+        int silence_all = False
+        if silence_all:
+            #but before we do, supress output.
+            (saved_fds, null_fds) = silence()
         new_refutes,_ = trace_refute.refute(refutables_fname, auto_refutes_file, [auto_refutes_file])
-#restore stdin and stderr
-        unsilence(saved_fds, null_fds)
+        if silence_all:
+            #restore stdin and stderr
+            unsilence(saved_fds, null_fds)
         c2 = time.clock()
         t = time.localtime()
         print 'trace_refute returned, time is: day %d, hour: %d, min: %d' % (t.tm_mday, t.tm_hour, t.tm_min)

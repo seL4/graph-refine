@@ -11,7 +11,7 @@ import sys, subprocess, re, os
 
 
 unbounded = "unbounded"
-infeasible = "infeasible"
+infeasible = "Integer infeasible."
 
 #this cplex footer ends a .ilp file and does 
 cplex_end_command='''

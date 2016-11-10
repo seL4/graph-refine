@@ -431,7 +431,7 @@ def process_conflict(fout, conflict_files):
                         continue
                     print 'line: %s' % line
                     emitInconsistent(fout, stack,bb_visits)
-                f.close()
+            f.close()
     fout.write("\n");
     return fake_preemption_points 
 

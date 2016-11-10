@@ -130,7 +130,7 @@ class immFunc (Borg):
         loops_by_fs = self.loops_by_fs
         for (f,p) in [(f,self.f_problems[f]) for f in self.f_problems]:
             p.compute_preds()
-            p.do_loop_analysis(skipInnerLoopCheck=True)
+            p.do_loop_analysis()
             l = p.loop_data
             if p.loop_heads():
                 loops_by_fs[f] = {}
