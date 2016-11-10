@@ -675,6 +675,32 @@ def get_functions_hash ():
     functions_hash[0] = h
     return h
 
+addr_to_loop_id_cache = {}
+complex_loop_id_cache = {}
+
+def addr_to_loop_id (split):
+    if split not in addr_to_loop_id_cache:
+      add_fun_to_loop_data_cache (trace_refute.get_body_addrs_fun (split))
+    return addr_to_loop_id_cache[split]
+
+def is_complex_loop (split):
+    split = addr_to_loop_id (split)
+    if split not in complex_loop_id_cache:
+      add_fun_to_loop_data_cache (trace_refute.get_body_addrs_fun (split))
+    return complex_loop_id_cache[split]
+
+def add_fun_to_loop_data_cache (fname):
+    p = functions[fname].as_problem (problem.Problem)
+    p.do_loop_analysis ()
+    for h in p.loop_heads ():
+      addrs = [n for n in p.loop_body (h)
+        if trace_refute.is_addr (n)]
+      min_addr = min (addrs)
+      for addr in addrs:
+        addr_to_loop_id_cache[addr] = min_addr
+      complex_loop_id_cache[min_addr] = problem.has_inner_loop (p, h)
+    return min_addr
+
 def get_bound_super_ctxt (split, call_ctxt, no_splitting=False,
         known_bound_only=False):
     if not known_bounds:
@@ -682,13 +708,9 @@ def get_bound_super_ctxt (split, call_ctxt, no_splitting=False,
     for (ctxt2, fn_hash, bound) in known_bounds.get ((split, 'Global'), []):
       if ctxt2 == call_ctxt and fn_hash == get_functions_hash ():
         return bound
-    f = trace_refute.get_body_addrs_fun (split)
-    p = functions[f].as_problem (problem.Problem)
-    p.do_loop_analysis ()
-    min_addr = min ([n for n in p.loop_body (split)
-      if trace_refute.is_addr (n)])
-    if min_addr != split:
-      return get_bound_super_ctxt (min_addr, call_ctxt,
+    min_loop_addr = addr_to_loop_id (split)
+    if min_loop_addr != split:
+      return get_bound_super_ctxt (min_loop_addr, call_ctxt,
             no_splitting = no_splitting, known_bound_only = known_bound_only)
 
     if known_bound_only:
