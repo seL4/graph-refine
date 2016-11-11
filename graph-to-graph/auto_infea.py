@@ -95,7 +95,7 @@ def auto_infea(dir_name, entry_point_function, manual_conflicts_file, results_di
         c1 = time.clock()
         print 'calling trace_refute, time is: day %d, hour: %d, min: %d' % (t.tm_mday, t.tm_hour, t.tm_min)
         results_f.write(' trace_refute called at: day %d, hour: %d, min: %d\n' % (t.tm_mday, t.tm_hour, t.tm_min))
-        int silence_all = False
+        silence_all = False
         if silence_all:
             #but before we do, supress output.
             (saved_fds, null_fds) = silence()

@@ -64,9 +64,11 @@ class ChronosEmitter:
         print 'first - last addrs : %x-%x' % (first_addr,last_addr)
         size = 4
         to_emit = {}
+        
+        #dict of complex loop "head"s to ( addrs in the loop, its bound)
+        complex_loops = {}
         #we need to emit instructions in the order of addresses
         #firstly, put all the lines in a dict
-        #FIXME: handle clean_D_PoU properly
         for bb_start_addr in imm_fun.bbs:
             if self.skip_fun and bb_start_addr in self.elf_fun_to_skip.lines:
                 continue
@@ -74,19 +76,38 @@ class ChronosEmitter:
                 if addr in imm_loopheads:
                     p_head, f = imm_loopheads[addr]
                     bin_head = phyAddrP(p_head,imm_fun.f_problems[f])
+                    import graph_refine.loop_bounds
                     if imm_fun.loaded_loop_counts and bin_head in imm_fun.bin_loops_by_fs[f]:
                         #The user specified a manual loop-count override
                         loop_count,desc,_ = imm_fun.bin_loops_by_fs[f][bin_head]
                     else:
+
                         print "imm_fun.loaded_loop_counts: %s, bin_loops_by_fs[f].keys: %s, function: %s"  % (imm_fun.loaded_loop_counts, str(imm_fun.loops_by_fs[f]), f )
                         assert False
-                        import graph_refine.loop_bounds
                         loop_count,desc = graph_refine.loop_bounds.get_bound_super_ctxt(bin_head, [])
+                    if graph_refine.loop_bounds.is_complex_loop(addr):
+                        body_addrs = graph_refine.loop_bounds.get_loop_addrs(addr)
+                        complex_loops[addr] = (body_addrs, loop_count)
                     emitted_loop_counts[bin_head] = (loop_count, desc)
                     print '%x: bound %d/0x%x, %s' % (addr, loop_count, loop_count,desc)
                 else:
                     loop_count = None
                 to_emit[addr] = (addr,addr == bb_start_addr,loop_count)
+        
+        for loop_addr in complex_loops.keys():
+            print "complex loop at 0x%x" % (addr)
+            print "body: %s" % str(map(hex, body_addrs))
+            #apply the loopcounts to all the instructions in this complex loop
+            body_addrs, loop_bound = complex_loops[loop_addr]
+            for addr in body_addrs:
+                if addr not in to_emit:
+                    #dodge the halt case
+                    continue
+                addr, is_start_bb, _ = to_emit[addr]
+                to_emit[addr] = (addr,is_start_bb, loop_bound)
+                emitted_loop_counts[addr] = (loop_bound, "complex_body")
+
+
         #then emit them in order
         for addr in xrange (first_addr, last_addr + size, size):
             if addr in to_emit:
@@ -95,6 +116,7 @@ class ChronosEmitter:
             else:
                #pad with nop
                self.emitNop(addr, size)
+
         for bin_head in emitted_loop_counts:
             count, desc = emitted_loop_counts[bin_head]
             self.emitted_loop_counts_file.write("0x%x : count %d, desc: %s\n" % ( bin_head, count, desc))

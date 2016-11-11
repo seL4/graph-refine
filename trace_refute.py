@@ -293,7 +293,7 @@ def build_compound_problem_with_links (call_stack, f):
 		+ wcet_hyps, addr_map)
 
 def all_reachable (p, addrs):
-	assert set (addrs) <= set (rep.p.nodes)
+	assert set (addrs) <= set (p.nodes)
 	return all ([p.is_reachable_from (addrs[i], addrs[j]) or
 			p.is_reachable_from (addrs[j], addrs[i])
 		for i in range (len (addrs))
@@ -469,6 +469,7 @@ def load_verdicts (fname):
 	f.close ()
 
 last_report = [0]
+exceptions = []
 
 def refute (inp_fname, out_fname, prev_fnames, instance = None):
 	f = open (inp_fname)
@@ -494,11 +495,12 @@ def refute (inp_fname, out_fname, prev_fnames, instance = None):
 			report[ctxt] = 'ProofAbort'
 		except Exception, e:
 			import sys, traceback
+			exceptions.append ((ctxt, arcs, ctxt_arcs))
 			exception = sys.exc_info ()
 			(etype, evalue, tb) = exception
 			ss = traceback.format_exception (etype, evalue, tb)
 			report[ctxt] = '\n'.join (['EXCEPTION'] + ss)
-			print 'EXCEPTION in handling %s' % list (ctxt)
+			print 'EXCEPTION in handling %s, %s' % (ctxt, arcs)
 			for s in ss[:3]:
 				print s
 			if len (ss) > 3:
