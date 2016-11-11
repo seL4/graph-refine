@@ -689,6 +689,12 @@ def is_complex_loop (split):
       add_fun_to_loop_data_cache (trace_refute.get_body_addrs_fun (split))
     return complex_loop_id_cache[split]
 
+def get_loop_addrs (split):
+    split = addr_to_loop_id (split)
+    f = functions[trace_refute.get_body_addrs_fun (split)]
+    return [addr for addr in f.nodes if trace_refute.is_addr (addr)
+        if addr_to_loop_id_cache.get (addr) == split]
+
 def add_fun_to_loop_data_cache (fname):
     p = functions[fname].as_problem (problem.Problem)
     p.do_loop_analysis ()
