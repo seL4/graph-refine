@@ -74,7 +74,7 @@ kernel.elf.symtab: kernel.elf
 
 kernel.sigs: kernel_all.c_pp
 	MAKEFILES= make -C ${PARSERPATH} standalone-cparser
-	${PARSERPATH}/c-parser --underscore_idents --mmbytes $^ > $@
+	${PARSERPATH}/c-parser ARM --underscore_idents --mmbytes $^ > $@
 
 summary.txt: kernel_all.c_pp 
 	echo Summary > pre_summary.txt
