@@ -91,10 +91,10 @@ def auto_infea(dir_name, entry_point_function, manual_conflicts_file, results_di
         
         f_refutables.close()
         #now call trace_refute
-        t = time.localtime()
-        c1 = time.clock()
-        print 'calling trace_refute, time is: day %d, hour: %d, min: %d' % (t.tm_mday, t.tm_hour, t.tm_min)
-        results_f.write(' trace_refute called at: day %d, hour: %d, min: %d\n' % (t.tm_mday, t.tm_hour, t.tm_min))
+        t = time.asctime()
+        c1 = time.time()
+        print 'calling trace_refute, time is: %s' % t
+        results_f.write(' trace_refute called at: %s\n' % t)
         silence_all = False
         if silence_all:
             #but before we do, supress output.
@@ -103,10 +103,10 @@ def auto_infea(dir_name, entry_point_function, manual_conflicts_file, results_di
         if silence_all:
             #restore stdin and stderr
             unsilence(saved_fds, null_fds)
-        c2 = time.clock()
-        t = time.localtime()
-        print 'trace_refute returned, time is: day %d, hour: %d, min: %d' % (t.tm_mday, t.tm_hour, t.tm_min)
-        results_f.write(' trace_refute returned at: day %d, hour: %d, min: %d\n' % (t.tm_mday, t.tm_hour, t.tm_min))
+        c2 = time.time()
+        t = time.asctime()
+        print 'trace_refute returned, time is: %s' % t
+        results_f.write(' trace_refute returned at: %s\n' % t)
 
         results_f.write('   this took %f seconds\n' % (c2-c1))
 
