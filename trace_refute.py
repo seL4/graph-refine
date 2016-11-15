@@ -302,7 +302,7 @@ def all_reachable (p, addrs):
 parent_ctxt_limit = 3
 
 def call_stack_parent_arc_extras (stack, ctxt_arcs, max_length):
-	rng = range (1, len (stack))[ - parent_ctxt_limit : ]
+	rng = range (1, len (stack))[ - parent_ctxt_limit : ][ - max_length : ]
 	arc_extras = []
 	for i in rng:
 		prev_stack = stack[:i]
@@ -334,6 +334,18 @@ def has_complex_loop (fname):
 	has_complex_loop_cache[fname] = result
 	return result
 
+
+def pick_stack_subset (call_stack):
+	# how much stack to use?
+	stack = list (call_stack [ - parent_ctxt_limit : ])
+	for (i, addr) in reversed (list (enumerate (stack))):
+		f2 = get_body_addrs_fun (addr)
+		if should_avoid_fun (f2) or has_complex_loop (f2):
+			stack = stack [ i + 1 : ]
+			break
+	return stack
+
+
 def refute_function_arcs (call_stack, arcs, ctxt_arcs):
 	last_refute_attempt[0] = (call_stack, arcs, ctxt_arcs)
 	f = identify_function (call_stack,
@@ -358,13 +370,7 @@ def refute_function_arcs (call_stack, arcs, ctxt_arcs):
 		print 'has loop: %s, skipping' % f
 		return
 
-	stack = list (call_stack [ - parent_ctxt_limit : ])
-	for (i, addr) in reversed (list (enumerate (stack))):
-		if has_complex_loop (body_addrs[addr]):
-			stack = stack [ i + 1 : ]
-			break
-
-	# how much stack to use?
+	stack = pick_stack_subset (call_stack)
 	arc_extras = call_stack_parent_arc_extras (call_stack, ctxt_arcs,
 		len (stack))
 
@@ -404,12 +410,20 @@ def refute_function_arcs (call_stack, arcs, ctxt_arcs):
 		new_refutes[f] = True
 		print 'added %s refutation %s: %s' % (f, stack, used_vis)
 
-# function limits. mostly used by loop_bounds, but also present in 
+# function limits. mostly used by loop_bounds, but also present here
 def function_limit (fname):
 	for hook in target_objects.hooks ('wcet_function_limits'):
 		if fname in hook:
 			return hook[fname]
 	return None
+
+# functions to avoid. won't ever include these in parent contexts for
+# arc refutations
+def should_avoid_fun (fname):
+	for hook in target_objects.hooks ('wcet_functions_to_avoid'):
+		if fname in hook:
+			return True
+	return False
 
 reachable_functions = {}
 
