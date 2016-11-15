@@ -896,7 +896,7 @@ def save_timing_metrics (num):
     time_ests = mk_timing_metrics ()
     import os
     f = open ('%s/LoopTimingMetrics.txt' % target_objects.target_dir, 'w')
-    f.write ('"%s"\n', short_name)
+    f.write ('"%s"\n' % short_name)
 
     for (split, ctxt, bound, ests) in time_ests:
       time = timing[(split, tuple (ctxt))]
@@ -905,7 +905,8 @@ def save_timing_metrics (num):
       else:
         bdata = '%d %d' % (bound[0], bound_kind_nums[bound[1]])
       (l_i, f_i, ct_i) = ests
-      f.write ('%s %s %s %s %s %s\n' % (l_i, f_i, ct_i, bdata, col, time))
+      f.write ('%s %s %s %s %s %r %s\n' % (short_name, l_i, f_i, ct_i,
+        bdata, col, time))
     f.close ()
 
 def get_loop_heads (fun):
@@ -948,7 +949,7 @@ if __name__ == '__main__':
     args = target_objects.load_target_args ()
     if args == ['search']:
       search_all_loops ()
-    elif args == ['metrics']:
+    elif args[:1] == ['metrics']:
       num = args[1:].index (str (target_objects.target_dir))
       save_timing_metrics (num)
 
