@@ -299,8 +299,10 @@ def all_reachable (p, addrs):
 		for i in range (len (addrs))
 		for j in range (i + 1, len (addrs))])
 
+parent_ctxt_limit = 3
+
 def call_stack_parent_arc_extras (stack, ctxt_arcs, max_length):
-	rng = range (1, len (stack))[ -3 : ]
+	rng = range (1, len (stack))[ - parent_ctxt_limit : ]
 	arc_extras = []
 	for i in rng:
 		prev_stack = stack[:i]
@@ -356,7 +358,7 @@ def refute_function_arcs (call_stack, arcs, ctxt_arcs):
 		print 'has loop: %s, skipping' % f
 		return
 
-	stack = list (call_stack [ -3: ])
+	stack = list (call_stack [ - parent_ctxt_limit : ])
 	for (i, addr) in reversed (list (enumerate (stack))):
 		if has_complex_loop (body_addrs[addr]):
 			stack = stack [ i + 1 : ]
