@@ -326,6 +326,7 @@ def has_complex_loop (fname):
 	if fname in has_complex_loop_cache:
 		return has_complex_loop_cache[fname]
 	p = functions[fname].as_problem (problem.Problem)
+	p.do_analysis ()
 	result = bool ([h for h in p.loop_heads ()
 		if problem.has_inner_loop (p, h)])
 	has_complex_loop_cache[fname] = result
