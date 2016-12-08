@@ -10,8 +10,6 @@
 # symbol table and on a disassembly of the .rodata section to build a
 # summary of the read-only data
 
-from syntax import structs, fresh_name, Struct, mk_word32
-from target_objects import sections, trace
 import re
 
 def build_syms (symtab):
@@ -42,6 +40,8 @@ def build_syms (symtab):
 is_rodata_line = re.compile('^\s*[0123456789abcdefABCDEF]+:\s')
 
 def build_rodata (rodata_stream):
+	from syntax import structs, fresh_name, Struct, mk_word32
+	from target_objects import sections, trace
 	rodata = {}
 	for line in rodata_stream:
 		if not is_rodata_line.match (line):
