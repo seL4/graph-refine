@@ -1037,9 +1037,12 @@ def interesting_linear_series_exprs (p, loop, va, tags = None,
 			import solver
 			fun = functions[node.fname]
 			arg_input_map = dict (azip (fun.inputs, node.args))
-			[pair] = [pair for pair in pairings[node.fname]
+			pairs = [pair for pair in pairings[node.fname]
 				if pair.tags == tags]
-			in_eq_vs = [(('Call', node.fname, i),
+			if not pairs:
+				continue
+			[pair] = pairs
+			in_eq_vs = [(('Call', pair.name, i),
 					var_subst (v, arg_input_map))
 				for (i, ((lhs, l_s), (rhs, r_s)))
 					in enumerate (pair.eqs[0])

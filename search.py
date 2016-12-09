@@ -633,6 +633,7 @@ def default_i_j_opts (unfold_limit = 9):
 	return lims
 
 necessary_split_opts_trace = []
+necessary_split_opts_long_trace = []
 
 def get_interesting_linear_series_exprs (p, head):
 	k = ('interesting_linear_series', head)
@@ -643,7 +644,7 @@ def get_interesting_linear_series_exprs (p, head):
 	p.cached_analysis[k] = res
 	return res
 
-def get_necessary_split_opts (p, head, restrs, hyps, tags = None):
+def get_necessary_split_opts (p, head, restrs, hyps, tags = None, iters = 8):
 	if not tags:
 		tags = p.pairing.tags
 
@@ -660,12 +661,13 @@ def get_necessary_split_opts (p, head, restrs, hyps, tags = None):
 	if not r_seq_vs:
 		return None
 
-	rep = rep_graph.mk_graph_slice (p)
+	rep = rep_graph.mk_graph_slice (p, fast = True)
 	def vis (n, i):
 		if n != p.loop_id (n):
 			i = i + 1
 		return (n, tuple ([(p.loop_id (n), vc_num (i))]) + restrs)
 	smt = lambda expr, n, i: rep.to_smt_expr (expr, vis (n, i))
+	smt_pc = lambda n, i: rep.get_pc (vis (n, i))
 
 	# remove duplicates by concretising
 	l_seq_vs = dict ([(smt (expr, n, 2), (kind, n, expr))
@@ -673,20 +675,37 @@ def get_necessary_split_opts (p, head, restrs, hyps, tags = None):
 	r_seq_vs = dict ([(smt (expr, n, 2), (kind, n, expr))
                 for n in r_seq_vs for (kind, expr) in r_seq_vs[n]]).values ()
 
-	hyps = hyps + [rep_graph.pc_true_hyp ((vis (n, 15), r_tag))
+	r_seq_end = 1 + 2 * iters
+	l_seq_end = 1 + iters
+
+	hyps = hyps + [rep_graph.pc_triv_hyp ((vis (n, r_seq_end), r_tag))
 		for n in set ([n for (_, n, _) in r_seq_vs])]
-	hyps = hyps + [rep_graph.pc_true_hyp ((vis (n, 9), l_tag))
+	hyps = hyps + [rep_graph.pc_triv_hyp ((vis (n, l_seq_end), l_tag))
 		for n in set ([n for (_, n, _) in l_seq_vs])]
+	ex_restrs = [(n, rep_graph.vc_upto (r_seq_end + 1))
+		for n in set ([p.loop_id (n) for (_, n, _) in r_seq_vs])]
+	hyps = hyps + [check.non_r_err_pc_hyp (tags,
+			restr_others (p, restrs + tuple (ex_restrs), 2))]
+
 	necessary_split_opts_trace[:] = []
+	necessary_split_opts_long_trace[:] = []
 	for (kind, n, expr) in sorted (l_seq_vs):
+		rel_r_seq_vs = [v for v in r_seq_vs if v[0] == kind]
+		if not rel_r_seq_vs:
+			necessary_split_opts_trace.append ((n, 'NoneRelevant'))
+			continue
 		m = {}
-		eq = mk_eq (smt (expr, n, 1), smt (expr, n, 9))
-		res = rep.test_hyp_whyps (eq, hyps, model = m)
+		eq = mk_eq (smt (expr, n, 1), smt (expr, n, l_seq_end))
+		ex_hyps = [rep_graph.pc_true_hyp ((vis (n, i), l_tag))
+			for i in range (1, l_seq_end + 1)]
+		res = rep.test_hyp_whyps (eq, hyps + ex_hyps, model = m)
+		necessary_split_opts_long_trace.append ((n, eq, hyps + ex_hyps,
+			res, m, smt, smt_pc, (kind, n, expr), r_seq_vs, iters))
 		if not m:
 			necessary_split_opts_trace.append ((n, None))
 			continue
-		seq_eq = get_linear_seq_eq (rep, m, smt, (kind, n, expr),
-			r_seq_vs)
+		seq_eq = get_linear_seq_eq (rep, m, smt, smt_pc,
+			(kind, n, expr), r_seq_vs, iters)
 		necessary_split_opts_trace.append ((n, ('Seq', seq_eq)))
 		if not seq_eq:
 			continue
@@ -695,8 +714,8 @@ def get_necessary_split_opts (p, head, restrs, hyps, tags = None):
 			(vis (n, l_start + (i * l_step)), l_tag)),
 			(expr2, (vis (n2, r_start + (i * r_step)), r_tag)))
 			for i in range (10)
-			if l_start + (i * l_step) <= 9
-			if r_start + (i * r_step) <= 15]
+			if l_start + (i * l_step) <= l_seq_end
+			if r_start + (i * r_step) <= r_seq_end]
 		eq = foldr1 (mk_and, map (rep.interpret_hyp, eqs))
 		if rep.test_hyp_whyps (eq, hyps):
 			mk_i = lambda i: (l_start + (i * l_step), l_step)
@@ -714,19 +733,21 @@ def get_necessary_split_opts (p, head, restrs, hyps, tags = None):
 
 linear_seq_eq_trace = []
 
-def get_linear_seq_eq (rep, m, smt, expr1, expr2s):
+def get_linear_seq_eq (rep, m, smt, smt_pc, expr1, expr2s, iters):
 	def get_seq ((_, n, expr), k):
-		return [eval_model_expr (m, rep.solv, smt (expr, n, i))
+		return [(eval_model_expr (m, rep.solv, smt_pc (n, i)),
+				eval_model_expr (m, rep.solv, smt (expr, n, i)))
 			for i in range (k)]
-	l_seq = get_seq (expr1, 10)
-	r_seqs = [(n, expr, get_seq ((kind, n, expr), 16))
+	l_seq = get_seq (expr1, iters + 2)
+	r_seqs = [(n, expr, get_seq ((kind, n, expr), iters * 2))
 		for (kind, n, expr) in expr2s
 		if kind == expr1[0]]
+	linear_seq_eq_trace.append (('Matching len', len (r_seqs), l_seq))
 
 	for (n, expr, r_seq) in sorted (r_seqs):
 		r_seq_ids = dict ([(v, i) for (i, v) in enumerate (r_seq)])
 		k_seq = [r_seq_ids.get (v) for v in l_seq]
-		linear_seq_eq_trace.append ((n, expr, k_seq))
+		linear_seq_eq_trace.append ((n, expr, k_seq, r_seq))
 		linear_seq_eq_trace[:-10] = []
 		if None in k_seq[1:4]:
 			continue
