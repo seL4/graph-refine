@@ -644,7 +644,7 @@ def get_interesting_linear_series_exprs (p, head):
 	p.cached_analysis[k] = res
 	return res
 
-def get_necessary_split_opts (p, head, restrs, hyps, tags = None, iters = 8):
+def get_necessary_split_opts (p, head, restrs, hyps, tags = None, iters = None):
 	if not tags:
 		tags = p.pairing.tags
 
@@ -675,8 +675,16 @@ def get_necessary_split_opts (p, head, restrs, hyps, tags = None, iters = 8):
 	r_seq_vs = dict ([(smt (expr, n, 2), (kind, n, expr))
                 for n in r_seq_vs for (kind, expr) in r_seq_vs[n]]).values ()
 
+	if iters == None:
+		if [n for n in p.loop_body (head) if p.nodes[n].kind == 'Call']:
+			iters = 5
+		else:
+			iters = 8
+
 	r_seq_end = 1 + 2 * iters
 	l_seq_end = 1 + iters
+	l_seq_ineq = 1 + max ([1 << n for n in range (iters)
+		if 1 << n <= iters])
 
 	hyps = hyps + [rep_graph.pc_triv_hyp ((vis (n, r_seq_end), r_tag))
 		for n in set ([n for (_, n, _) in r_seq_vs])]
@@ -695,7 +703,7 @@ def get_necessary_split_opts (p, head, restrs, hyps, tags = None, iters = 8):
 			necessary_split_opts_trace.append ((n, 'NoneRelevant'))
 			continue
 		m = {}
-		eq = mk_eq (smt (expr, n, 1), smt (expr, n, l_seq_end))
+		eq = mk_eq (smt (expr, n, 1), smt (expr, n, l_seq_ineq))
 		ex_hyps = [rep_graph.pc_true_hyp ((vis (n, i), l_tag))
 			for i in range (1, l_seq_end + 1)]
 		res = rep.test_hyp_whyps (eq, hyps + ex_hyps, model = m)
