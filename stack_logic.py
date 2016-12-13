@@ -182,7 +182,7 @@ def get_ptr_offsets (p, n_ptrs, bases, hyps = []):
 			if off != None:
 				offs.append ((v, off, k))
 				break
-		trace ('get_ptr_offs fallthrough at %d: %s' % v) 
+		trace ('get_ptr_offs fallthrough at %d: %s' % v)
 	return offs
 
 def get_extra_sp_defs (rep, tag):
@@ -198,7 +198,8 @@ def get_extra_sp_defs (rep, tag):
 	items = [(n_vc, x) for (n_vc, x) in rep.funcs.iteritems ()
 		if logic.is_int (n_vc[0])
 		if get_asm_calling_convention (rep.p.nodes[n_vc[0]].fname)
-			or assume_sp_equal]
+			or assume_sp_equal
+			or rep.p.nodes[n_vc[0]].fname in target_objects.symbols]
 	for ((n, vc), (inputs, outputs, _)) in items:
 		if rep.p.node_tags[n][0] == tag:
 			inp_sp = solver.smt_expr (sp, inputs, rep.solv)
@@ -853,7 +854,7 @@ def get_asm_calling_convention (fname):
 		return asm_cc_cache[fname]
 	if fname not in pre_pairings:
 		bits = fname.split ("'")
-		if bits[:1] not in [["impl", "instruction"]]:
+		if bits[:1] not in [["impl"], ["instruction"]]:
 			trace ("Warning: unusual unmatched function (%s, %s)."
 				% (fname, bits))
 		return None
