@@ -191,7 +191,7 @@ def check_all (omit_set = set (), loops = True, tags = None,
 	r = check_pairs (pairs, loops = loops, report_mode = report_mode)
 	if omitted:
 		printout ('  - %d pairings omitted: %s'
-			% (len (omitted), omitted))
+			% (len (omitted), [pair.name for pair in omitted]))
 	return r
 
 def check_deps (fname, report_mode = False):
