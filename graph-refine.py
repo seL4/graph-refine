@@ -224,6 +224,7 @@ def main (args):
 	tags = set ()
 	report = True
 	result = 'True'
+	pairs_to_check = []
 	for arg in args:
 		r = 'True'
 		try:
@@ -265,14 +266,18 @@ def main (args):
 				r = check_deps (arg[5:],
 					report_mode = report)
 			else:
-				if arg not in excludes:
-					r = check_search (arg, tags = tags,
-						report_mode = report,
-						check_loops = loops)
+				r = name_search (arg, tags = tags)
+				if r != None:
+					pairs_to_check.append (r)
+					r = 'True'
 		except Exception, e:
 			print 'EXCEPTION in syscall arg %s:' % arg
 			print traceback.format_exc ()
 			r = 'ProofEXCEPT'
+		result = comb_results (r, result)
+	if pairs_to_check:
+		r = check_pairs (pairs_to_check, loops = loops,
+			report_mode = report)
 		result = comb_results (r, result)
 	return result
 
