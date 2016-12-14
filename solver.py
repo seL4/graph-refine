@@ -1109,9 +1109,7 @@ class Solver:
 		if model != None:
 			cmds.append (self.fetch_model_request ())
 
-		for hyp in hyps:
-			trace ('  %s' % hyp)
-		trace ('  --> parallel')
+		trace ('  --> new parallel solver %s' % str (k))
 
 		if k in self.parallel_solvers:
 			raise IndexError ('duplicate parallel solver ID', k)
@@ -1132,6 +1130,7 @@ class Solver:
 		(hyps, proc, output, solver, model) = self.parallel_solvers[k]
 		del self.parallel_solvers[k]
 		response = output.readline ().strip ()
+		trace ('  <-- parallel solver %s closed: %s' % (k, response))
 		if response not in ['sat', 'unsat']:
 			trace ('SMT conversation problem in parallel solver')
 		trace ('Got %r from %s in parallel.' % (response, solver.name))
