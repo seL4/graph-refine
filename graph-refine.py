@@ -270,6 +270,8 @@ def main (args):
 				if r != None:
 					pairs_to_check.append (r)
 					r = 'True'
+				else:
+					r = 'None'
 		except Exception, e:
 			print 'EXCEPTION in syscall arg %s:' % arg
 			print traceback.format_exc ()
