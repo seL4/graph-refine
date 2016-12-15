@@ -280,6 +280,7 @@ class GraphSlice:
 		self.p = p
 		self.solv = solv
 		self.inp_envs = {}
+		self.mem_calls = {}
 		self.add_input_envs ()
 
 		self.node_pc_envs = {}
@@ -390,10 +391,12 @@ class GraphSlice:
 		if prev_pc_env == None:
 			return None
 		(_, prev_env) = prev_pc_env
+		mem_calls = self.scan_mem_calls (prev_env)
+		mem_calls = self.add_loop_mem_calls (split, mem_calls)
 		def av (nm, typ, mem_name = None):
 			nm2 = '%s_loop_at_%s' % (nm, split)
-			return self.solv.add_var (nm2, typ,
-				mem_name = mem_name)
+			return self.add_var (nm2, typ,
+				mem_name = mem_name, mem_calls = mem_calls)
 		env = {}
 		consts = set ()
 		for (nm, typ) in prev_env:
@@ -583,6 +586,13 @@ class GraphSlice:
 			smt_name = self.solv.add_def (name, val, env)
 		return smt_name
 
+	def add_var (self, name, typ, mem_name = None, mem_calls = None):
+		r = self.solv.add_var_restr (name, typ, mem_name = mem_name)
+		if typ == syntax.builtinTs['Mem']:
+			r_x = solver.parse_s_expression (r)
+			self.mem_calls[r_x] = mem_calls
+		return r
+
 	def var_rep_request (self, (nm, typ), kind, n_vc, env):
 		assert type (n_vc[0]) != str
 		for hook in target_objects.hooks ('problem_var_rep'):
@@ -654,10 +664,12 @@ class GraphSlice:
 			fun = functions[node.fname]
 			ins = dict ([((x, typ), smt_expr (app_eqs (arg), env, self.solv))
 				for ((x, typ), arg) in azip (fun.inputs, node.args)])
-			mem_name = None
 			for (x, typ) in reversed (fun.inputs):
 				if typ == builtinTs['Mem']:
-					mem_name = (node.fname, ins[(x, typ)])
+					inp_mem = ins[(x, typ)]
+					mem_name = (node.fname, inp_mem)
+			mem_calls = self.scan_mem_calls (ins)
+			mem_calls = self.add_mem_call (node.fname, mem_calls)
 			outs = {}
 			for ((x, typ), (y, typ2)) in azip (node.rets, fun.outputs):
 				assert typ2 == typ
@@ -665,8 +677,9 @@ class GraphSlice:
 					outs[(y, typ2)] = env [(x, typ)]
 					continue
 				name = self.local_name (x, n)
-				env[(x, typ)] = self.solv.add_var_restr (name,
-					typ, mem_name = mem_name)
+				env[(x, typ)] = self.add_var (name, typ,
+					mem_name = mem_name,
+					mem_calls = mem_calls)
 				outs[(y, typ2)] = env[(x, typ)]
 			for ((x, typ), (y, _)) in azip (node.rets, fun.outputs):
 				z = self.var_rep_request ((x, typ),
@@ -763,7 +776,7 @@ class GraphSlice:
 
 		return self.funcs[n_vc]
 
-	def get_func_pairing (self, n_vc, n_vc2):
+	def get_func_pairing_nocheck (self, n_vc, n_vc2):
 		fnames = [self.p.nodes[n_vc[0]].fname,
 			self.p.nodes[n_vc2[0]].fname]
 		pairs = [pair for pair in pairings[list (fnames)[0]]
@@ -775,6 +788,22 @@ class GraphSlice:
 			return (pair, n_vc, n_vc2)
 		else:
 			return (pair, n_vc2, n_vc)
+
+	def get_func_pairing (self, n_vc, n_vc2):
+		res = self.get_func_pairing_nocheck (n_vc, n_vc2)
+		if not res:
+			return res
+		(pair, l_n_vc, r_n_vc) = res
+		(lin, _, _) = self.funcs[l_n_vc]
+		(rin, _, _) = self.funcs[r_n_vc]
+		l_mem_calls = self.scan_mem_calls (lin)
+		r_mem_calls = self.scan_mem_calls (rin)
+		tags = pair.tags
+		if not mem_calls_compatible (tags, l_mem_calls, r_mem_calls):
+			trace ('skipped emitting func pairing %s -> %s'
+				% (l_n_vc, r_n_vc))
+			return None
+		return res
 
 	def get_func_assert (self, n_vc, n_vc2):
 		(pair, l_n_vc, r_n_vc) = self.get_func_pairing (n_vc, n_vc2)
@@ -807,6 +836,63 @@ class GraphSlice:
 		bits = [str (n)] + ['%s=%s' % (split, count)
 			for (split, count) in vcount]
 		return '_'.join (bits)
+
+	def get_mem_calls (self, mem_sexpr):
+		mem_sexpr = solver.parse_s_expression (mem_sexpr)
+		return self.get_mem_calls_sexpr (mem_sexpr)
+
+	def get_mem_calls_sexpr (self, mem_sexpr):
+		stores = set (['store-word32', 'store-word8', 'store-word64'])
+		if mem_sexpr in self.mem_calls:
+			return self.mem_calls[mem_sexpr]
+		elif len (mem_sexpr) == 4 and mem_sexpr[0] in stores:
+			return self.get_mem_calls_sexpr (mem_sexpr[1])
+		elif mem_sexpr[:1] == ('ite', ):
+			(_, _, x, y) = mem_sexpr
+			x_calls = self.get_mem_calls_sexpr (x)
+			y_calls = self.get_mem_calls_sexpr (y)
+			return merge_mem_calls (x_calls, y_calls)
+		elif mem_sexpr in self.solv.defs:
+			mem_sexpr = self.solv.defs[mem_sexpr]
+			return self.get_mem_calls_sexpr (mem_sexpr)
+		assert not "mem_calls fallthrough", mem_sexpr
+
+	def scan_mem_calls (self, env):
+		for (nm, typ) in env:
+			if typ == syntax.builtinTs['Mem']:
+				v = env[(nm, typ)]
+				if v[0] == 'SplitMem':
+					continue
+				return self.get_mem_calls (v)
+		return None
+
+	def add_mem_call (self, fname, mem_calls):
+		if mem_calls == None:
+			return None
+		mem_calls = dict (mem_calls)
+		(min_calls, max_calls) = mem_calls.get (fname, (0, 0))
+		if max_calls == None:
+			mem_calls[fname] = (min_calls + 1, None)
+		else:
+			mem_calls[fname] = (min_calls + 1, max_calls + 1)
+		return mem_calls
+
+	def add_loop_mem_calls (self, split, mem_calls):
+		if mem_calls == None:
+			return None
+		fnames = set ([self.p.nodes[n].fname
+			for n in self.p.loop_body (split)
+			if self.p.nodes[n].kind == 'Call'])
+		if not fnames:
+			return mem_calls
+		mem_calls = dict (mem_calls)
+		for fname in fnames:
+			if fname not in mem_calls:
+				mem_calls[fname] = (0, None)
+			else:
+				(min_calls, max_calls) = mem_calls[fname]
+				mem_calls[fname] = (min_calls, None)
+		return mem_calls
 
 	# note these names are designed to be unique by suffix
 	# (so that smt names are independent of order of requests)
@@ -1044,13 +1130,46 @@ def print_hyps (hyps):
 		printed_hyps[hname] = hyps
 		trace ('hyps = %s' % hname)
 
+def merge_mem_calls (mem_calls_x, mem_calls_y):
+	if mem_calls_x == mem_calls_y:
+		return mem_calls_x
+	mem_calls = {}
+	for fname in set (mem_calls_x.keys () + mem_calls_y.keys ()):
+		(min_x, max_x) = mem_calls_x.get (fname, (0, 0))
+		(min_y, max_y) = mem_calls_y.get (fname, (0, 0))
+		if None in [max_x, max_y]:
+			max_v = None
+		else:
+			max_v = max (max_x, max_y)
+		mem_calls[fname] = (min (min_x, min_y), max_v)
+	return mem_calls
+
+def mem_calls_compatible (tags, l_mem_calls, r_mem_calls):
+	r_cast_calls = {}
+	for (fname, calls) in l_mem_calls.iteritems ():
+		pairs = [pair for pair in pairings[fname]
+			if pair.tags == tags]
+		if not pairs:
+			return None
+		assert len (pairs) <= 1, pairs
+		[pair] = pairs
+		r_cast_calls[pair.funs[tags[1]]] = calls
+	for fname in set (r_cast_calls.keys () + r_mem_calls.keys ()):
+		r_cast = r_cast_calls.get (fname, (0, 0))
+		r_actual = r_mem_calls.get (fname, (0, 0))
+		if r_cast[1] != None and r_cast[1] < r_actual[0]:
+			return None
+		if r_actual[1] != None and r_actual[1] < r_cast[0]:
+			return None
+	return True
+
 def mk_inp_env (n, args, rep):
 	trace ('rep_graph setting up input env at %d' % n, push = 1)
 	inp_env = {}
 
 	for (v_nm, typ) in args:
-		inp_env[(v_nm, typ)] = rep.solv.add_var_restr (v_nm + '_init',
-			typ, mem_name = 'Init')
+		inp_env[(v_nm, typ)] = rep.add_var (v_nm + '_init', typ,
+			mem_name = 'Init', mem_calls = {})
 	for (v_nm, typ) in args:
 		z = rep.var_rep_request ((v_nm, typ), 'Init', (n, ()), inp_env)
 		if z:
