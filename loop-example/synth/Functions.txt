@@ -1,0 +1,52 @@
+# * Copyright 2016, Data61
+# *
+# * This software may be distributed and modified according to the terms of
+# * the BSD 2-Clause license. Note that NO WARRANTY is provided.
+# * See "LICENSE_BSD2.txt" for details.
+# *
+# * @TAG(NICTA_BSD)
+
+# this loop unrolling example is synthetic. it's an approximation of how
+# the compiler *might* unroll a function like this:
+
+# void g (int x);
+# void
+# f (int x) {
+#   int y;
+#   for (y = 0; y < x; y ++) {
+#     g (y);
+#   }
+# }
+
+Function g 2 x#v Word 32 Mem Mem 1 Mem Mem
+Function g_impl 2 x#v Word 32 Mem Mem 1 Mem Mem
+
+Function f 2 x#v Word 32 Mem Mem 1 Mem Mem
+1 Basic 2 1 y#v Word 32 Num 0 Word 32
+2 Cond 3 Ret Op SignedLess Bool 2 Var y#v Word 32 Var x#v Word 32
+3 Call 4 g 2 Var y#v Word 32 Var Mem Mem 1 Mem Mem
+4 Basic 2 1 y#v Word 32 Op Plus Word 32 2 Var y#v Word 32 Num 1 Word 32
+EntryPoint 1
+
+
+Function f_impl 2 x#v Word 32 Mem Mem 1 Mem Mem
+1 Cond 2 Ret Op SignedLess Bool 2 Num 0 Word 32 Var x#v Word 32
+2 Call 3 g_impl 2 Num 0 Word 32 Var Mem Mem 1 Mem Mem
+3 Cond 4 Ret Op SignedLess Bool 2 Num 1 Word 32 Var x#v Word 32
+4 Call 5 g_impl 2 Num 1 Word 32 Var Mem Mem 1 Mem Mem
+5 Cond 6 Ret Op SignedLess Bool 2 Num 2 Word 32 Var x#v Word 32
+6 Call 7 g_impl 2 Num 2 Word 32 Var Mem Mem 1 Mem Mem
+7 Cond 8 Ret Op SignedLess Bool 2 Num 3 Word 32 Var x#v Word 32
+8 Call 9 g_impl 2 Num 3 Word 32 Var Mem Mem 1 Mem Mem
+# we've now executed g_impl 2 4 times, if 3 < x
+# if x is even, begin executing g_impl 2 pairs
+# if odd, execute one more time
+9 Basic 10 1 y#v Word 32 Num 4 Word 32
+10 Cond 11 13 Op Equals Bool 2 Op BWAnd Bool 2 Var x#v Word 32 Num 1 Word 32 Num 1 Word 32
+11 Call 12 g_impl 2 Num 4 Word 32 Var Mem Mem 1 Mem Mem
+12 Basic 13 1 y#v Word 32 Op Plus Word 32 2 Var y#v Word 32 Num 1 Word 32
+13 Cond 14 Ret Op SignedLess Bool 2 Var y#v Word 32 Var x#v Word 32
+14 Call 15 g_impl 2 Var y#v Word 32 Var Mem Mem 1 Mem Mem
+15 Basic 13 1 y#v Word 32 Op Plus Word 32 2 Var y#v Word 32 Num 2 Word 32
+EntryPoint 1
+
