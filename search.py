@@ -16,7 +16,7 @@ import rep_graph
 from syntax import (mk_and, mk_cast, mk_implies, mk_not, mk_uminus, mk_var,
 	foldr1, boolT, word32T, word8T, builtinTs, true_term, false_term,
 	mk_word32, mk_word8, mk_times, Expr, Type, mk_or, mk_eq, mk_memacc,
-	mk_num)
+	mk_num, mk_minus)
 import syntax
 import logic
 
@@ -414,7 +414,7 @@ def eval_model (m, s, toplevel = None):
 			result = eval_model (m, y, toplevel)
 		m[s] = result
 		return result
-	
+
 	xs = [eval_model (m, x, toplevel) for x in s[1:]]
 
 	if op[0] == '_' and op[1] in ['zero_extend', 'sign_extend']:
@@ -591,7 +591,7 @@ def eq_known (knowledge, vpair):
 def find_split_loop (p, head, restrs, hyps, unfold_limit = 9):
 	assert p.loop_data[head][0] == 'Head'
 	assert p.node_tags[head][0] == p.pairing.tags[0]
-	
+
 	# the idea is to loop through testable hyps, starting with ones that
 	# need smaller models (the most unfolded models will time out for
 	# large problems like finaliseSlot)
@@ -619,21 +619,29 @@ def find_split_loop (p, head, restrs, hyps, unfold_limit = 9):
 	raise NoSplit ()
 
 def default_i_j_opts (unfold_limit = 9):
-	i_seq_opts = [(0, 1), (1, 1), (2, 1), (3, 1)]
-	j_seq_opts = [(0, 1), (0, 2), (1, 1), (1, 2), (2, 1), (2, 2), (3, 1)]
+	return mk_i_j_opts (unfold_limit = unfold_limit)
+
+def mk_i_j_opts (i_seq_opts = None, j_seq_opts = None, unfold_limit = 9):
+	if i_seq_opts == None:
+		i_seq_opts = [(0, 1), (1, 1), (2, 1), (3, 1)]
+	if j_seq_opts == None:
+		j_seq_opts = [(0, 1), (0, 2), (1, 1), (1, 2),
+			(2, 1), (2, 2), (3, 1)]
+	all_opts = set (i_seq_opts + j_seq_opts)
 
 	def filt (opts, lim):
 		return [(start, step) for (start, step) in opts
 			if start + (2 * step) + 1 <= lim]
 
 	lims = [(filt (i_seq_opts, lim), filt (j_seq_opts, lim))
-		for lim in range (unfold_limit)]
+		for lim in range (unfold_limit)
+		if [1 for (start, step) in all_opts
+			if start + (2 * step) + 1 == lim]]
 	lims = [(i_opts, j_opts) for (i_opts, j_opts) in lims
 		if i_opts and j_opts]
 	return lims
 
 necessary_split_opts_trace = []
-necessary_split_opts_long_trace = []
 
 def get_interesting_linear_series_exprs (p, head):
 	k = ('interesting_linear_series', head)
@@ -644,7 +652,7 @@ def get_interesting_linear_series_exprs (p, head):
 	p.cached_analysis[k] = res
 	return res
 
-def get_necessary_split_opts (p, head, restrs, hyps, tags = None, iters = None):
+def get_necessary_split_opts (p, head, restrs, hyps, tags = None):
 	if not tags:
 		tags = p.pairing.tags
 
@@ -670,102 +678,86 @@ def get_necessary_split_opts (p, head, restrs, hyps, tags = None, iters = None):
 	smt_pc = lambda n, i: rep.get_pc (vis (n, i))
 
 	# remove duplicates by concretising
-	l_seq_vs = dict ([(smt (expr, n, 2), (kind, n, expr))
-		for n in l_seq_vs for (kind, expr) in l_seq_vs[n]]).values ()
-	r_seq_vs = dict ([(smt (expr, n, 2), (kind, n, expr))
-                for n in r_seq_vs for (kind, expr) in r_seq_vs[n]]).values ()
+	l_seq_vs = dict ([(smt (expr, n, 2), (kind, n, expr, offs))
+		for n in l_seq_vs for (kind, expr, offs) in l_seq_vs[n]]).values ()
+	r_seq_vs = dict ([(smt (expr, n, 2), (kind, n, expr, offs))
+                for n in r_seq_vs for (kind, expr, offs) in r_seq_vs[n]]).values ()
 
-	if iters == None:
-		if [n for n in p.loop_body (head) if p.nodes[n].kind == 'Call']:
-			iters = 5
-		else:
-			iters = 8
-
-	r_seq_end = 1 + 2 * iters
-	l_seq_end = 1 + iters
-	l_seq_ineq = 1 + max ([1 << n for n in range (iters)
-		if 1 << n <= iters])
-
-	hyps = hyps + [rep_graph.pc_triv_hyp ((vis (n, r_seq_end), r_tag))
-		for n in set ([n for (_, n, _) in r_seq_vs])]
-	hyps = hyps + [rep_graph.pc_triv_hyp ((vis (n, l_seq_end), l_tag))
-		for n in set ([n for (_, n, _) in l_seq_vs])]
-	ex_restrs = [(n, rep_graph.vc_upto (r_seq_end + 1))
-		for n in set ([p.loop_id (n) for (_, n, _) in r_seq_vs])]
+	hyps = hyps + [rep_graph.pc_triv_hyp ((vis (n, 3), r_tag))
+		for n in set ([n for (_, n, _, _) in r_seq_vs])]
+	hyps = hyps + [rep_graph.pc_triv_hyp ((vis (n, 3), l_tag))
+		for n in set ([n for (_, n, _, _) in l_seq_vs])]
 	hyps = hyps + [check.non_r_err_pc_hyp (tags,
-			restr_others (p, restrs + tuple (ex_restrs), 2))]
+			restr_others (p, restrs, 2))]
 
 	necessary_split_opts_trace[:] = []
-	necessary_split_opts_long_trace[:] = []
-	for (kind, n, expr) in sorted (l_seq_vs):
+	for (kind, n, expr, offs) in sorted (l_seq_vs):
 		rel_r_seq_vs = [v for v in r_seq_vs if v[0] == kind]
 		if not rel_r_seq_vs:
-			necessary_split_opts_trace.append ((n, 'NoneRelevant'))
+			necessary_split_opts_trace.append ((n, kind, 'NoneRelevant'))
 			continue
 		m = {}
-		eq = mk_eq (smt (expr, n, 1), smt (expr, n, l_seq_ineq))
-		ex_hyps = [rep_graph.pc_true_hyp ((vis (n, i), l_tag))
-			for i in range (1, l_seq_end + 1)]
+		offs_smt = smt (offs, n, 1)
+		eq = mk_eq (mk_times (offs_smt, mk_num (4, offs_smt.typ)),
+			mk_num (0, offs_smt.typ))
+		ex_hyps = [rep_graph.pc_true_hyp ((vis (n, 1), l_tag)),
+			rep_graph.pc_true_hyp ((vis (n, 2), l_tag))]
 		res = rep.test_hyp_whyps (eq, hyps + ex_hyps, model = m)
-		necessary_split_opts_long_trace.append ((n, eq, hyps + ex_hyps,
-			res, m, smt, smt_pc, (kind, n, expr), r_seq_vs, iters))
 		if not m:
-			necessary_split_opts_trace.append ((n, None))
+			necessary_split_opts_trace.append ((n, kind, 'NoModel'))
 			continue
 		seq_eq = get_linear_seq_eq (rep, m, smt, smt_pc,
-			(kind, n, expr), r_seq_vs, iters)
-		necessary_split_opts_trace.append ((n, ('Seq', seq_eq)))
+			(kind, n, expr, offs), r_seq_vs)
 		if not seq_eq:
 			continue
+		necessary_split_opts_trace.append ((n, kind, ('Seq', seq_eq)))
 		((n2, expr2), (l_start, l_step), (r_start, r_step)) = seq_eq
 		eqs = [rep_graph.eq_hyp ((expr,
 			(vis (n, l_start + (i * l_step)), l_tag)),
 			(expr2, (vis (n2, r_start + (i * r_step)), r_tag)))
-			for i in range (10)
-			if l_start + (i * l_step) <= l_seq_end
-			if r_start + (i * r_step) <= r_seq_end]
+			for i in range (2)]
 		eq = foldr1 (mk_and, map (rep.interpret_hyp, eqs))
 		if rep.test_hyp_whyps (eq, hyps):
-			mk_i = lambda i: (l_start + (i * l_step), l_step)
-			mk_j = lambda j: (r_start + (j * r_step), r_step)
-			return [([mk_i (0)], [mk_j (0)]),
-				([mk_i (0), mk_i (1)], [mk_j (0), mk_j (1)])]
+			return mk_i_j_opts ([(l_start + i, l_step)
+					for i in range (r_step + 1)],
+				[(r_start + i, r_step)
+					for i in range (l_step + 1)],
+				unfold_limit = 100)
 		n_vcs = entry_path_no_loops (rep, l_tag, m, head)
 		path_hyps = [rep_graph.pc_true_hyp ((n_vc, l_tag)) for n_vc in n_vcs]
 		if rep.test_hyp_whyps (eq, hyps + path_hyps):
 			# immediate case split on difference between entry paths
 			checks = [(hyps, eq_hyp, 'eq') for eq_hyp in eqs]
 			return derive_case_split (rep, n_vcs, checks)
-		necessary_split_opts_trace.append ((n, 'Seq check failed'))
+		necessary_split_opts_trace.append ((n, kind, (l_start, l_step),
+			(r_start, r_step), 'Seq check failed'))
 	return None
 
-linear_seq_eq_trace = []
+def get_linear_seq_eq (rep, m, smt, smt_pc, expr1, expr2s):
+	def get_int_min (expr):
+		v = eval_model_expr (m, rep.solv, expr)
+		assert v.kind == 'Num', v
+		vs = [v.val + (i << v.typ.num) for i in range (-2, 3)]
+		(_, v) = min ([(abs (v), v) for v in vs])
+		return v
+	(kind, n1, expr, offs) = expr1
+	expr_init = smt (expr, n1, 0)
+	expr_v = get_int_min (expr_init)
+	offs_v = get_int_min (smt (offs, n1, 1))
+	r_seqs = [(n, expr, get_int_min (mk_minus (expr_init, smt (expr, n, 0))),
+			get_int_min (smt (offs, n, 0)))
+		for (kind2, n, expr, offs) in expr2s
+		if kind2 == kind]
 
-def get_linear_seq_eq (rep, m, smt, smt_pc, expr1, expr2s, iters):
-	def get_seq ((_, n, expr), k):
-		return [(eval_model_expr (m, rep.solv, smt_pc (n, i)),
-				eval_model_expr (m, rep.solv, smt (expr, n, i)))
-			for i in range (k)]
-	l_seq = get_seq (expr1, iters + 2)
-	r_seqs = [(n, expr, get_seq ((kind, n, expr), iters * 2))
-		for (kind, n, expr) in expr2s
-		if kind == expr1[0]]
-	linear_seq_eq_trace.append (('Matching len', len (r_seqs), l_seq))
-
-	for (n, expr, r_seq) in sorted (r_seqs):
-		r_seq_ids = dict ([(v, i) for (i, v) in enumerate (r_seq)])
-		k_seq = [r_seq_ids.get (v) for v in l_seq]
-		linear_seq_eq_trace.append ((n, expr, k_seq, r_seq))
-		linear_seq_eq_trace[:-10] = []
-		if None in k_seq[1:4]:
-			continue
-		ds = [k_seq[i + 1] - k_seq[i] for i in range (1, 3)]
-		if len (set (ds)) > 1:
-			continue
-		if k_seq[0] != None:
-			return ((n, expr), (0, 1), (k_seq[0], ds.pop ()))
-		else:
-			return ((n, expr), (1, 1), (k_seq[1], ds.pop ()))
+	for (n, expr, diff, offs_v2) in sorted (r_seqs):
+		mult = offs_v / offs_v2
+		if offs_v % offs_v2 != 0 or mult > 8:
+			necessary_split_opts_trace.append (('StepWrong', offs_v,
+				offs_v2))
+		if diff % offs_v2 != 0 or diff < 0 or (diff / offs_v2) > 8:
+			necessary_split_opts_trace.append (('StartWrong', diff,
+				offs_v2))
+		return ((n, expr), (0, 1), (diff / offs_v2, mult))
 	return None
 
 last_failed_pairings = []
@@ -786,7 +778,7 @@ def setup_split_search (rep, head, restrs, hyps,
 	loop_elts = [(n, start, step) for n in p.splittable_points (head)
 		for (start, step) in i_opts]
 	init_to_split = init_loops_to_split (p, restrs)
-	r_to_split = [n for n in init_to_split if p.node_tags[n][0] == r_tag] 
+	r_to_split = [n for n in init_to_split if p.node_tags[n][0] == r_tag]
 	cand_r_loop_elts = [(n2, start, step) for n in r_to_split
 		for n2 in p.splittable_points (n)
 		for (start, step) in j_opts]
@@ -1355,6 +1347,6 @@ def use_split_searcher (p, split):
 		if xs <= ys:
 			return ('Split', split)
 		else:
-			return default_searcher (p, restrs, hyps)		
+			return default_searcher (p, restrs, hyps)
 	return searcher
 

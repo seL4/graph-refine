@@ -936,55 +936,73 @@ def compute_var_cycle_analysis (nodes, n, loop, preds, const_vars, vs,
 			vca[v] = 'LoopVariable'
 	return vca
 
-expr_linear_sum = set (['Plus', 'Minus', 'Times'])
+expr_linear_sum = set (['Plus', 'Minus'])
 expr_linear_cast = set (['WordCast', 'WordCastSigned'])
 
 def lv_expr (expr, env):
 	if expr in env:
 		return env[expr]
 	elif expr.kind in set (['Num', 'Symbol', 'Type', 'Token']):
-		return (expr, 'LoopConst')
+		return (expr, 'LoopConst', None)
 	elif expr.kind == 'Var':
-		return (None, None)
+		return (None, None, None)
 	elif expr.kind != 'Op':
 		assert expr in env, expr
 
-	rs = [lv_expr (v, env)[1] for v in expr.vals]
+	lvs = [lv_expr (v, env)[1] for v in expr.vals]
+	rs = [lv[1] for lv in lvs]
+	arg_offs = [lv[2] for lv in lvs]
+	mk_offs = lambda vals: syntax.Expr (expr.name, expr.typ, vals = vals)
 	if None in rs:
-		return (None, None)
+		return (None, None, None)
 	if set (rs) == set (['LoopConst']):
-		return (expr, 'LoopConst')
+		return (expr, 'LoopConst', None)
 	if expr.is_op (expr_linear_sum):
 		if set (rs) == set (['LoopLinearSeries', 'LoopConst']):
-			return (expr, 'LoopLinearSeries')
+			[linear_offs] = [off for (_, k, offs) in lvs
+				if k == 'LoopLinearSeries']
+			return (expr, 'LoopLinearSeries', linear_offs)
+		elif set (rs) == set (['LoopLinearSeries']):
+			return (expr, 'LoopLinearSeries', mk_offs (arg_offs))
+	elif expr.is_op ('Times'):
+		if set (rs) == set (['LoopLinearSeries', 'LoopConst']):
+			# the new offset is the product of the linear offset
+			# and the constant value
+			[linear_offs] = [off for (_, k, offs) in lvs
+				if k == 'LoopLinearSeries']
+			[const_value] = [v for (v, k, _) in lvs
+				if k == 'LoopConst']
+			return (expr, 'LoopLinearSeries',
+				mk_offs ([linear_offs, const_value]))
 	if expr.is_op ('ShiftLeft'):
 		if rs == ['LoopLinearSeries', 'LoopConst']:
-			return (expr, 'LoopLinearSeries')
+			return (expr, 'LoopLinearSeries',
+				mk_offs ([lvs[0][0], arg_offs[1]]))
 	if expr.is_op (expr_linear_cast):
 		if rs == ['LoopLinearSeries']:
-			return (expr, 'LoopLinearSeries')
-	return (None, None)
+			return (expr, 'LoopLinearSeries', mk_offs (arg_offs))
+	return (None, None, None)
 
 # FIXME: this should probably be unified with compute_var_cycle_analysis,
 # but doing so is complicated
 def linear_series_exprs (p, loop, va, ret_inner = False):
-	def lv_init (data):
+	def lv_init (v, data):
 		if data[0] == 'LoopLinearSeries':
-			return 'LoopLinearSeries'
+			return (v, 'LoopLinearSeries', data[2]) 
 		elif data == 'LoopConst':
-			return 'LoopConst'
+			return (v, 'LoopConst', None)
 		else:
 			return None
-	cache = {loop: dict ([(v, (v, lv_init (data))) for (v, data) in va])}
+	cache = {loop: dict ([(v, lv_init (v, data)) for (v, data) in va])}
 	post_cache = {}
 	loop_body = p.loop_body (loop)
 	frontier = [n2 for n2 in p.nodes[loop].get_conts ()
 		if n2 in loop_body]
-	def lv_merge ((v1, lv1), (v2, lv2)):
+	def lv_merge ((v1, lv1, offs1), (v2, lv2, offs2)):
 		if v1 != v2:
-			return (None, None)
-		assert lv1 == lv2
-		return (v1, lv1)
+			return (None, None, None)
+		assert lv1 == lv2 and offs1 == offs2
+		return (v1, lv1, offs1)
 	def compute_post (n):
 		if n in post_cache:
 			return post_cache[n]
@@ -995,7 +1013,7 @@ def linear_series_exprs (p, loop, va, ret_inner = False):
 				env[mk_var (v, typ)] = lv_expr (rexpr, pre_env)
 		elif p.nodes[n].kind == 'Call':
 			for (v, typ) in p.nodes[n].get_lvals ():
-				env[mk_var (v, typ)] = (None, None)
+				env[mk_var (v, typ)] = (None, None, None)
 		post_cache[n] = env
 		return env
 	while frontier:
@@ -1009,14 +1027,15 @@ def linear_series_exprs (p, loop, va, ret_inner = False):
 			if n2 in loop_body]
 		all_vs = set.union (* [set (env) for env in envs])
 		cache[n] = dict ([(v, foldr1 (lv_merge,
-				[env.get (v, (None, None)) for env in envs]))
+				[env.get (v, (None, None, None))
+					for env in envs]))
 			for v in all_vs])
 		frontier.extend ([n2 for n2 in p.nodes[n].get_conts ()
 			if n2 in loop_body])
 	if ret_inner:
 		return cache
-	return dict ([(n, dict ([(v, lv)
-			for (v, (_, lv)) in cache[n].iteritems ()]))
+	return dict ([(n, dict ([(v, (lv, offs))
+			for (v, (_, (lv, offs))) in cache[n].iteritems ()]))
 		for n in cache])
 
 def interesting_linear_series_exprs (p, loop, va, tags = None,
@@ -1054,7 +1073,7 @@ def interesting_linear_series_exprs (p, loop, va, tags = None,
 			vs.extend (in_eq_vs)
 
 		vs = [(kind, v, lv_expr (v, env)) for (kind, v) in vs]
-		vs = [(kind, v) for (kind, v, (_, lv)) in vs
+		vs = [(kind, v, offs) for (kind, v, (_, lv, offs)) in vs
 			if lv == 'LoopLinearSeries']
 		if vs:
 			res_env[n] = vs
