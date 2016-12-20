@@ -664,6 +664,7 @@ class GraphSlice:
 			fun = functions[node.fname]
 			ins = dict ([((x, typ), smt_expr (app_eqs (arg), env, self.solv))
 				for ((x, typ), arg) in azip (fun.inputs, node.args)])
+			mem_name = None
 			for (x, typ) in reversed (fun.inputs):
 				if typ == builtinTs['Mem']:
 					inp_mem = ins[(x, typ)]
@@ -1145,6 +1146,8 @@ def merge_mem_calls (mem_calls_x, mem_calls_y):
 	return mem_calls
 
 def mem_calls_compatible (tags, l_mem_calls, r_mem_calls):
+	if l_mem_calls == None or r_mem_calls == None:
+		return True
 	r_cast_calls = {}
 	for (fname, calls) in l_mem_calls.iteritems ():
 		pairs = [pair for pair in pairings[fname]

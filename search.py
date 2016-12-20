@@ -652,6 +652,15 @@ def get_interesting_linear_series_exprs (p, head):
 	p.cached_analysis[k] = res
 	return res
 
+def split_opt_test (p, tags = None):
+	if not tags:
+		tags = p.pairing.tags
+	heads = [head for head in init_loops_to_split (p, ())
+		if p.node_tags[head][0] == tags[0]]
+	hyps = check.init_point_hyps (p)
+	for head in heads:
+		get_necessary_split_opts (p, head, (), hyps)
+
 def get_necessary_split_opts (p, head, restrs, hyps, tags = None):
 	if not tags:
 		tags = p.pairing.tags

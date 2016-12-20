@@ -463,7 +463,7 @@ def get_loop_virtual_stack_analysis (p, tag):
 	for n in ns:
 		try:
 			(_, node) = stack_virtualise_node (p.nodes[n],
-				ptr_offs.get (n, {}), name = n)
+				ptr_offs.get (n, {}))
 		except StackOffsMissing, e:
 			printout ("Stack analysis issue at (%d, %s)."
 				% (n, p.node_tags[n]))
