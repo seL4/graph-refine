@@ -281,6 +281,9 @@ def adjusted_var_dep_outputs (p):
 def is_stack (expr):
 	return expr.kind == 'Var' and 'stack' in expr.name
 
+class StackOffsMissing (Exception):
+	pass
+
 def stack_virtualise_expr (expr, sp_offs):
 	if expr.is_op ('MemAcc') and is_stack (expr.vals[0]):
 		[m, p] = expr.vals
@@ -300,6 +303,8 @@ def stack_virtualise_expr (expr, sp_offs):
 		if not ps:
 			return (ptrs, expr)
 		[(p, n)] = ps
+		if p not in sp_offs:
+			raise StackOffsMissing ()
 		(k, offs) = sp_offs[p]
 		v = mk_var (('Fake', k, offs), syntax.word32T)
 		if n != 0:
@@ -324,6 +329,8 @@ def stack_virtualise_upd (((nm, typ), expr), sp_offs):
 			(ptrs2, v2) = stack_virtualise_expr (v, sp_offs)
 			ptrs.extend (ptrs2)
 			if sp_offs != None:
+				if p not in sp_offs:
+					raise StackOffsMissing ()
 				(k, offs) = sp_offs[p]
 				upds.append (((('Fake', k, offs),
 					syntax.word32T), v2))
@@ -454,8 +461,13 @@ def get_loop_virtual_stack_analysis (p, tag):
 
 	adj_nodes = {}
 	for n in ns:
-		(_, node) = stack_virtualise_node (p.nodes[n],
-			ptr_offs.get (n, {}))
+		try:
+			(_, node) = stack_virtualise_node (p.nodes[n],
+				ptr_offs.get (n, {}), name = n)
+		except StackOffsMissing, e:
+			printout ("Stack analysis issue at (%d, %s)."
+				% (n, p.node_tags[n]))
+			node = p.nodes[n]
 		adj_nodes[n] = node
 
 	# finally do analysis on this collection of nodes
