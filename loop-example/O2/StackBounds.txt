@@ -1,3 +1,6 @@
-FunctionHash 441131394122875340
+FunctionHash -7657716043385783941
+StackBound create_one Num 0 Word 32
+StackBound check_one Num 0 Word 32
+StackBound create_loop Num 16 Word 32
 StackBound g Num 0 Word 32
 StackBound f Num 4 Word 32

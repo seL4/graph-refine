@@ -49,3 +49,68 @@ Disassembly of section .text:
   9c:	1afffff1 	bne	68 <f+0x5c>
   a0:	e49d4004 	pop	{r4}		; (ldr r4, [sp], #4)
   a4:	e12fff1e 	bx	lr
+
+000000a8 <create_one>:
+  a8:	e59f3010 	ldr	r3, [pc, #16]	; c0 <create_one+0x18>
+  ac:	e5930000 	ldr	r0, [r3]
+  b0:	e2802001 	add	r2, r0, #1
+  b4:	e5832000 	str	r2, [r3]
+  b8:	e3a00001 	mov	r0, #1
+  bc:	e12fff1e 	bx	lr
+  c0:	00000000 	.word	0x00000000
+
+000000c4 <check_one>:
+  c4:	e59f3010 	ldr	r3, [pc, #16]	; dc <check_one+0x18>
+  c8:	e5930000 	ldr	r0, [r3]
+  cc:	e2802001 	add	r2, r0, #1
+  d0:	e5832000 	str	r2, [r3]
+  d4:	e3a00001 	mov	r0, #1
+  d8:	e12fff1e 	bx	lr
+  dc:	00000000 	.word	0x00000000
+
+000000e0 <create_loop>:
+  e0:	e1500001 	cmp	r0, r1
+  e4:	e92d4070 	push	{r4, r5, r6, lr}
+  e8:	e1a04000 	mov	r4, r0
+  ec:	e1a06001 	mov	r6, r1
+  f0:	2a000024 	bcs	188 <create_loop+0xa8>
+  f4:	e1e02000 	mvn	r2, r0
+  f8:	e0821001 	add	r1, r2, r1
+  fc:	e1a05521 	lsr	r5, r1, #10
+ 100:	ebfffffe 	bl	a8 <create_one>
+ 104:	ebfffffe 	bl	c4 <check_one>
+ 108:	e3500000 	cmp	r0, #0
+ 10c:	e2055001 	and	r5, r5, #1
+ 110:	0a00001b 	beq	184 <create_loop+0xa4>
+ 114:	e2844b01 	add	r4, r4, #1024	; 0x400
+ 118:	e1560004 	cmp	r6, r4
+ 11c:	9a000019 	bls	188 <create_loop+0xa8>
+ 120:	e3550000 	cmp	r5, #0
+ 124:	0a00000e 	beq	164 <create_loop+0x84>
+ 128:	e1a00004 	mov	r0, r4
+ 12c:	ebfffffe 	bl	a8 <create_one>
+ 130:	ebfffffe 	bl	c4 <check_one>
+ 134:	e3500000 	cmp	r0, #0
+ 138:	0a000011 	beq	184 <create_loop+0xa4>
+ 13c:	e2844b01 	add	r4, r4, #1024	; 0x400
+ 140:	e1560004 	cmp	r6, r4
+ 144:	8a000006 	bhi	164 <create_loop+0x84>
+ 148:	ea00000e 	b	188 <create_loop+0xa8>
+ 14c:	ebfffffe 	bl	a8 <create_one>
+ 150:	ebfffffe 	bl	c4 <check_one>
+ 154:	e3500000 	cmp	r0, #0
+ 158:	0a000009 	beq	184 <create_loop+0xa4>
+ 15c:	e1560004 	cmp	r6, r4
+ 160:	9a000008 	bls	188 <create_loop+0xa8>
+ 164:	e1a00004 	mov	r0, r4
+ 168:	ebfffffe 	bl	a8 <create_one>
+ 16c:	ebfffffe 	bl	c4 <check_one>
+ 170:	e2845b01 	add	r5, r4, #1024	; 0x400
+ 174:	e3500000 	cmp	r0, #0
+ 178:	e2844b02 	add	r4, r4, #2048	; 0x800
+ 17c:	e1a00005 	mov	r0, r5
+ 180:	1afffff1 	bne	14c <create_loop+0x6c>
+ 184:	e3a06015 	mov	r6, #21
+ 188:	e1a00006 	mov	r0, r6
+ 18c:	e8bd4070 	pop	{r4, r5, r6, lr}
+ 190:	e12fff1e 	bx	lr

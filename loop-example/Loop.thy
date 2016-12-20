@@ -11,7 +11,7 @@
 theory Loop
 
 imports CTranslation
-  "../../verification/l4v/tools/asmrefine/SimplExport"
+  "../../l4v/tools/asmrefine/SimplExport"
 
 begin
 
@@ -23,13 +23,16 @@ val csenv = let
   in fn () => the_csenv end
 *}
 
-lemmas no_global_data_defs = TrueI
+setup {*
+  DefineGlobalsList.define_globals_list_i "loop.c" @{typ globals}
+*}
 
 context loop_global_addresses begin
 
-ML {* outfile := SOME (openOut_relative @{theory} "CFunDump.txt");
-  emit_C_everything @{context} (csenv ());
-  TextIO.closeOut (the (! outfile))
+ML {*
+val outfile = (openOut_relative @{theory} "CFunDump.txt");
+  emit_C_everything @{context} (csenv ()) outfile;
+  TextIO.closeOut outfile;
 *}
 
 end

@@ -1118,11 +1118,13 @@ lines. See syntax.quick_reference for an explanation.'''
 			# Function <name> <inputs> <outputs>
 			# followed by optional block of node lines
 			# concluded by EntryPoint line
+			fname = bits[1]
 			(n, inputs) = parse_list (parse_arg, bits, 2)
 			(_, outputs) = parse_list (parse_arg, bits, n)
-			trace ('Function %s' % bits[1])
-			current_function = Function (bits[1], inputs, outputs)
-			functions[bits[1]] = current_function
+			trace ('Function %s' % fname)
+			current_function = Function (fname, inputs, outputs)
+			assert fname not in functions, fname
+			functions[fname] = current_function
 		elif bits[0] == 'EntryPoint':
 			# EntryPoint <entry point>
 			entry = node_name(bits[1])

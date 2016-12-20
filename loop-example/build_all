@@ -13,6 +13,8 @@
 TOOLPREFIX=/opt/ertos/toolchains-x86_64/arm-2010.09/bin/arm-none-eabi-
 GCC="$TOOLPREFIX"gcc
 OBJDUMP="$TOOLPREFIX"objdump
+HOL4=$(readlink -f ../../HOL4)
+DECOMP="$HOL4"/examples/machine-code/graph/decompile.py
 
 WD=$(pwd)
 for OPT in O1 O2
@@ -34,15 +36,12 @@ do
 
   # the decompiler reads the disassembly and signatures and produces
   # the binary functions.
-  pushd ~/dev/new-decompiler/graph
-  ../with_hol.sh ./decompile.sh -fast $WD/"$OPT"/loop-"$OPT"
-  popd
+  PATH=$HOL4/bin:$PATH which Holmake
+  PATH=$HOL4/bin:$PATH $DECOMP --fast "$OPT"/loop-"$OPT"
 
-  # clean up some extra disassembler output.
-  mkdir -p "$OPT"/decomp
-  mv "$OPT"/*.sml "$OPT"/*.markdown "$OPT"/decomp
+  # change the naming convention _mc_graph.txt, though there's nothing wrong
+  # with it
+  mv "$OPT"/loop-"$OPT"_mc_graph.txt "$OPT"/ASM"$OPT"Functions.txt
 
-  # give the decompilation its expected name.
-  mv "$OPT"/loop-"$OPT".tom "$OPT"/ASM"$OPT"Funs.txt
 done
 

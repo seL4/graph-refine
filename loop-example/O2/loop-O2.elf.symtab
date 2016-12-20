@@ -10,5 +10,9 @@ SYMBOL TABLE:
 00000000 l    d  .ARM.attributes	00000000 .ARM.attributes
 00000000 g     F .text	0000000c g
 0000000c g     F .text	0000009c f
+000000a8 g     F .text	0000001c create_one
+00000004       O *COM*	00000004 global_x
+000000c4 g     F .text	0000001c check_one
+000000e0 g     F .text	000000b4 create_loop
 
 

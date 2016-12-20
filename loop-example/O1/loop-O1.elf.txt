@@ -23,3 +23,41 @@ Disassembly of section .text:
   34:	1afffff9 	bne	20 <f+0x14>
   38:	e8bd4038 	pop	{r3, r4, r5, lr}
   3c:	e12fff1e 	bx	lr
+
+00000040 <create_one>:
+  40:	e59f3010 	ldr	r3, [pc, #16]	; 58 <create_one+0x18>
+  44:	e5932000 	ldr	r2, [r3]
+  48:	e2822001 	add	r2, r2, #1
+  4c:	e5832000 	str	r2, [r3]
+  50:	e3a00001 	mov	r0, #1
+  54:	e12fff1e 	bx	lr
+  58:	00000000 	.word	0x00000000
+
+0000005c <check_one>:
+  5c:	e59f3010 	ldr	r3, [pc, #16]	; 74 <check_one+0x18>
+  60:	e5932000 	ldr	r2, [r3]
+  64:	e2822001 	add	r2, r2, #1
+  68:	e5832000 	str	r2, [r3]
+  6c:	e3a00001 	mov	r0, #1
+  70:	e12fff1e 	bx	lr
+  74:	00000000 	.word	0x00000000
+
+00000078 <create_loop>:
+  78:	e92d4038 	push	{r3, r4, r5, lr}
+  7c:	e1a05001 	mov	r5, r1
+  80:	e1500001 	cmp	r0, r1
+  84:	2a00000a 	bcs	b4 <create_loop+0x3c>
+  88:	e1a04000 	mov	r4, r0
+  8c:	ebfffffe 	bl	40 <create_one>
+  90:	ebfffffe 	bl	5c <check_one>
+  94:	e3500000 	cmp	r0, #0
+  98:	0a000004 	beq	b0 <create_loop+0x38>
+  9c:	e2844b01 	add	r4, r4, #1024	; 0x400
+  a0:	e1a00004 	mov	r0, r4
+  a4:	e1550004 	cmp	r5, r4
+  a8:	8afffff7 	bhi	8c <create_loop+0x14>
+  ac:	ea000000 	b	b4 <create_loop+0x3c>
+  b0:	e3a05015 	mov	r5, #21
+  b4:	e1a00005 	mov	r0, r5
+  b8:	e8bd4038 	pop	{r3, r4, r5, lr}
+  bc:	e12fff1e 	bx	lr

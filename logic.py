@@ -949,17 +949,18 @@ def lv_expr (expr, env):
 	elif expr.kind != 'Op':
 		assert expr in env, expr
 
-	lvs = [lv_expr (v, env)[1] for v in expr.vals]
+	lvs = [lv_expr (v, env) for v in expr.vals]
 	rs = [lv[1] for lv in lvs]
 	arg_offs = [lv[2] for lv in lvs]
-	mk_offs = lambda vals: syntax.Expr (expr.name, expr.typ, vals = vals)
+	mk_offs = lambda vals: syntax.Expr ('Op', expr.typ, name = expr.name,
+		vals = vals)
 	if None in rs:
 		return (None, None, None)
 	if set (rs) == set (['LoopConst']):
 		return (expr, 'LoopConst', None)
 	if expr.is_op (expr_linear_sum):
 		if set (rs) == set (['LoopLinearSeries', 'LoopConst']):
-			[linear_offs] = [off for (_, k, offs) in lvs
+			[linear_offs] = [offs for (_, k, offs) in lvs
 				if k == 'LoopLinearSeries']
 			return (expr, 'LoopLinearSeries', linear_offs)
 		elif set (rs) == set (['LoopLinearSeries']):
@@ -968,7 +969,7 @@ def lv_expr (expr, env):
 		if set (rs) == set (['LoopLinearSeries', 'LoopConst']):
 			# the new offset is the product of the linear offset
 			# and the constant value
-			[linear_offs] = [off for (_, k, offs) in lvs
+			[linear_offs] = [offs for (_, k, offs) in lvs
 				if k == 'LoopLinearSeries']
 			[const_value] = [v for (v, k, _) in lvs
 				if k == 'LoopConst']
@@ -992,7 +993,7 @@ def linear_series_exprs (p, loop, va, ret_inner = False):
 		elif data == 'LoopConst':
 			return (v, 'LoopConst', None)
 		else:
-			return None
+			return (None, None, None)
 	cache = {loop: dict ([(v, lv_init (v, data)) for (v, data) in va])}
 	post_cache = {}
 	loop_body = p.loop_body (loop)
