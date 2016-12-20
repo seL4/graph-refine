@@ -47,6 +47,7 @@ Function f_impl 2 x#v Word 32 Mem Mem 1 Mem Mem
 12 Basic 13 1 y#v Word 32 Op Plus Word 32 2 Var y#v Word 32 Num 1 Word 32
 13 Cond 14 Ret Op SignedLess Bool 2 Var y#v Word 32 Var x#v Word 32
 14 Call 15 g_impl 2 Var y#v Word 32 Var Mem Mem 1 Mem Mem
-15 Basic 13 1 y#v Word 32 Op Plus Word 32 2 Var y#v Word 32 Num 2 Word 32
+15 Call 16 g_impl 2 Op Plus Word 32 2 Var y#v Word 32 Num 1 Word 32 Var Mem Mem 1 Mem Mem
+16 Basic 13 1 y#v Word 32 Op Plus Word 32 2 Var y#v Word 32 Num 2 Word 32
 EntryPoint 1
 
