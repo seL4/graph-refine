@@ -658,8 +658,8 @@ def split_opt_test (p, tags = None):
 	heads = [head for head in init_loops_to_split (p, ())
 		if p.node_tags[head][0] == tags[0]]
 	hyps = check.init_point_hyps (p)
-	for head in heads:
-		get_necessary_split_opts (p, head, (), hyps)
+	return [(head, get_necessary_split_opts (p, head, (), hyps))
+		for head in heads]
 
 def get_necessary_split_opts (p, head, restrs, hyps, tags = None):
 	if not tags:

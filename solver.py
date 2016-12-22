@@ -170,9 +170,9 @@ def load_solver_set ():
 	strategy = [(slow_dict[nm], strat) for (nm, strat) in strategy]
 	assert fast_solvers, solvers
 	assert slow_solvers, solvers
-	return (fast_solvers[0], slow_solvers[0], strategy)
+	return (fast_solvers[0], slow_solvers[0], strategy, slow_dict.values ())
 
-(fast_solver, slow_solver, strategy) = load_solver_set ()
+(fast_solver, slow_solver, strategy, model_strategy) = load_solver_set ()
 
 from syntax import (Expr, fresh_name, builtinTs, true_term, false_term,
   foldr1, mk_or, boolT, word32T, word8T, mk_implies, Type, get_global_wrapper)
@@ -664,6 +664,7 @@ class Solver:
 		self.unsat_cores = produce_unsat_cores
 		self.online_solver = None
 		self.parallel_solvers = {}
+		self.parallel_model_states = {}
 
 		self.names_used = {}
 		self.names_used_order = []
@@ -683,14 +684,15 @@ class Solver:
 		self.smt_derived_ops = {}
 
 		self.num_hyps = 0
+		self.last_model_acc_hyps = (None, None)
 
 		self.pvalid_doms = None
-		if produce_unsat_cores:
-			self.assertions = []
+		self.assertions = []
 
 		self.fast_solver = fast_solver
 		self.slow_solver = slow_solver
 		self.strategy = strategy
+		self.model_strategy = model_strategy
 
 		self.add_rodata_def ()
 
@@ -958,9 +960,8 @@ class Solver:
 			except ConversationProblem, e:
 				response = 'ConversationProblem'
 
-		if succ and m:
-			succ = self.check_model ([h for (h, _) in raw_hyps],
-					m, recursion = recursion)
+		if succ and m and not recursion:
+			succ = self.check_model ([h for (h, _) in raw_hyps], m)
 
 		if ((not succ or response not in ['sat', 'unsat'])
 				and self.slow_solver and force_solv != 'Fast'):
@@ -984,9 +985,9 @@ class Solver:
 		if response == 'sat':
 			if not recursion:
 				last_satisfiable_hyps[0] = list (raw_hyps)
-			if model:
+			if model and not recursion:
 				assert self.check_model ([h for (h, _) in raw_hyps],
-					model, recursion = recursion)
+					model)
 		elif response == 'unsat':
 			fact = '(not (and %s))' % ' '.join ([h
 				for (h, _) in raw_hyps])
@@ -1009,7 +1010,7 @@ class Solver:
 		for s in fact_names:
 			if s.startswith ('assert'):
 				n = int (s[6:])
-				core.append (self.assertions[n][0])
+				core.append (self.assertions[n][1])
 		trace ('uc tags: %s' % core)
 		return core
 
@@ -1120,7 +1121,7 @@ class Solver:
 			timeout = solver.timeout, use_this_solver = solver)
 		self.parallel_solvers[k] = (hyps, proc, output, solver, model)
 
-	def wait_parallel_solver (self):
+	def wait_parallel_solver_step (self):
 		import select
 		assert self.parallel_solvers
 		fds = dict ([(output.fileno (), k) for (k, (_, _, output, _, _))
@@ -1134,13 +1135,45 @@ class Solver:
 		if response not in ['sat', 'unsat']:
 			trace ('SMT conversation problem in parallel solver')
 		trace ('Got %r from %s in parallel.' % (response, solver.name))
+		m = {}
+		check = None
+		if response == 'sat':
+			last_satisfiable_hyps[0] = hyps
 		if model != None and response == 'sat':
-			assert self.fetch_model_response (model,
-				stream = output)
-			assert self.check_model (hyps, model)
+			m = {}
+			assert self.fetch_model_response (m, stream = output)
+			state = self.first_check_model_iteration (hyps, m)
+			i = 0
+			check = True
 		output.close ()
+		if k[0] == 'ModelRepair':
+			(_, k, i) = k
+			(state, hyps) = self.parallel_model_states[k]
+			check = True
+		if check:
+			res = self.check_model_iteration (state, (response, m))
+			if res == True:
+				model.update (m)
+				return (k, hyps, response)
+			elif res == False:
+				return None
+			else:
+				(solv, test_hyps, state) = res
+				self.parallel_model_states[k] = (state, hyps)
+				k = ('ModelRepair', k, i + 1)
+				self.add_parallel_solver (k,
+					[h for (h, _) in test_hyps],
+					use_this_solver = solv, model = model)
+				return None
 
 		return (k, hyps, response)
+
+	def wait_parallel_solver (self):
+		while True:
+			assert self.parallel_solvers
+			res = self.wait_parallel_solver_step ()
+			if res != None:
+				return res
 
 	def close_parallel_solvers (self, ks = None):
 		if ks == None:
@@ -1298,6 +1331,8 @@ class Solver:
 			itertools.repeat ([])))
 
 	def force_model_accuracy_hyps (self):
+		if len (self.model_exprs) == self.last_model_acc_hyps[0]:
+			return self.last_model_acc_hyps[1]
 		words = set ()
 		for (var_nm, typ) in self.model_exprs.itervalues ():
 			if typ.kind == 'Word':
@@ -1320,51 +1355,104 @@ class Solver:
 			y = arb_vars.next ()
 			hyps.append (('(word2-xor-scramble %s)'
 				% ' '.join ([a, x, b, c, y, d]), None))
+		self.last_model_acc_hyps = (len (self.model_exprs), hyps)
 		return hyps
 
-	def check_model (self, hyps, model, recursion = False):
+	def check_model_iteration (self, (hyps, ex, solvs), (res, model)):
+		orig_hyps = hyps
+		if res == 'sat':
+			# confirm experiment
+			if ex != None:
+				hyps = sorted (set (hyps + ex))
+		else:
+			# if not sat and not an experiment, we're stuck
+			if ex == None:
+				printout ("WARNING: inconsistent sat/unsat.")
+				return False
+			# if not sat, ignore model contents
+			model = None
+
+		if not model:
+			# no way to learn anything from model, iterate
+			return self.next_check_iteration (orig_hyps, hyps, solvs)
+
 		trace ('doing model check')
-		orig_hyps = [(hyp, None) for hyp in hyps]
-		model_hyps = [('(= %s %s)' % (flat_s_expression (x),
-				smt_expr (v, {}, self)), None)
+		force_solv = None
+		if ('IsIncomplete', None) in model:
+			force_solv = 'Fast'
+		model_hyps = ['(= %s %s)' % (flat_s_expression (x),
+				smt_expr (v, {}, self))
 			for (x, v) in model.iteritems ()
 			if x != ('IsIncomplete', None)]
-
-		res = self.hyps_sat_raw (orig_hyps + model_hyps,
-			recursion = True)
-		if res == 'sat' and not model.get (('IsIncomplete', None)):
+		test_hyps = [(h, None) for h in model_hyps + hyps]
+		res = self.hyps_sat_raw (test_hyps, recursion = True)
+		if res == 'sat' and ('IsIncomplete', None) not in model:
 			trace ('model checks out!')
 			return True
+		elif res == 'sat':
+			hyps = sorted (set (hyps + model_hyps))
+			# learned all we'll learn here, iterate
+			return self.next_check_iteration (orig_hyps, hyps, solvs)
 
-		if recursion:
+		model = self.reduce_model (model, orig_hyps)
+		model_hyps2 = ['(= %s %s)' % (flat_s_expression (x),
+				smt_expr (v, {}, self))
+			for (x, v) in model.iteritems ()]
+		model_hyps2 = list (set (model_hyps2) - set (hyps))
+		if model_hyps2:
+			# push this as an experiment
+			solv = self.model_strategy[0]
+			test_hyps = [(h, None) for h in hyps + model_hyps2]
+			return (solv, test_hyps, (hyps, model_hyps2, solvs))
+
+		# failed to learn anything here, iterate
+		return self.next_check_iteration (orig_hyps, hyps, solvs)
+
+	def next_check_iteration (self, hyps, new_hyps, solvs):
+		new_hyps = sorted (set (new_hyps + [h for (h, _)
+			in self.force_model_accuracy_hyps ()]))
+		(solvs_remaining, progress) = solvs
+		progress = progress or new_hyps != hyps
+		if not solvs_remaining and progress:
+			solvs_remaining = list (self.model_strategy)
+			progress = False
+		if not solvs_remaining:
+			# nothing left to do
 			return False
+		solv = solvs_remaining.pop (0)
+		return (solv, [(h, None) for h in new_hyps],
+			(new_hyps, None, (solvs_remaining, progress)))
 
-		model_hyps2 = [('(= %s %s)' % (x, smt_expr (v, {}, self)), None)
-			for (x, v) in model.iteritems ()
-			if x in self.model_vars if type (x) == str]
+	def first_check_model_iteration (self, hyps, model):
+		return (hyps, None, ([], True))
 
-		res = self.hyps_sat_raw (orig_hyps + model_hyps2,
-			recursion = True)
-		while res != 'sat':
-			newlen = int (len (model_hyps2) * 0.8)
-			model_hyps2 = model_hyps2[: newlen]
-			res = self.hyps_sat_raw (orig_hyps + model_hyps2,
-				recursion = True)
-		last_check_model_state[0] = (orig_hyps, model_hyps2)
-		# OK, we still need a model that fixes this
-		m = {}
-		hyps2 = orig_hyps + model_hyps2
-		hyps2 += self.force_model_accuracy_hyps ()
-		final_res = self.hyps_sat_raw (hyps2, model = m,
-			recursion = True)
-		assert final_res == 'sat', 'final: %r, %r' % (final_res, recursion)
-		model.clear ()
-		model.update (m)
-		trace ('fixed model!')
-		return True
+	def check_model (self, hyps, model):
+		orig_model = model
+		state = self.first_check_model_iteration (hyps, model)
+		arg = ('sat', model)
+		while True:
+			res = self.check_model_iteration (state, arg)
+			if res == True:
+				(_, model) = arg
+				orig_model.clear ()
+				orig_model.update (model)
+				return True
+			elif res == False:
+				return False
+			(solv, test_hyps, state) = res
+			m = {}
+			res = self.hyps_sat_raw (test_hyps, model = m,
+				force_solv = solv, recursion = True)
+			arg = (res, m)
+
+	def reduce_model (self, model, hyps):
+		all_hyps = hyps + [h for (h, _) in self.assertions]
+		all_hyps = map (parse_s_expression, all_hyps)
+		m = reduce_model (model, self, all_hyps)
+		trace ('reduce model size: %d --> %d' % (len (model), len (m)))
+		return m
 
 	def fetch_model (self, model, recursion = False):
-
 		try:
 			self.write (self.fetch_model_request ())
 		except IOError, e:
@@ -1397,9 +1485,9 @@ class Solver:
 				force_solv = force_solv) == 'unsat'
 
 	def assert_fact_smt (self, fact, unsat_tag = None):
+		self.assertions.append ((fact, unsat_tag))
 		if unsat_tag and self.unsat_cores:
 			name = 'assert%d' % len (self.assertions)
-			self.assertions.append ((unsat_tag, fact))
 			self.send ('(assert (! %s :named %s))' % (fact, name),
 				is_model = False)
 		else:
@@ -1719,13 +1807,12 @@ class Solver:
 		if res != 'unsat':
 			return res
 		if unsat_core == []:
-			core = list (hyps) + [(ass, tag) for (tag, ass)
-				in self.assertions]
+			core = list (hyps) + list (self.assertions)
 		else:
 			unsat_core = set (unsat_core)
 			core = [(ass, tag) for (ass, tag) in hyps
 				if tag in unsat_core] + [(ass, tag)
-				for (tag, ass) in self.assertions
+				for (ass, tag) in self.assertions
 				if tag in unsat_core]
 		return self.unsat_core_loop (core)
 
@@ -1891,6 +1978,60 @@ def make_model (sexp, m, abbrvs = [], mem_defs = {}):
 	last_10_models.append (m_pre)
 	last_10_models[:-10] = []
 	return True
+
+def add_key_model_vs (sexpr, m, solv, vs):
+	if sexpr[0] == '=>':
+		(_, lhs, rhs) = sexpr
+		add_key_model_vs (('or', ('not', lhs), rhs), m, solv, vs)
+	elif sexpr[0] == 'or':
+		vals = [(x, get_model_val (x, m)) for x in sexpr[1:]]
+		true_vals = [x for (x, v) in vals if v == syntax.true_term]
+		if not true_vals:
+			for x in sexpr[1:]:
+				add_key_model_vs (x, m, solv, vs)
+		elif len (true_vals) == 1:
+			add_key_model_vs (true_vals[0], m, solv, vs)
+		else:
+			vs.add (sexpr)
+	elif sexpr[0] == 'and':
+		vals = [(x, get_model_val (x, m)) for x in sexpr[1:]]
+		false_vals = [x for (x, v) in vals if v == syntax.false_term]
+		if not false_vals:
+			for x in sexpr[1:]:
+				add_key_model_vs (x, m, solv, vs)
+		elif len (false_vals) == 1:
+			add_key_model_vs (false_vals[0], m, solv, vs)
+		else:
+			vs.add (sexpr)
+	elif sexpr[0] == 'ite':
+		(_, p, x, y) = sexpr
+		v = get_model_val (p, m)
+		add_key_model_vs (p, m, solv, vs)
+		if v == syntax.true_term:
+			add_key_model_vs (x, m, solv, vs)
+		else:
+			add_key_model_vs (y, m, solv, vs)
+	elif type (sexpr) == str:
+		if sexpr not in vs:
+			vs.add (sexpr)
+			if sexpr in solv.defs:
+				add_key_model_vs (solv.defs[sexpr], m, solv, vs)
+	else:
+		for x in sexpr[1:]:
+			add_key_model_vs (x, m, solv, vs)
+
+def get_model_val (sexpr, m, toplevel = None):
+	import search
+	return search.eval_model (m, sexpr)
+
+last_model_to_reduce = [0]
+
+def reduce_model (m, solv, hyps):
+	last_model_to_reduce[0] = (m, solv, hyps)
+	vs = set ()
+	for hyp in hyps:
+		add_key_model_vs (hyp, m, solv, vs)
+	return dict ([(k, m[k]) for k in m if k in vs])
 
 def flat_s_expression (s):
 	if type(s) == tuple:
