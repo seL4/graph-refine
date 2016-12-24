@@ -588,7 +588,8 @@ def eq_known (knowledge, vpair):
 	preds = expand_var_eqs (knowledge, vpair)
 	return set (preds) <= knowledge.facts
 
-def find_split_loop (p, head, restrs, hyps, unfold_limit = 9):
+def find_split_loop (p, head, restrs, hyps, unfold_limit = 9,
+		node_restrs = None):
 	assert p.loop_data[head][0] == 'Head'
 	assert p.node_tags[head][0] == p.pairing.tags[0]
 
@@ -609,7 +610,7 @@ def find_split_loop (p, head, restrs, hyps, unfold_limit = 9):
 	ind_fails = []
 	for (i_opts, j_opts) in i_j_opts:
 		result = find_split (rep, head, restrs, hyps,
-			i_opts, j_opts)
+			i_opts, j_opts, node_restrs = node_restrs)
 		if result[0] != None:
 			return result
 		ind_fails.extend (result[1])
@@ -772,11 +773,14 @@ def get_linear_seq_eq (rep, m, smt, smt_pc, expr1, expr2s):
 last_failed_pairings = []
 
 def setup_split_search (rep, head, restrs, hyps,
-		i_opts, j_opts, unfold_limit = None, tags = None):
+		i_opts, j_opts, unfold_limit = None, tags = None,
+		node_restrs = None):
 	p = rep.p
 
 	if not tags:
 		tags = p.pairing.tags
+	if node_restrs == None:
+		node_restrs = set (p.nodes)
 	if unfold_limit == None:
 		unfold_limit = max ([start + (2 * step) + 1
 			for (start, step) in i_opts + j_opts])
@@ -785,11 +789,13 @@ def setup_split_search (rep, head, restrs, hyps,
 
 	l_tag, r_tag = tags
 	loop_elts = [(n, start, step) for n in p.splittable_points (head)
+		if n in node_restrs
 		for (start, step) in i_opts]
 	init_to_split = init_loops_to_split (p, restrs)
 	r_to_split = [n for n in init_to_split if p.node_tags[n][0] == r_tag]
 	cand_r_loop_elts = [(n2, start, step) for n in r_to_split
 		for n2 in p.splittable_points (n)
+		if n2 in node_restrs
 		for (start, step) in j_opts]
 
 	err_restrs = restr_others (p, tuple ([(sp, vc_upto (unfold_limit))
@@ -922,10 +928,11 @@ def trace_search_fail (knowledge):
 	return ind_fails
 
 def find_split (rep, head, restrs, hyps, i_opts, j_opts,
-		unfold_limit = None, tags = None):
+		unfold_limit = None, tags = None,
+		node_restrs = None):
 	knowledge = setup_split_search (rep, head, restrs, hyps,
 		i_opts, j_opts, unfold_limit = unfold_limit,
-		tags = tags)
+		tags = tags, node_restrs = node_restrs)
 
 	res = split_search (head, knowledge)
 
@@ -939,7 +946,7 @@ def find_split (rep, head, restrs, hyps, i_opts, j_opts,
 	[tag, _] = knowledge.tags
 	knowledge = setup_split_search (rep, head, restrs,
 		hyps + [rep_graph.pc_true_hyp ((n_vc, tag)) for n_vc in n_vcs],
-		i_opts, j_opts, unfold_limit, tags)
+		i_opts, j_opts, unfold_limit, tags, node_restrs = node_restrs)
 	knowledge.facts.update (facts)
 	for m in models:
 		knowledge.add_model (m)
