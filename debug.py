@@ -163,6 +163,18 @@ def n_vc_era ((n, vc)):
 			era += 2
 	return era
 
+def era_merge (era):
+	# fold onramp to loops into pre-loop era
+	if era % 3 == 1:
+		era -= 1
+	return era
+
+def do_era_merge (do_merge, era):
+	if do_merge:
+		return era_merge (era)
+	else:
+		return era
+
 def era_sort (rep, n_vcs):
 	with_eras = [(n_vc_era (n_vc), n_vc) for n_vc in n_vcs]
 	with_eras.sort (key = lambda x: x[0])
@@ -177,7 +189,7 @@ def era_sort (rep, n_vcs):
 	return [n_vc for (_, n_vc) in with_eras]
 
 def investigate_funcalls (rep, m, verbose = False, verbose_imp = False,
-		simplify = True, pairing = 'Args'):
+		simplify = True, pairing = 'Args', era_merge = True):
 	l_tag, r_tag = rep.p.pairing.tags
 	l_ns = walk_model (rep, l_tag, m)
 	r_ns = walk_model (rep, r_tag, m)
@@ -189,11 +201,13 @@ def investigate_funcalls (rep, m, verbose = False, verbose_imp = False,
 	print '%s calls: %s' % (r_tag, map (funcall_name (rep), r_calls))
 
 	if pairing == 'Eras':
-		fc_pairs = pair_funcalls_by_era (rep, l_calls, r_calls)
+		fc_pairs = pair_funcalls_by_era (rep, l_calls, r_calls,
+			era_m = era_merge)
 	elif pairing == 'Seq':
 		fc_pairs = pair_funcalls_sequential (rep, l_calls, r_calls)
 	elif pairing == 'Args':
-		fc_pairs = pair_funcalls_arg_match (rep, m, l_calls, r_calls)
+		fc_pairs = pair_funcalls_arg_match (rep, m, l_calls, r_calls,
+			era_m = era_merge)
 	elif pairing == 'All':
 		fc_pairs = [(lc, rc) for lc in l_calls for rc in r_calls]
 	else:
@@ -206,12 +220,15 @@ def investigate_funcalls (rep, m, verbose = False, verbose_imp = False,
 		investigate_funcall_pair (rep, m, l_n_vc, r_n_vc,
 			verbose, verbose_imp, simplify)
 
-def pair_funcalls_by_era (rep, l_calls, r_calls):
-	eras = sorted (set (map (n_vc_era, l_calls + r_calls)))
+def pair_funcalls_by_era (rep, l_calls, r_calls, era_m = True):
+	eras = set (map (n_vc_era, l_calls + r_calls))
+	eras = sorted (eras + set (map (era_merge, eras)))
 	pairs = []
 	for era in eras:
-		ls = [n_vc for n_vc in l_calls if n_vc_era (n_vc) == era]
-		rs = [n_vc for n_vc in r_calls if n_vc_era (n_vc) == era]
+		ls = [n_vc for n_vc in l_calls
+			if do_era_merge (era_m, n_vc_era (n_vc)) == era]
+		rs = [n_vc for n_vc in r_calls
+			if do_era_merge (era_m, n_vc_era (n_vc)) == era]
 		if len (ls) != len (rs):
 			print 'call seq length mismatch in era %d:' % era
 			print map (funcall_name (rep), ls)
@@ -232,12 +249,15 @@ def pair_funcalls_sequential (rep, l_calls, r_calls):
 	# reorders, but maybe not worth it.
 	return zip (l_calls, r_calls)
 
-def pair_funcalls_arg_match (rep, m, l_calls, r_calls):
-	eras = sorted (set (map (n_vc_era, l_calls + r_calls)))
+def pair_funcalls_arg_match (rep, m, l_calls, r_calls, era_m = True):
+	eras = set (map (n_vc_era, l_calls + r_calls))
+	eras = sorted (set.union (eras, set (map (era_merge, eras))))
 	pairs = []
 	for era in eras:
-		ls = [n_vc for n_vc in l_calls if n_vc_era (n_vc) == era]
-		rs = [n_vc for n_vc in r_calls if n_vc_era (n_vc) == era]
+		ls = [n_vc for n_vc in l_calls
+			if do_era_merge (era_m, n_vc_era (n_vc)) == era]
+		rs = [n_vc for n_vc in r_calls
+			if do_era_merge (era_m, n_vc_era (n_vc)) == era]
 		res = None
 		for (i, n_vc) in enumerate (ls):
 			r_matches = [(j, n_vc2) for (j, n_vc2) in enumerate (rs)
