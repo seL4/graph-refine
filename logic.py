@@ -919,6 +919,10 @@ def compute_var_cycle_analysis (nodes, n, loop, preds, const_vars, vs,
 		if expr == mk_var (v[0], v[1]):
 			vca[v] = 'LoopConst'
 			continue
+		if all_vars_in_set (expr, const_vars):
+			# a repeatedly evaluated const expression, is const
+			vca[v] = 'LoopConst'
+			continue
 		if var_not_in_expr (mk_var (v[0], v[1]), expr):
 			# leaf calculations do not have data flow to
 			# themselves. the search algorithm doesn't

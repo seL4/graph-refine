@@ -446,6 +446,7 @@ def get_loop_virtual_stack_analysis (p, tag):
 	rep_offs = {}
 	upd_offsets = {}
 	for ((n, ptr), off, k) in offs:
+		off = norm_int (off, 32)
 		ptr_offs.setdefault (n, {})
 		rep_offs.setdefault (n, {})
 		ptr_offs[n][ptr] = (k, off)
@@ -482,6 +483,13 @@ def get_loop_virtual_stack_analysis (p, tag):
 	p.cached_analysis[cache_key] = result
 	return result
 
+def norm_int (n, radix):
+	n = n & ((1 << radix) - 1)
+	n2 = n - (1 << radix)
+	if abs (n2) < abs (n):
+		return n2
+	else:
+		return n
 
 def loop_var_analysis (p, split):
 	"""computes the same loop dataflow analysis as in the 'logic' module
