@@ -706,3 +706,22 @@ def test_interesting_linear_series_exprs ():
 				notes[pair.name] = 'Call!'
 	return notes
 
+def try_pairing_at_funcall (p, name, head = None, restrs = None, hyps = None,
+		at = 'At'):
+	pairs = set (pairings[name])
+	addrs = [n for (n, name2) in p.function_call_addrs ()
+		if [pair for pair in pairings[name2] if pair in pairs]]
+	assert at in ['At', 'After']
+	if at == 'After':
+		addrs = [p.nodes[n].cont for n in addrs]
+	if head == None:
+		tags = p.pairing.tags
+		[head] = [n for n in p.loop_heads ()
+			if p.node_tags[n][0] == tags[0]]
+	if restrs == None:
+		restrs = ()
+	if hyps == None:
+		hyps = check.init_point_hyps (p)
+	return search.find_split_loop (p, head, restrs, hyps,
+		node_restrs = set (addrs))
+
