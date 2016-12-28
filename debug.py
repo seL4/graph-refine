@@ -722,6 +722,13 @@ def try_pairing_at_funcall (p, name, head = None, restrs = None, hyps = None,
 		restrs = ()
 	if hyps == None:
 		hyps = check.init_point_hyps (p)
-	return search.find_split_loop (p, head, restrs, hyps,
-		node_restrs = set (addrs))
+	while True:
+		res = search.find_split_loop (p, head, restrs, hyps,
+			node_restrs = set (addrs))
+		if res[0] == 'CaseSplit':
+			(_, ((n, tag), _)) = res
+			hyp = rep_graph.pc_true_hyp (((n, restrs), tag))
+			hyps = hyps + [hyp]
+		else:
+			return res
 
