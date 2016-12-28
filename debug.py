@@ -206,7 +206,7 @@ def investigate_funcalls (rep, m, verbose = False, verbose_imp = False,
 	elif pairing == 'Seq':
 		fc_pairs = pair_funcalls_sequential (rep, l_calls, r_calls)
 	elif pairing == 'Args':
-		fc_pairs = pair_funcalls_arg_match (rep, m, l_calls, r_calls,
+		fc_pairs = pair_funcalls_by_match (rep, m, l_calls, r_calls,
 			era_m = era_merge)
 	elif pairing == 'All':
 		fc_pairs = [(lc, rc) for lc in l_calls for rc in r_calls]
@@ -249,7 +249,7 @@ def pair_funcalls_sequential (rep, l_calls, r_calls):
 	# reorders, but maybe not worth it.
 	return zip (l_calls, r_calls)
 
-def pair_funcalls_arg_match (rep, m, l_calls, r_calls, era_m = True):
+def pair_funcalls_by_match (rep, m, l_calls, r_calls, era_m = True):
 	eras = set (map (n_vc_era, l_calls + r_calls))
 	eras = sorted (set.union (eras, set (map (era_merge, eras))))
 	pairs = []
@@ -259,31 +259,44 @@ def pair_funcalls_arg_match (rep, m, l_calls, r_calls, era_m = True):
 		rs = [n_vc for n_vc in r_calls
 			if do_era_merge (era_m, n_vc_era (n_vc)) == era]
 		res = None
-		for (i, n_vc) in enumerate (ls):
-			r_matches = [(j, n_vc2) for (j, n_vc2) in enumerate (rs)
-				if rep.get_func_pairing (n_vc, n_vc2)
-				if func_assert_premise (rep, m, n_vc, n_vc2)]
-			if len (r_matches) == 1:
-				[(j, _)] = r_matches
-				res = (i, j)
-				break
-		if not res:
+		matches = [(1 - func_assert_premise_strength (rep, m,
+				n_vc, n_vc2), i, j)
+			for (i, n_vc) in enumerate (ls)
+			for (j, n_vc2) in enumerate (rs)
+			if rep.get_func_pairing (n_vc, n_vc2)]
+		matches.sort ()
+		if not matches:
 			print 'Cannot match any (%d, %d) at era %d' % (len (ls),
 				len (rs), era)
-		elif i > j:
+			continue
+		(_, i, j) = matches[0]
+		if i > j:
 			pairs.extend ((zip (ls[i - j:], rs)))
 		else:
 			pairs.extend ((zip (ls, rs[j - i:])))
 	return pairs
 
-def func_assert_premise (rep, m, l_n_vc, r_n_vc):
+def func_assert_premise_strength (rep, m, l_n_vc, r_n_vc):
 	imp = rep.get_func_assert (l_n_vc, r_n_vc)
 	assert imp.is_op ('Implies'), imp
 	[pred, concl] = imp.vals
 	pred = solver.smt_expr (pred, {}, rep.solv)
 	pred = solver.parse_s_expression (pred)
 	bits = solver.split_hyp_sexpr (pred, [])
-	bits = [bit for bit in bits if bit[0] == 'word32-eq']
+	assert bits, bits
+	scores = []
+	for bit in bits:
+		try:
+			res = eval_model_bool (m, bit)
+			if res:
+				scores.append (1.0)
+			else:
+				scores.append (0.0)
+		except solver.EnvMiss, e:
+			scores.append (0.5)
+		except AssertionError, e:
+			scores.append (0.5)
+	return sum (scores) / len (scores)
 	return all ([eval_model_bool (m, v) for v in bits])
 
 def investigate_funcall_pair (rep, m, l_n_vc, r_n_vc,
@@ -705,6 +718,19 @@ def test_interesting_linear_series_exprs ():
 			if 'Call' in str (intr):
 				notes[pair.name] = 'Call!'
 	return notes
+
+def var_analysis (p, n):
+	va = search.get_loop_var_analysis_at (p, n)
+	cats = {}
+	for (v, kind) in va:
+		if kind[0] == 'LoopLinearSeries':
+			kind = kind[0]
+		cats.setdefault (kind, [])
+		cats[kind].append (v)
+	for kind in cats:
+		print '%s:' % kind
+		for v in cats[kind]:
+			print '  %s' % syntax.pretty_expr (v)
 
 def try_pairing_at_funcall (p, name, head = None, restrs = None, hyps = None,
 		at = 'At'):
