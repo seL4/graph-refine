@@ -380,7 +380,8 @@ def stack_virtualise_node (node, sp_offs):
 			return (ptrs, None)
 		else:
 			return (ptrs, syntax.Node ('Call', node.cont,
-				(None, [v for (_, v) in args],
+				(None, [v for (_, v) in args]
+					+ [p for (p, _) in ptrs],
 					[r for (_, r) in rets])))
 	elif node.kind == 'Basic':
 		upds = [stack_virtualise_upd (upd, sp_offs) for upd in node.upds]
@@ -388,8 +389,11 @@ def stack_virtualise_node (node, sp_offs):
 		if sp_offs == None:
 			return (ptrs, None)
 		else:
+			ptr_upds = [(('unused#ptr#name%d' % i, syntax.word32T),
+				ptr) for (i, (ptr, _)) in enumerate (ptrs)]
 			return (ptrs, syntax.Node ('Basic', node.cont,
-				[upd for (_, us) in upds for upd in us]))
+				[upd for (_, us) in upds for upd in us]
+					+ ptr_upds))
 	else:
 		assert not "node kind understood", node.kind
 

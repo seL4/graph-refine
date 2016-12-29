@@ -176,7 +176,7 @@ def load_solver_set ():
 
 from syntax import (Expr, fresh_name, builtinTs, true_term, false_term,
   foldr1, mk_or, boolT, word32T, word8T, mk_implies, Type, get_global_wrapper)
-from target_objects import structs, rodata, sections, trace
+from target_objects import structs, rodata, sections, trace, printout
 from logic import mk_align_valid_ineq, pvalid_assertion1, pvalid_assertion2
 
 import syntax
@@ -194,6 +194,8 @@ last_10_models = []
 last_satisfiable_hyps = [None]
 last_hyps = [None]
 last_check_model_state = [None]
+inconsistent_hyps = []
+
 active_solvers = []
 max_active_solvers = [5]
 
@@ -1368,6 +1370,7 @@ class Solver:
 			# if not sat and not an experiment, we're stuck
 			if ex == None:
 				printout ("WARNING: inconsistent sat/unsat.")
+				inconsistent_hyps.append (hyps)
 				return False
 			# if not sat, ignore model contents
 			model = None

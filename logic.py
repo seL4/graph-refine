@@ -762,7 +762,8 @@ def possible_graph_divs (p, min_cost = 20, max_cost = 20, ratio = 0.85,
 			int_costs, fracs)
 	return divs
 
-def compute_var_deps (nodes, outputs, preds, override_lvals_rvals = {}):
+def compute_var_deps (nodes, outputs, preds, override_lvals_rvals = {},
+		trace = None):
 	# outs = list of (outname, retvars)
 	var_deps = {}
 	visit = set ()
@@ -795,10 +796,14 @@ def compute_var_deps (nodes, outputs, preds, override_lvals_rvals = {}):
 				pass
 			else:
 				cont_vs.update (var_deps.get (c, []))
-		vs = set.union(rvals, cont_vs - lvals)
+		vs = set.union (rvals, cont_vs - lvals)
 
 		if n in var_deps and vs <= var_deps[n]:
 			continue
+		if trace and n in trace:
+			diff = vs - var_deps.get (n, set())
+			printout ('add %s at %d' % (diff, n))
+			printout ('  %s, %s, %s, %s' % (len (vs), len (cont_vs), len (lvals), len (rvals)))
 		var_deps[n] = vs
 		visit.update (preds[n])
 
