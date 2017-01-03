@@ -1156,6 +1156,10 @@ def mem_calls_compatible (tags, l_mem_calls, r_mem_calls):
 			return None
 		assert len (pairs) <= 1, pairs
 		[pair] = pairs
+		r_fun = pair.funs[tags[1]]
+		if not [nm for (nm, typ) in functions[r_fun].outputs
+				if typ == syntax.builtinTs['Mem']]:
+			continue
 		r_cast_calls[pair.funs[tags[1]]] = calls
 	for fname in set (r_cast_calls.keys () + r_mem_calls.keys ()):
 		r_cast = r_cast_calls.get (fname, (0, 0))
