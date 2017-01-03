@@ -1432,7 +1432,7 @@ class Solver:
 	def check_model (self, hyps, model):
 		orig_model = model
 		state = self.first_check_model_iteration (hyps, model)
-		arg = ('sat', model)
+		arg = ('sat', dict (model))
 		while True:
 			res = self.check_model_iteration (state, arg)
 			if res == True:
@@ -2084,9 +2084,11 @@ def quick_test (force_solv = False):
 	m = {}
 	assert solv.check_hyp (false_term, {}, model = m,
 		force_solv = fs) == 'sat'
-	assert m == {'v': z}, m
+	assert m.get ('v') == z, m
 
 def test ():
+	solverlist = find_solverlist_file ()
+	print 'Loaded solver list from %s' % solverlist
 	quick_test ()
 	quick_test (force_solv = 'Slow')
 	print 'Solver self-test successful'
