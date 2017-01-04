@@ -107,7 +107,8 @@ def trace_model (rep, m, simplify = True):
 				continue
 			name = rep.cond_name ((n, vc))
 			cond = m[name] == syntax.true_term
-			print '%s: %s' % (name, cond)
+			print '%s: %s (%s, %s)' % (name, cond,
+				node.left, node.right)
 			investigate_cond (rep, m, name, simplify)
 
 def walk_model (rep, tag, m):
@@ -306,9 +307,9 @@ def investigate_funcall_pair (rep, m, l_n_vc, r_n_vc,
 	r_nm = "%s @ %s" % (rep.p.nodes[r_n_vc[0]].fname, rep.node_count_name (r_n_vc))
 	print 'Attempt match %s -> %s' % (l_nm, r_nm)
 	imp = rep.get_func_assert (l_n_vc, r_n_vc)
+	imp = logic.weaken_assert (imp)
 	if verbose_imp:
-		imp2 = logic.weaken_assert (imp)
-		imp2 = solver.smt_expr (imp2, {}, rep.solv)
+		imp2 = solver.smt_expr (imp, {}, rep.solv)
 		if simplify:
 			imp2 = simplify_sexp (imp2, rep, m)
 		print imp2
@@ -368,15 +369,11 @@ def trace_mem (rep, tag, m, verbose = False, simplify = True, symbs = True,
 		n_nm = rep.node_count_name ((n, vc))
 		node = p.nodes[n]
 		if node.kind == 'Call':
-			msg = '<function call to %s at %s>' % (node.fname, n_nm)
-			print msg
-			trace.append (msg)
-		if node.kind == 'Basic':
+			exprs = list (node.args)
+		elif node.kind == 'Basic':
 			exprs = [expr for (_, expr) in node.upds]
 		elif node.kind == 'Cond':
 			exprs = [node.cond]
-		else:
-			continue
 		env = rep.node_pc_envs[(tag, n, vc)][1]
 		accs = list (set ([acc for expr in exprs
 			for acc in expr.get_mem_accesses ()]))
@@ -403,6 +400,10 @@ def trace_mem (rep, tag, m, verbose = False, simplify = True, symbs = True,
 				for (kind, addr, v, mem) in accs]
 		trace.extend ([(kind, addr, v, mem, n, vc)
 			for (kind, addr, v, mem) in accs])
+		if node.kind == 'Call':
+			msg = '<function call to %s at %s>' % (node.fname, n_nm)
+			print msg
+			trace.append (msg)
 	return trace
 
 def simplify_sexp (smt_xp, rep, m, flatten = True):
