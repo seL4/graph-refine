@@ -366,7 +366,7 @@ def stack_virtualise_node (node, sp_offs):
 			return (ptrs, syntax.Node ('Cond',
 				node.get_conts (), cond))
 	elif node.kind == 'Call':
-		if node.fname.startswith ("impl'"):
+		if is_instruction (node.fname):
 			return ([], node)
 		cc = get_asm_calling_convention_at_node (node)
 		assert cc != None, node.fname
@@ -873,12 +873,16 @@ def find_unknown_recursion (p, group, idents, tag, assns, extra_unfolds):
 
 asm_cc_cache = {}
 
+def is_instruction (fname):
+	bits = fname.split ("'")
+	return bits[1:] and bits[:1] in [["l_impl"], ["instruction"]]
+
 def get_asm_calling_convention (fname):
 	if fname in asm_cc_cache:
 		return asm_cc_cache[fname]
 	if fname not in pre_pairings:
 		bits = fname.split ("'")
-		if bits[:1] not in [["impl"], ["instruction"]]:
+		if not is_instruction (fname):
 			trace ("Warning: unusual unmatched function (%s, %s)."
 				% (fname, bits))
 		return None

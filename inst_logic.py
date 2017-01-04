@@ -78,29 +78,36 @@ instruction_name_aliases = {
 }
 
 def add_impl_fun (impl_fname, regspecs):
-	if impl_fname in functions:
+	l_fname = 'l_' + impl_fname
+	r_fname = 'r_' + impl_fname
+	if l_fname in functions:
 		return
+	assert r_fname not in functions
+
 	ident_v = ("inst_ident", syntax.builtinTs['Token'])
 
 	inps = [s for s in regspecs if s == 'I']
 	inps = ['reg_val%d' % (i + 1) for (i, s) in enumerate (inps)]
 	rets = [s for s in regspecs if s == 'O']
 	rets = ['ret_val%d' % (i + 1) for (i, s) in enumerate (rets)]
-	fun = mk_fun (impl_fname, inps, [ident_v], rets, [], bin_globs)
+	l_fun = mk_fun (l_fname, inps, [ident_v], rets, [], bin_globs)
+	r_fun = mk_fun (r_fname, inps, [ident_v], rets, [], bin_globs)
 	inp_eqs = [((mk_var (nm, typ), 'ASM_IN'), (mk_var (nm, typ), 'C_IN'))
-		for (nm, typ) in fun.inputs]
+		for (nm, typ) in l_fun.inputs]
 	inp_eqs += [((logic.mk_rodata (mk_var (nm, typ)), 'ASM_IN'),
 		(syntax.true_term, 'C_IN')) for (nm, typ) in bin_globs]
 	out_eqs = [((mk_var (nm, typ), 'ASM_OUT'), (mk_var (nm, typ), 'C_OUT'))
-		for (nm, typ) in fun.outputs]
+		for (nm, typ) in l_fun.outputs]
 	out_eqs += [((logic.mk_rodata (mk_var (nm, typ)), 'ASM_OUT'),
 		(syntax.true_term, 'C_OUT')) for (nm, typ) in bin_globs]
-	pair = logic.Pairing (['ASM', 'C'],
-		{'C': impl_fname, 'ASM': impl_fname},
+	pair = logic.Pairing (['ASM', 'C'], {'ASM': l_fname, 'C': r_fname},
 		(inp_eqs, out_eqs))
-	assert impl_fname not in pairings
-	functions[impl_fname] = fun
-	pairings[impl_fname] = [pair]
+	assert l_fname not in pairings
+	assert r_fname not in pairings
+	functions[l_fname] = l_fun
+	functions[r_fname] = r_fun
+	pairings[l_fname] = [pair]
+	pairings[r_fname] = [pair]
 
 inst_addr_re = re.compile('E[0123456789][0123456789]*')
 def split_inst_name_addr (instname):
@@ -128,7 +135,7 @@ def mk_bin_inst_spec (fname):
 	assert len (regspecs) == len (regs), (fname, regs, regspecs)
 	inp_regs = [reg for (reg, d) in zip (regs, regspecs) if d == 'I']
 	out_regs = [reg for (reg, d) in zip (regs, regspecs) if d == 'O']
-	call = syntax.Node ('Call', 'Ret', (impl_fname,
+	call = syntax.Node ('Call', 'Ret', ('l_' + impl_fname,
 		[syntax.mk_var (reg, syntax.word32T) for reg in inp_regs]
 			+ [syntax.mk_token (ident)]
 			+ [syntax.mk_var (nm, typ) for (nm, typ) in bin_globs],
@@ -152,7 +159,7 @@ def mk_asm_inst_spec (fname):
 	add_impl_fun (impl_fname, regspecs)
 	(iscs, imems, _) = logic.split_scalar_pairs (functions[fname].inputs)
 	(oscs, omems, _) = logic.split_scalar_pairs (functions[fname].outputs)
-	call = syntax.Node ('Call', 'Ret', (impl_fname,
+	call = syntax.Node ('Call', 'Ret', ('r_' + impl_fname,
 		iscs + [syntax.mk_token (ident)] + imems,
                 [(v.name, v.typ) for v in oscs + omems]))
 	assert not functions[fname].nodes
