@@ -800,9 +800,11 @@ class GraphSlice:
 		l_mem_calls = self.scan_mem_calls (lin)
 		r_mem_calls = self.scan_mem_calls (rin)
 		tags = pair.tags
-		if not mem_calls_compatible (tags, l_mem_calls, r_mem_calls):
+		(c, s) = mem_calls_compatible (tags, l_mem_calls, r_mem_calls)
+		if not c:
 			trace ('skipped emitting func pairing %s -> %s'
 				% (l_n_vc, r_n_vc))
+			trace ('  ' + s)
 			return None
 		return res
 
@@ -1147,13 +1149,13 @@ def merge_mem_calls (mem_calls_x, mem_calls_y):
 
 def mem_calls_compatible (tags, l_mem_calls, r_mem_calls):
 	if l_mem_calls == None or r_mem_calls == None:
-		return True
+		return (True, None)
 	r_cast_calls = {}
 	for (fname, calls) in l_mem_calls.iteritems ():
 		pairs = [pair for pair in pairings[fname]
 			if pair.tags == tags]
 		if not pairs:
-			return None
+			return (None, 'no pairing for %s' % fname)
 		assert len (pairs) <= 1, pairs
 		[pair] = pairs
 		r_fun = pair.funs[tags[1]]
@@ -1164,11 +1166,13 @@ def mem_calls_compatible (tags, l_mem_calls, r_mem_calls):
 	for fname in set (r_cast_calls.keys () + r_mem_calls.keys ()):
 		r_cast = r_cast_calls.get (fname, (0, 0))
 		r_actual = r_mem_calls.get (fname, (0, 0))
+		s = 'mismatch in calls to %s and pairs, %s / %s' % (fname,
+			r_cast, r_actual)
 		if r_cast[1] != None and r_cast[1] < r_actual[0]:
-			return None
+			return (None, s)
 		if r_actual[1] != None and r_actual[1] < r_cast[0]:
-			return None
-	return True
+			return (None, s)
+	return (True, None)
 
 def mk_inp_env (n, args, rep):
 	trace ('rep_graph setting up input env at %d' % n, push = 1)
