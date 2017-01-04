@@ -10,7 +10,7 @@
 
 from rep_graph import mk_graph_slice, Hyp, eq_hyp, pc_true_hyp, pc_false_hyp
 import rep_graph
-from problem import Problem, consider_inline_c, inline_at_point
+from problem import Problem, inline_at_point
 
 from solver import to_smt_expr
 from target_objects import functions, pairings, trace, printout
@@ -81,15 +81,15 @@ def inline_reachable_unmatched_C (p, force_inline = None,
 
 def inline_reachable_unmatched (p, inline_tag, compare_tag,
 		force_inline = None, skip_underspec = False):
-	funs = [pair.funs['C']
+	funs = [pair.funs[inline_tag]
 		for n in p.nodes
 		if p.nodes[n].kind == 'Call'
 		if p.node_tags[n][0] == compare_tag
 		for pair in pairings.get (p.nodes[n].fname, [])
-		if 'C' in pair.tags]
+		if inline_tag in pair.tags]
 
 	rep = mk_graph_slice (p,
-		consider_inline_c (funs, inline_tag, force_inline,
+		consider_inline (funs, inline_tag, force_inline,
 			skip_underspec))
 	opts = vc_double_range (3, 3)
 	while True:
@@ -107,6 +107,27 @@ def inline_reachable_unmatched (p, inline_tag, compare_tag,
 			break
 		except rep_graph.InlineEvent:
 			continue
+
+def consider_inline1 (p, n, matched_funs, inline_tag,
+		force_inline, skip_underspec):
+	node = p.nodes[n]
+	assert node.kind == 'Call'
+
+	if p.node_tags[n][0] != inline_tag:
+		return False
+
+	f_nm = node.fname
+	if skip_underspec and not functions[f_nm].entry:
+		trace ('Skipping inlining underspecified %s' % f_nm)
+		return False
+	if f_nm not in matched_funs or (force_inline and force_inline (f_nm)):
+		return lambda: inline_at_point (p, n)
+	else:
+		return False
+
+def consider_inline (matched_funs, tag, force_inline, skip_underspec = False):
+        return lambda (p, n): consider_inline1 (p, n, matched_funs, tag,
+		force_inline, skip_underspec)
 
 def inst_eqs (p, restrs, eqs, tag_map = {}):
 	addr_map = {}

@@ -737,26 +737,6 @@ def inline_at_point (p, n, do_analysis = True):
 
 	return ns.values ()
 
-def consider_inline_c1 (p, n, c_funs, inline_tag, force_inline, skip_underspec):
-	node = p.nodes[n]
-	assert node.kind == 'Call'
-
-	if p.node_tags[n][0] != inline_tag:
-		return False
-
-	f_nm = node.fname
-	if skip_underspec and not functions[f_nm].entry:
-		trace ('Skipping inlining underspecified %s' % f_nm)
-		return False
-	if f_nm not in c_funs or (force_inline and force_inline (f_nm)):
-		return lambda: inline_at_point (p, n)
-	else:
-		return False
-
-def consider_inline_c (c_funs, tag, force_inline, skip_underspec = False):
-        return lambda (p, n): consider_inline_c1 (p, n, c_funs, tag,
-		force_inline, skip_underspec)
-
 def loop_inner_loops (p, head):
 	loop_set_all = p.loop_body (head)
 	loop_set = set (loop_set_all) - set ([head])
