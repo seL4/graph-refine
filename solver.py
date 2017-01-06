@@ -233,7 +233,7 @@ def run_time (elapsed, proc):
 			elapsed = time.time () - ps.create_time ()
 	except Exception, e:
 		pass
-	times = ['%.1fs %s' % (t, msg)
+	times = ['%.2fs %s' % (t, msg)
 		for (t, msg) in zip ([elapsed, user, sys],
 			['elapsed', 'user', 'sys'])
 		if t != None]
