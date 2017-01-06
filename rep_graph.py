@@ -861,13 +861,15 @@ class GraphSlice:
 		assert not "mem_calls fallthrough", mem_sexpr
 
 	def scan_mem_calls (self, env):
-		for (nm, typ) in env:
-			if typ == syntax.builtinTs['Mem']:
-				v = env[(nm, typ)]
-				if v[0] == 'SplitMem':
-					continue
-				return self.get_mem_calls (v)
-		return None
+		mem_vs = [env[(nm, typ)]
+			for (nm, typ) in env
+			if typ == syntax.builtinTs['Mem']]
+		mem_calls = [self.get_mem_calls (v)
+			for v in mem_vs if v[0] != 'SplitMem']
+		if mem_calls:
+			return foldr1 (merge_mem_calls, mem_calls)
+		else:
+			return None
 
 	def add_mem_call (self, fname, mem_calls):
 		if mem_calls == None:
