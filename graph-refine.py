@@ -103,7 +103,7 @@ def toplevel_check (pair, check_loops = True, report = False, count = None):
 		traceback.print_exception (etype, evalue, tb,
 			file = sys.stdout)
 
-	printout ('Result %s for pair %s, time taken: %f'
+	printout ('Result %s for pair %s, time taken: %.1f'
 		% (result, pair, end_time - start_time))
 	sys.stdout.flush ()
 

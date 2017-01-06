@@ -220,6 +220,28 @@ def write_last_solv_script (solv, fname):
 	solv.write_solv_script (f, cmds)
 	f.close ()
 
+def run_time (elapsed, proc):
+	user = None
+	sys = None
+	try:
+		import psutil
+		ps = psutil.Process (proc.pid)
+		ps_time = ps.cpu_times ()
+		user = ps_time.user
+		sys = ps_time.system
+		if elapsed == None:
+			elapsed = time.time () - ps.create_time ()
+	except Exception, e:
+		pass
+	times = ['%.1fs %s' % (t, msg)
+		for (t, msg) in zip ([elapsed, user, sys],
+			['elapsed', 'user', 'sys'])
+		if t != None]
+	if not times:
+		return '(unknown time)'
+	else:
+		return '(%s)' % ', '.join (times)
+
 def smt_typ (typ):
 	if typ.kind == 'Word':
 		return '(_ BitVec %d)' % typ.num
@@ -947,8 +969,10 @@ class Solver:
 		last_hyps[0] = list (raw_hyps)
 		hyps = [self.next_hyp (h, hyp_dict) for h in raw_hyps]
 		succ = False
+		solvs_used = []
 		if force_solv != 'Slow':
 			trace ('testing group of %d hyps:' % len (hyps))
+			solvs_used.append (self.fast_solver.name)
 			for (hyp, _) in raw_hyps:
 				if not recursion:
 					trace ('  ' + hyp)
@@ -967,11 +991,12 @@ class Solver:
 
 		if ((not succ or response not in ['sat', 'unsat'])
 				and self.slow_solver and force_solv != 'Fast'):
-			if force_solv != 'Slow':
+			if solvs_used:
 				trace ('failed to get result from %s'
-					% self.fast_solver.name)
+					% solvs_used[0])
 			trace ('running %s' % self.slow_solver.name)
 			self.close ()
+			solvs_used.append (self.slow_solver.name)
 			response = self.use_slow_solver (raw_hyps,
 				model = model, unsat_core = unsat_core,
 				use_this_solver = slow_solver)
@@ -999,7 +1024,8 @@ class Solver:
 				self.send ('(assert %s)' % fact)
 		else:
 			# couldn't get a useful response from either solver.
-			trace ('All solvers failed to resolve sat/unsat!')
+			trace ('Solvers %s failed to resolve sat/unsat'
+				% solvs_used)
 			trace ('last solver result %r' % response)
 			raise SolverFailure (response)
 		return response
@@ -1075,7 +1101,7 @@ class Solver:
 		else:
 			solver = self.slow_solver
 
-		(_, output) = self.exec_slow_solver (cmds,
+		(proc, output) = self.exec_slow_solver (cmds,
 			timeout = solver.timeout, use_this_solver = solver)
 
 		response = output.readline ().strip ()
@@ -1092,8 +1118,8 @@ class Solver:
 			trace ('SMT conversation problem after (check-sat)')
 
 		end = time.time ()
-		trace ('Got %r from %s after %ds.' % (response,
-			solver.name, int (end - start)))
+		trace ('Got %r from %s.' % (response, solver.name))
+		trace ('  after %s' % run_time (end - start, proc))
 		# adjust to save difficult problems
 		cutoff_time = save_solv_example_time[0]
 		if cutoff_time != -1 and end - start > cutoff_time:
@@ -1134,6 +1160,7 @@ class Solver:
 		del self.parallel_solvers[k]
 		response = output.readline ().strip ()
 		trace ('  <-- parallel solver %s closed: %s' % (k, response))
+		trace ('      after %s' % run_time (None, proc))
 		if response not in ['sat', 'unsat']:
 			trace ('SMT conversation problem in parallel solver')
 		trace ('Got %r from %s in parallel.' % (response, solver.name))
@@ -1249,13 +1276,14 @@ class Solver:
 
 	def slow_solver_multisat (self, hyps, model = None, timeout = 300):
 		trace ('multisat check.')
+		start = time.time ()
 
 		cmds = []
 		for hyp in hyps:
 			cmds.extend (['(assert %s)' % hyp, '(check-sat)'])
 			if model != None:
 				cmds.append (self.fetch_model_request ())
-		(_, output) = self.exec_slow_solver (cmds, timeout = timeout)
+		(proc, output) = self.exec_slow_solver (cmds, timeout = timeout)
 
 		assert hyps
 		for (i, hyp) in enumerate (hyps):
@@ -1281,7 +1309,10 @@ class Solver:
 		if model:
 			assert self.check_model (most_sat, model)
 
-		trace ('multisat final result: %r' % response)
+		end = time.time ()
+		trace ('multisat final result: %r after %s' % (response,
+			run_time (end - start, proc)))
+		output.close ()
 
 		return response
 
