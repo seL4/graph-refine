@@ -7,7 +7,7 @@
 # * @TAG(NICTA_BSD)
 
 import syntax
-from syntax import word32T, word8T, boolT, builtinTs, Expr, Node
+from syntax import word32T, word8T, word16T, boolT, builtinTs, Expr, Node
 from syntax import true_term, false_term
 from syntax import foldr1
 
@@ -303,6 +303,8 @@ def mk_accum_rewrites ():
 	i = mk_var ('i', word32T)
 	def via_word8 (v):
 		return mk_cast (mk_cast (v, word8T), word32T)
+	def via_word16 (v):
+		return mk_cast (mk_cast (v, word16T), word32T)
 	return [(x, i, mk_plus (x, y), mk_plus (x, mk_times (i, y)),
 			y),
 		(x, i, mk_plus (y, x), mk_plus (x, mk_times (i, y)),
@@ -320,6 +322,18 @@ def mk_accum_rewrites ():
 			mk_plus (y, z)),
 		(x, i, via_word8 (mk_plus (y, x)),
 			via_word8 (mk_plus (x, mk_times (i, y))),
+			y),
+		(x, i, via_word16 (mk_plus (x, y)),
+			via_word16 (mk_plus (x, mk_times (i, y))),
+			y),
+		(x, i, via_word16 (mk_plus (y, x)),
+			via_word16 (mk_plus (x, mk_times (i, y))),
+			y),
+		(x, i, via_word16 (mk_plus (via_word16 (mk_plus (x, z)), y)),
+			via_word16 (mk_plus (x, mk_times (i, mk_plus (y, z)))),
+			mk_plus (y, z)),
+		(x, i, via_word16 (mk_plus (y, x)),
+			via_word16 (mk_plus (x, mk_times (i, y))),
 			y),
 		(x, i, mk_plus (mk_plus (x, y), z),
 			mk_plus (x, mk_times (i, mk_plus (y, z))),
@@ -373,7 +387,16 @@ def accumulator_closed_form (expr, (nm, typ)):
 def simplify_cast (expr):
 	"""the disassembler sometimes produces expressions of the kind
 	WordCast-8 (x && 255) i.e. mask out bits then cast away those
-	bits anyway."""
+	bits anyway.
+
+	also when down-casting, WordCastSigned = WordCast"""
+	if expr.is_op ('WordCastSigned'):
+		[x] = expr.vals
+		if expr.typ.num <= x.typ.num:
+			return syntax.mk_cast (x, expr.typ)
+		else:
+			return
+
 	if not expr.is_op ('WordCast'):
 		return
 	if not expr.vals[0].is_op ('BWAnd'):

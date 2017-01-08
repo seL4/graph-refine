@@ -868,6 +868,7 @@ builtinTs = mk_builtinTs ()
 boolT = builtinTs['Bool']
 word32T = Type ('Word', '32')
 word64T = Type ('Word', '64')
+word16T = Type ('Word', 16)
 word8T = Type ('Word', '8')
 
 phantom_types = set ([builtinTs[t] for t
