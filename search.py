@@ -662,9 +662,12 @@ def split_opt_test (p, tags = None):
 	return [(head, get_necessary_split_opts (p, head, (), hyps))
 		for head in heads]
 
+last_necessary_split_opts = [0]
+
 def get_necessary_split_opts (p, head, restrs, hyps, tags = None):
 	if not tags:
 		tags = p.pairing.tags
+	last_necessary_split_opts[0] = (p, head, restrs, hyps, tags)
 
 	[l_tag, r_tag] = tags
 	assert p.node_tags[head][0] == l_tag

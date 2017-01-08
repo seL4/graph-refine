@@ -987,7 +987,7 @@ def lv_expr (expr, env):
 	if expr.is_op ('ShiftLeft'):
 		if rs == ['LoopLinearSeries', 'LoopConst']:
 			return (expr, 'LoopLinearSeries',
-				mk_offs ([lvs[0][0], arg_offs[1]]))
+				mk_offs ([arg_offs[0], lvs[1][0]]))
 	if expr.is_op (expr_linear_cast):
 		if rs == ['LoopLinearSeries']:
 			return (expr, 'LoopLinearSeries', mk_offs (arg_offs))
