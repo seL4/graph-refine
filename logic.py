@@ -351,6 +351,7 @@ def default_val (typ):
 trace_accumulators = []
 
 def accumulator_closed_form (expr, (nm, typ)):
+	expr = syntax.do_subst (expr, simplify_cast)
 	for (x, i, pattern, rewrite, offset) in accum_rewrites:
 		var = mk_var (nm, typ)
 		ass = {(x.name, x.typ): var}
@@ -368,6 +369,23 @@ def accumulator_closed_form (expr, (nm, typ)):
 	if trace_accumulators:
 		trace ('no accumulator %s' % ((expr, nm, typ), ))
 	return (None, None)
+
+def simplify_cast (expr):
+	"""the disassembler sometimes produces expressions of the kind
+	WordCast-8 (x && 255) i.e. mask out bits then cast away those
+	bits anyway."""
+	if not expr.is_op ('WordCast'):
+		return
+	if not expr.vals[0].is_op ('BWAnd'):
+		return
+	[x, y] = expr.vals[0].vals
+	if not y.kind == 'Num':
+		return
+	full_mask = (1 << (expr.typ.num)) - 1
+	if y.val & full_mask == full_mask:
+		return syntax.mk_cast (x, expr.typ)
+	else:
+		return
 
 def end_addr (p, typ):
 	if typ[0] == 'Array':
