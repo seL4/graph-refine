@@ -231,6 +231,8 @@ def run_time (elapsed, proc):
 		sys = ps_time.system
 		if elapsed == None:
 			elapsed = time.time () - ps.create_time ()
+	except ImportError, e:
+		return '(cannot import psutil, cannot time solver)'
 	except Exception, e:
 		pass
 	times = ['%.2fs %s' % (t, msg)
