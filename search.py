@@ -16,7 +16,7 @@ import rep_graph
 from syntax import (mk_and, mk_cast, mk_implies, mk_not, mk_uminus, mk_var,
 	foldr1, boolT, word32T, word8T, builtinTs, true_term, false_term,
 	mk_word32, mk_word8, mk_times, Expr, Type, mk_or, mk_eq, mk_memacc,
-	mk_num, mk_minus)
+	mk_num, mk_minus, mk_plus)
 import syntax
 import logic
 
@@ -661,6 +661,28 @@ def split_opt_test (p, tags = None):
 	hyps = check.init_point_hyps (p)
 	return [(head, get_necessary_split_opts (p, head, (), hyps))
 		for head in heads]
+
+def interesting_linear_test (p):
+	p.do_analysis ()
+	for head in p.loop_heads ():
+		inter = get_interesting_linear_series_exprs (p, head)
+		hooks = target_objects.hooks ('loop_var_analysis')
+		n_exprs = [(n, expr, offs) for (n, vs) in inter.iteritems ()
+			if not [hook for hook in hooks if hook (p, n) != None]
+			for (kind, expr, offs) in vs]
+		if n_exprs:
+			rep = rep_graph.mk_graph_slice (p)
+		for (n, expr, offs) in n_exprs:
+			restrs = tuple ([(n2, vc) for (n2, vc)
+				in restr_others_both (p, (), 2, 2)
+				if p.loop_id (n2) != p.loop_id (head)])
+			vis1 = (n, ((head, vc_offs (1)), ) + restrs)
+			vis2 = (n, ((head, vc_offs (2)), ) + restrs)
+			pc = rep.get_pc (vis2)
+			imp = mk_implies (pc, mk_eq (rep.to_smt_expr (expr, vis2),
+				rep.to_smt_expr (mk_plus (expr, offs), vis1)))
+			assert rep.test_hyp_whyps (imp, [])
+	return True
 
 last_necessary_split_opts = [0]
 
