@@ -94,16 +94,17 @@ def trace_model (rep, m, simplify = True):
 	for tag in tags:
 		print "Walking %s in model" % tag
 		n_vcs = walk_model (rep, tag, m)
+		prev_era = None
 		for (i, (n, vc)) in enumerate (n_vcs):
+			era = n_vc_era (p, (n, vc))
+			if era != prev_era:
+				print 'now in era %s' % era
+			prev_era = era
 			if n in ['Ret', 'Err']:
 				print 'ends at %s' % n
 				break
 			node = logic.simplify_node_elementary (p.nodes[n])
 			if node.kind != 'Cond':
-				continue
-			if i + 1 >= len (n_vcs):
-				continue
-			if n_vc_era (n_vcs[i + 1]) != n_vc_era ((n, vc)):
 				continue
 			name = rep.cond_name ((n, vc))
 			cond = m[name] == syntax.true_term
@@ -152,9 +153,11 @@ def funcall_name (rep):
 	return lambda n_vc: "%s @%s" % (rep.p.nodes[n_vc[0]].fname,
 		rep.node_count_name (n_vc))
 
-def n_vc_era ((n, vc)):
+def n_vc_era (p, (n, vc)):
 	era = 0
 	for (split, vcount) in vc:
+		if not p.loop_id (split):
+			continue
 		(ns, os) = vcount.get_opts ()
 		if len (ns + os) > 1:
 			era += 3
@@ -177,7 +180,7 @@ def do_era_merge (do_merge, era):
 		return era
 
 def era_sort (rep, n_vcs):
-	with_eras = [(n_vc_era (n_vc), n_vc) for n_vc in n_vcs]
+	with_eras = [(n_vc_era (rep.p, n_vc), n_vc) for n_vc in n_vcs]
 	with_eras.sort (key = lambda x: x[0])
 	for i in range (len (with_eras) - 1):
 		(e1, n_vc1) = with_eras[i]
@@ -222,14 +225,14 @@ def investigate_funcalls (rep, m, verbose = False, verbose_imp = False,
 			verbose, verbose_imp, simplify)
 
 def pair_funcalls_by_era (rep, l_calls, r_calls, era_m = True):
-	eras = set (map (n_vc_era, l_calls + r_calls))
+	eras = set ([n_vc_era (rep.p, n_vc) for n_vc in l_calls + r_calls])
 	eras = sorted (eras + set (map (era_merge, eras)))
 	pairs = []
 	for era in eras:
 		ls = [n_vc for n_vc in l_calls
-			if do_era_merge (era_m, n_vc_era (n_vc)) == era]
+			if do_era_merge (era_m, n_vc_era (rep.p, n_vc)) == era]
 		rs = [n_vc for n_vc in r_calls
-			if do_era_merge (era_m, n_vc_era (n_vc)) == era]
+			if do_era_merge (era_m, n_vc_era (rep.p, n_vc)) == era]
 		if len (ls) != len (rs):
 			print 'call seq length mismatch in era %d:' % era
 			print map (funcall_name (rep), ls)
@@ -251,14 +254,14 @@ def pair_funcalls_sequential (rep, l_calls, r_calls):
 	return zip (l_calls, r_calls)
 
 def pair_funcalls_by_match (rep, m, l_calls, r_calls, era_m = True):
-	eras = set (map (n_vc_era, l_calls + r_calls))
+	eras = set ([n_vc_era (rep.p, n_vc) for n_vc in l_calls + r_calls])
 	eras = sorted (set.union (eras, set (map (era_merge, eras))))
 	pairs = []
 	for era in eras:
 		ls = [n_vc for n_vc in l_calls
-			if do_era_merge (era_m, n_vc_era (n_vc)) == era]
+			if do_era_merge (era_m, n_vc_era (rep.p, n_vc)) == era]
 		rs = [n_vc for n_vc in r_calls
-			if do_era_merge (era_m, n_vc_era (n_vc)) == era]
+			if do_era_merge (era_m, n_vc_era (rep.p, n_vc)) == era]
 		res = None
 		matches = [(1 - func_assert_premise_strength (rep, m,
 				n_vc, n_vc2), i, j)

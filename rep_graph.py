@@ -519,7 +519,7 @@ class GraphSlice:
 
 		(pc, env, large) = merge_envs_pcs (pc_envs, self.solv)
 
-		if large or len (smt_expr (pc, env, self.solv)) > 80:
+		if pc.kind != 'SMTExpr':
 			name = self.path_cond_name ((n, vcount), tag)
 			name = self.solv.add_def (name, pc, env)
 			pc = mk_smt_expr (name, boolT)
