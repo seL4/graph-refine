@@ -1180,8 +1180,10 @@ def interesting_linear_series_exprs (p, loop, va, tags = None,
 		ret_inner = True)
 	res_env = {}
 	for (n, env) in expr_env.iteritems ():
-		vs = [(kind, ptr)
-			for (kind, ptr, v, m) in p.nodes[n].get_mem_accesses ()]
+		memaccs = p.nodes[n].get_mem_accesses ()
+		vs = [(kind, ptr) for (kind, ptr, v, m) in memaccs]
+		vs += [('MemUpdateArg', v) for (kind, ptr, v, m) in memaccs
+			if kind == 'MemUpdate']
 
 		node = p.nodes[n]
 		if node.kind == 'Call' and use_pairings:
