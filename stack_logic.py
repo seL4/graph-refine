@@ -512,8 +512,8 @@ def loop_var_analysis (p, split):
 		upd_offsets, _) = get_loop_virtual_stack_analysis (p, tag)
 	loop = p.loop_body (head)
 
-	va = logic.compute_loop_var_analysis (adj_nodes, vds, split, loop,
-		p.preds)
+	va = logic.compute_loop_var_analysis (p, vds, split,
+		override_nodes = adj_nodes)
 
 	(stack, _) = get_stack_sp (p, tag)
 

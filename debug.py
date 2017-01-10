@@ -725,13 +725,18 @@ def var_analysis (p, n):
 	cats = {}
 	for (v, kind) in va:
 		if kind[0] == 'LoopLinearSeries':
+			offs = kind[2]
 			kind = kind[0]
+		else:
+			offs = None
 		cats.setdefault (kind, [])
-		cats[kind].append (v)
+		cats[kind].append ((v, offs))
 	for kind in cats:
 		print '%s:' % kind
-		for v in cats[kind]:
+		for (v, offs) in cats[kind]:
 			print '  %s' % syntax.pretty_expr (v)
+			if offs:
+				print '      ++ %s' % syntax.pretty_expr (offs)
 
 def try_pairing_at_funcall (p, name, head = None, restrs = None, hyps = None,
 		at = 'At'):
@@ -743,7 +748,7 @@ def try_pairing_at_funcall (p, name, head = None, restrs = None, hyps = None,
 		addrs = [p.nodes[n].cont for n in addrs]
 	if head == None:
 		tags = p.pairing.tags
-		[head] = [n for n in p.loop_heads ()
+		[head] = [n for n in search.init_loops_to_split (p, ())
 			if p.node_tags[n][0] == tags[0]]
 	if restrs == None:
 		restrs = ()

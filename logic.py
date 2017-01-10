@@ -7,8 +7,8 @@
 # * @TAG(NICTA_BSD)
 
 import syntax
-from syntax import word32T, word8T, word16T, boolT, builtinTs, Expr, Node
-from syntax import true_term, false_term
+from syntax import word32T, word8T, boolT, builtinTs, Expr, Node
+from syntax import true_term, false_term, mk_num
 from syntax import foldr1
 
 (mk_var, mk_plus, mk_uminus, mk_minus, mk_times, mk_modulus, mk_bwand, mk_eq,
@@ -126,7 +126,7 @@ def mk_stack_sequence (sp, offs, stack, typ, n, do_reverse = False):
 def mk_aligned (w, n):
 	assert w.typ.kind == 'Word'
 	mask = Expr ('Num', w.typ, val = ((1 << n) - 1))
-	return mk_eq (mk_bwand (w, mask), Expr ('Num', w.typ, val = 0))
+	return mk_eq (mk_bwand (w, mask), mk_num (0, w.typ))
 
 def mk_eqs_arm_none_eabi_gnu (var_c_args, var_c_rets, c_imem, c_omem,
 		min_stack_size):
@@ -296,45 +296,17 @@ def recursive_term_subst (eqs, expr):
 		return Expr ('Op', expr.typ, name = expr.name, vals = vals)
 	return expr
 
-def mk_accum_rewrites ():
-	x = mk_var ('x', word32T)
-	y = mk_var ('y', word32T)
-	z = mk_var ('z', word32T)
-	i = mk_var ('i', word32T)
-	def via_word8 (v):
-		return mk_cast (mk_cast (v, word8T), word32T)
-	def via_word16 (v):
-		return mk_cast (mk_cast (v, word16T), word32T)
+def mk_accum_rewrites (typ):
+	x = mk_var ('x', typ)
+	y = mk_var ('y', typ)
+	z = mk_var ('z', typ)
+	i = mk_var ('i', typ)
 	return [(x, i, mk_plus (x, y), mk_plus (x, mk_times (i, y)),
 			y),
 		(x, i, mk_plus (y, x), mk_plus (x, mk_times (i, y)),
 			y),
 		(x, i, mk_minus (x, y), mk_minus (x, mk_times (i, y)),
 			mk_uminus (y)),
-		(x, i, via_word8 (mk_plus (x, y)),
-			via_word8 (mk_plus (x, mk_times (i, y))),
-			y),
-		(x, i, via_word8 (mk_plus (y, x)),
-			via_word8 (mk_plus (x, mk_times (i, y))),
-			y),
-		(x, i, via_word8 (mk_plus (via_word8 (mk_plus (x, z)), y)),
-			via_word8 (mk_plus (x, mk_times (i, mk_plus (y, z)))),
-			mk_plus (y, z)),
-		(x, i, via_word8 (mk_plus (y, x)),
-			via_word8 (mk_plus (x, mk_times (i, y))),
-			y),
-		(x, i, via_word16 (mk_plus (x, y)),
-			via_word16 (mk_plus (x, mk_times (i, y))),
-			y),
-		(x, i, via_word16 (mk_plus (y, x)),
-			via_word16 (mk_plus (x, mk_times (i, y))),
-			y),
-		(x, i, via_word16 (mk_plus (via_word16 (mk_plus (x, z)), y)),
-			via_word16 (mk_plus (x, mk_times (i, mk_plus (y, z)))),
-			mk_plus (y, z)),
-		(x, i, via_word16 (mk_plus (y, x)),
-			via_word16 (mk_plus (x, mk_times (i, y))),
-			y),
 		(x, i, mk_plus (mk_plus (x, y), z),
 			mk_plus (x, mk_times (i, mk_plus (y, z))),
 			mk_plus (y, z)),
@@ -352,7 +324,12 @@ def mk_accum_rewrites ():
 			mk_plus (y, z)),
 	]
 
-accum_rewrites = mk_accum_rewrites ()
+def mk_all_accum_rewrites ():
+	return [rew for typ in [word8T, word32T, syntax.word16T,
+			syntax.word64T]
+		for rew in mk_accum_rewrites (typ)]
+
+accum_rewrites = mk_all_accum_rewrites ()
 
 def default_val (typ):
 	if typ.kind == 'Word':
@@ -364,8 +341,13 @@ def default_val (typ):
 
 trace_accumulators = []
 
-def accumulator_closed_form (expr, (nm, typ)):
-	expr = syntax.do_subst (expr, simplify_cast)
+def accumulator_closed_form (expr, (nm, typ), add_mask = None):
+	expr = toplevel_split_out_cast (expr)
+	n = get_bwand_mask (expr)
+	if n and not add_mask:
+		return accumulator_closed_form (expr.vals[0], (nm, typ),
+			add_mask = n)
+
 	for (x, i, pattern, rewrite, offset) in accum_rewrites:
 		var = mk_var (nm, typ)
 		ass = {(x.name, x.typ): var}
@@ -377,6 +359,8 @@ def accumulator_closed_form (expr, (nm, typ)):
 				ass[(x.name, x.typ)] = x2
 				ass[(i.name, i.typ)] = i2
 				vs = var_subst (rewrite, ass)
+				if add_mask:
+					vs = mk_bwand_mask (vs, add_mask)
 				return vs
 			offs = var_subst (offset, ass)
 			return (do_rewrite, offs)
@@ -384,31 +368,75 @@ def accumulator_closed_form (expr, (nm, typ)):
 		trace ('no accumulator %s' % ((expr, nm, typ), ))
 	return (None, None)
 
-def simplify_cast (expr):
-	"""the disassembler sometimes produces expressions of the kind
-	WordCast-8 (x && 255) i.e. mask out bits then cast away those
-	bits anyway.
-
-	also when down-casting, WordCastSigned = WordCast"""
-	if expr.is_op ('WordCastSigned'):
+def split_out_cast (expr, target_typ, bits):
+	"""given a word-type expression expr (of any word length),
+	compute a simplified expression expr' of the target type, which will
+	have the property that expr' && mask bits = cast expr,
+	where && is bitwise-and (BWAnd), mask n is the bitpattern set at the
+	bottom n bits, e.g. (1 << n) - 1, and cast is WordCast."""
+	if expr.is_op (['WordCast', 'WordCastSigned']):
 		[x] = expr.vals
-		if expr.typ.num <= x.typ.num:
-			return syntax.mk_cast (x, expr.typ)
+		if x.typ.num >= bits and expr.typ.num >= bits:
+			return split_out_cast (x, target_typ, bits)
 		else:
-			return
+			return mk_cast (expr, target_typ)
+	elif expr.is_op ('BWAnd'):
+		[x, y] = expr.vals
+		if y.kind == 'Num':
+			val = y.val
+		else:
+			val = 0
+		full_mask = (1 << bits) - 1
+		if val & full_mask == full_mask:
+			return split_out_cast (x, target_typ, bits)
+		else:
+			return mk_cast (expr, target_typ)
+	elif expr.is_op (['Plus', 'Minus']):
+		# rounding issues will appear if this arithmetic is done
+		# at a smaller number of bits than we'll eventually report
+		if expr.typ.num >= bits:
+			vals = [split_out_cast (x, target_typ, bits)
+				for x in expr.vals]
+			if expr.is_op ('Plus'):
+				return mk_plus (vals[0], vals[1])
+			else:
+				return mk_minus (vals[0], vals[1])
+		else:
+			return mk_cast (expr, target_typ)
+	else:
+		return mk_cast (expr, target_typ)
 
-	if not expr.is_op ('WordCast'):
+def toplevel_split_out_cast (expr):
+	bits = None
+	if expr.is_op (['WordCast', 'WordCastSigned']):
+		bits = min ([expr.typ.num, expr.vals[0].typ.num])
+	elif expr.is_op ('BWAnd'):
+		bits = get_bwand_mask (expr)
+
+	if bits:
+		expr = split_out_cast (expr, expr.typ, bits)
+		return mk_bwand_mask (expr, bits)
+	else:
+		return expr
+
+two_powers = {}
+
+def get_bwand_mask (expr):
+	"""recognise (x && mask) opers, where mask = ((1 << n) - 1)
+	for some n"""
+	if not expr.is_op ('BWAnd'):
 		return
-	if not expr.vals[0].is_op ('BWAnd'):
-		return
-	[x, y] = expr.vals[0].vals
+	[x, y] = expr.vals
 	if not y.kind == 'Num':
 		return
-	full_mask = (1 << (expr.typ.num)) - 1
-	if y.val & full_mask == full_mask:
-		return syntax.mk_cast (x, expr.typ)
-	else:
-		return
+	val = y.val & ((1 << (y.typ.num)) - 1)
+	if not two_powers:
+		for i in range (129):
+			two_powers[1 << i] = i
+	return two_powers.get (val + 1)
+
+def mk_bwand_mask (expr, n):
+	return mk_bwand (expr, mk_num (((1 << n) - 1), expr.typ))
 
 def end_addr (p, typ):
 	if typ[0] == 'Array':
@@ -850,14 +878,19 @@ def compute_var_deps (nodes, outputs, preds, override_lvals_rvals = {},
 
 	return var_deps
 
-def compute_loop_var_analysis (nodes, var_deps, n, loop, preds):
-	upd_vs = set ([v for n2 in loop
+def compute_loop_var_analysis (p, var_deps, n, override_nodes = None):
+	if override_nodes == None:
+		nodes = p.nodes
+	else:
+		nodes = override_nodes
+
+	upd_vs = set ([v for n2 in p.loop_body (n)
 		if not nodes[n2].is_noop ()
 		for v in nodes[n2].get_lvals ()])
-	const_vs = set ([v for n2 in loop
+	const_vs = set ([v for n2 in p.loop_body (n)
 		for v in var_deps[n2] if v not in upd_vs])
 
-	vca = compute_var_cycle_analysis (nodes, n, loop, preds,
+	vca = compute_var_cycle_analysis (p, nodes, n,
 		const_vs, set (var_deps[n]))
 	vca = [(syntax.mk_var (nm, typ), data)
 		for ((nm, typ), data) in vca.items ()]
@@ -867,21 +900,22 @@ cvca_trace = []
 cvca_diag = [False]
 no_accum_expressions = set ()
 
-def compute_var_cycle_analysis (nodes, n, loop, preds, const_vars, vs,
-		diag = None):
+def compute_var_cycle_analysis (p, nodes, n, const_vars, vs, diag = None):
 
 	if diag == None:
 		diag = cvca_diag[0]
 
 	cache = {}
 	del cvca_trace[:]
+	impossible_nodes = {}
+	loop = p.loop_body (n)
 
 	def warm_cache_before (n2, v):
 		cvca_trace.append ((n2, v))
 		cvca_trace.append ('(')
 		arc = []
 		for i in range (100000):
-			opts = [n3 for n3 in preds[n2] if n3 in loop
+			opts = [n3 for n3 in p.preds[n2] if n3 in loop
 				if v not in nodes[n3].get_lvals ()
 				if n3 != n
 				if (n3, v) not in cache]
@@ -905,11 +939,14 @@ def compute_var_cycle_analysis (nodes, n, loop, preds, const_vars, vs,
 			vs = set ([v for v in [v] if v not in const_vars])
 			return (vs, var_exp)
 		warm_cache_before (n2, v)
-		ps = [n3 for n3 in preds[n2] if n3 in loop]
+		ps = [n3 for n3 in p.preds[n2] if n3 in loop
+			if not node_impossible (n3)]
+		if not ps:
+			return None
 		vs = [var_eval_after (n3, v) for n3 in ps]
 		if not all ([v3 == vs[0] for v3 in vs]):
 			if diag:
-				trace ('vs disagree @ %d: %s' % (n2, vs))
+				trace ('vs disagree for %s @ %d: %s' % (v, n2, vs))
 			r = None
 		else:
 			r = vs[0]
@@ -954,6 +991,36 @@ def compute_var_cycle_analysis (nodes, n, loop, preds, const_vars, vs,
 			if diag:
 				trace ('Unwalkable expr %s' % expr)
 			return None
+	def node_impossible (n2):
+		if n2 in impossible_nodes:
+			return impossible_nodes[n2]
+		if n2 == n or n2 in p.get_loop_splittables (n):
+			imposs = False
+		else:
+			pres = [n3 for n3 in p.preds[n2]
+				if n3 in loop if not node_impossible (n3)]
+			if n2 in impossible_nodes:
+				imposs = impossible_nodes[n2]
+			else:
+				imposs = not bool (pres)
+		impossible_nodes[n2] = imposs
+		node = nodes[n2]
+		if imposs or node.kind != 'Cond':
+			return imposs
+		if 1 >= len ([n3 for n3 in node.get_conts ()
+				if n3 in loop]):
+			return imposs
+		c = expr_eval_before (n2, node.cond)
+		if c != None:
+			c = try_eval_expr (c[1])
+		if c != None:
+			trace ('determined loop inner cond at %d equals %s'
+				% (n2, c == syntax.true_term))
+		if c == syntax.true_term:
+			impossible_nodes[node.right] = True
+		elif c == syntax.false_term:
+			impossible_nodes[node.left] = True
+		return imposs
 
 	vca = {}
 	for v in vs:
@@ -985,6 +1052,22 @@ def compute_var_cycle_analysis (nodes, n, loop, preds, const_vars, vs,
 			no_accum_expressions.add ((v, expr))
 			vca[v] = 'LoopVariable'
 	return vca
+
+eval_expr_solver = [None]
+
+def try_eval_expr (expr):
+	"""attempt to reduce an expression to a single result, vaguely like
+	what constant propagation would do. it might work!"""
+	import search
+	if not eval_expr_solver[0]:
+		import solver
+		eval_expr_solver[0] = solver.Solver ()
+	try:
+		return search.eval_model_expr ({}, eval_expr_solver[0], expr)
+	except KeyboardInterrupt, e:
+		raise e
+	except Exception, e:
+		return None
 
 expr_linear_sum = set (['Plus', 'Minus'])
 expr_linear_cast = set (['WordCast', 'WordCastSigned'])
@@ -1039,7 +1122,7 @@ def lv_expr (expr, env):
 def linear_series_exprs (p, loop, va, ret_inner = False):
 	def lv_init (v, data):
 		if data[0] == 'LoopLinearSeries':
-			return (v, 'LoopLinearSeries', data[2]) 
+			return (v, 'LoopLinearSeries', data[2])
 		elif data == 'LoopConst':
 			return (v, 'LoopConst', None)
 		else:

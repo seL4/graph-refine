@@ -322,8 +322,7 @@ class Problem:
 			for (data2, va) in self.loop_var_analysis_cache[k]:
 				if data2 == data:
 					return va
-		va = logic.compute_loop_var_analysis (self.nodes, var_deps,
-			n, self.loop_body (head), self.preds)
+		va = logic.compute_loop_var_analysis (self, var_deps, n)
 		group = self.loop_var_analysis_cache.setdefault (k, [])
 		group.append ((data, va))
 		del group[:-10]

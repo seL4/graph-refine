@@ -1090,7 +1090,8 @@ def mk_seq_eqs (p, split, step, with_rodata):
 			continue
 		elif data[0] == 'LoopLinearSeries':
 			(_, form, _) = data
-			eqs.append (form (var, minus_loop_step))
+			eqs.append (form (var,
+				mk_cast (minus_loop_step, var.typ)))
 		else:
 			assert not 'var_deps type understood'
 
