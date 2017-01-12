@@ -341,14 +341,52 @@ def update_v_ids_for_model (knowledge, pairs, vs, m):
 		if vs[v][0] not in needed_ks:
 			del vs[v]
 
+def get_splittables_after (rep, head, restrs, hyps):
+	"""get the set of splittables that are visited after the head point
+	on possible entry paths. usually all the splittables bar the head point,
+	unless the loop has multiple entries."""
+	k = ('loop_splittables_after_entry', head, restrs, tuple (hyps))
+	if k in rep.p.cached_analysis:
+		return rep.p.cached_analysis[k]
+
+	[entry] = get_loop_entry_sites (rep, restrs, hyps, head)
+	seen_head = False
+	after = set ()
+	n = entry
+	splits = rep.p.get_loop_splittables (head)
+	while True:
+		nc = rep.p.nodes[n].get_conts ()
+		n = nc[0]
+		if n in splits:
+			after.add (n)
+		if n == head and seen_head:
+			break
+		elif n == head:
+			seen_head = True
+	rep.p.cached_analysis[k] = after
+	return after
+
+def get_nth_visit_restrs (rep, restrs, hyps, i, visit_num):
+	"""get the nth (visit_num-th) visit to node i, using its loop head
+	as a restriction point. tricky because there may be a loop entry point
+	that brings us in with the loop head before i, or vice-versa."""
+	head = rep.p.loop_id (i)
+	if i not in rep.p.get_loop_splittables (head):
+		offs = 0
+	elif i in get_splittables_after (rep, head, restrs, hyps):
+		# just before the visit to i, there has already been 1 more
+		# visit to the head
+		offs = 1
+	else:
+		offs = 0
+	return ((head, vc_num (visit_num + offs)), ) + restrs
+
 def get_var_pc_var_list (knowledge, v_i):
 	rep = knowledge.rep
 	(v_i, i, i_offs, i_step) = v_i
 	def get_var (k):
-		head = rep.p.loop_id (i)
-		if i != head:
-			k += 1
-		restrs2 = knowledge.restrs + ((head, vc_num (k)), )
+		restrs2 = get_nth_visit_restrs (rep, knowledge.restrs,
+				knowledge.hyps, i, k)
 		(pc, env) = rep.get_node_pc_env ((i, restrs2))
 		return (to_smt_expr (pc, env, rep.solv),
 			to_smt_expr (v_i, env, rep.solv))
@@ -691,6 +729,11 @@ def get_necessary_split_opts (p, head, restrs, hyps, tags = None):
 		tags = p.pairing.tags
 	last_necessary_split_opts[0] = (p, head, restrs, hyps, tags)
 
+	rep = rep_graph.mk_graph_slice (p, fast = True)
+	entries = get_loop_entry_sites (rep, restrs, hyps, head)
+	if len (entries) > 1:
+		return ('CaseSplit', ((entries[0], tags[0]), [entries[0]]))
+
 	[l_tag, r_tag] = tags
 	assert p.node_tags[head][0] == l_tag
 	l_seq_vs = get_interesting_linear_series_exprs (p, head)
@@ -698,17 +741,20 @@ def get_necessary_split_opts (p, head, restrs, hyps, tags = None):
 		return None
 	r_seq_vs = {}
 	for n in init_loops_to_split (p, restrs):
-		if p.node_tags[n][0] == r_tag:
-			vs = get_interesting_linear_series_exprs (p, n)
-			r_seq_vs.update (vs)
+		if p.node_tags[n][0] != r_tag:
+			continue
+		vs = get_interesting_linear_series_exprs (p, n)
+		r_seq_vs.update (vs)
+		entries = get_loop_entry_sites (rep, restrs, hyps, head)
+		if len (entries) > 1:
+			return ('CaseSplit', ((entries[0], r_tag),
+				[entries[0]]))
 	if not r_seq_vs:
 		return None
 
-	rep = rep_graph.mk_graph_slice (p, fast = True)
 	def vis (n, i):
-		if n != p.loop_id (n):
-			i = i + 1
-		return (n, tuple ([(p.loop_id (n), vc_num (i))]) + restrs)
+		restrs2 = get_nth_visit_restrs (rep, restrs, hyps, n, i)
+		return (n, restrs2)
 	smt = lambda expr, n, i: rep.to_smt_expr (expr, vis (n, i))
 	smt_pc = lambda n, i: rep.get_pc (vis (n, i))
 
@@ -828,11 +874,7 @@ def setup_split_search (rep, head, restrs, hyps,
 	nrerr_pc = mk_not (rep.get_pc (('Err', err_restrs), tag = r_tag))
 
 	def get_pc (n, k):
-		head = p.loop_id (n)
-		assert head in init_to_split
-		if n != head:
-			k += 1
-		restrs2 = restrs + ((head, vc_num (k)), )
+		restrs2 = get_nth_visit_restrs (rep, restrs, hyps, n, k)
 		return rep.get_pc ((n, restrs2))
 
 	for n in r_to_split:
@@ -862,6 +904,21 @@ def setup_split_search (rep, head, restrs, hyps,
 			smt_expr (pred, {}, rep.solv)
 
 	return knowledge
+
+def get_loop_entry_sites (rep, restrs, hyps, head):
+	k = ('loop_entry_sites', restrs, tuple (hyps), rep.p.loop_id (head))
+	if k in rep.p.cached_analysis:
+		return rep.p.cached_analysis[k]
+	ns = set ([n for n2 in rep.p.loop_body (head)
+		for n in rep.p.preds[n2]
+		if rep.p.loop_id (n) == None])
+	def npc (n):
+		return rep_graph.pc_false_hyp (((n, tuple ([(n2, restr)
+			for (n2, restr) in restrs if n2 != n])),
+				rep.p.node_tags[n][0]))
+	res = [n for n in ns if not rep.test_hyp_imp (hyps, npc (n))]
+	rep.p.cached_analysis[k] = res
+	return res
 
 def rebuild_knowledge (head, knowledge):
 	i_opts = sorted (set ([(start, step)
