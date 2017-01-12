@@ -51,3 +51,27 @@ Function f_impl 2 x#v Word 32 Mem Mem 1 Mem Mem
 16 Basic 13 1 y#v Word 32 Op Plus Word 32 2 Var y#v Word 32 Num 2 Word 32
 EntryPoint 1
 
+
+# same again, but this time instead of calling g one more time in the
+# case split, jump into a different point in the loop
+Function f2 2 x#v Word 32 Mem Mem 1 Mem Mem
+1 Basic 2 1 y#v Word 32 Num 0 Word 32
+2 Cond 3 Ret Op SignedLess Bool 2 Var y#v Word 32 Var x#v Word 32
+3 Call 4 g 2 Var y#v Word 32 Var Mem Mem 1 Mem Mem
+4 Basic 2 1 y#v Word 32 Op Plus Word 32 2 Var y#v Word 32 Num 1 Word 32
+EntryPoint 1
+
+Function f2_impl 2 x#v Word 32 Mem Mem 1 Mem Mem
+1 Cond 2 Ret Op SignedLess Bool 2 Num 0 Word 32 Var x#v Word 32
+2 Basic 3 1 y#v Word 32 Num 0 Word 32
+3 Cond 7 5 Op Equals Bool 2 Op BWAnd Bool 2 Var x#v Word 32 Num 1 Word 32 Num 1 Word 32
+# know by 4/5 that x - y is even
+4 Cond 5 Ret Op SignedLess Bool 2 Var y#v Word 32 Var x#v Word 32
+5 Call 6 g_impl 2 Var y#v Word 32 Var Mem Mem 1 Mem Mem
+6 Basic 7 1 y#v Word 32 Op Plus Word 32 2 Var y#v Word 32 Num 1 Word 32
+7 Call 8 g_impl 2 Var y#v Word 32 Var Mem Mem 1 Mem Mem
+8 Basic 4 1 y#v Word 32 Op Plus Word 32 2 Var y#v Word 32 Num 1 Word 32
+EntryPoint 1
+
+
+
