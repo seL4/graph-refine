@@ -350,19 +350,18 @@ def get_splittables_after (rep, head, restrs, hyps):
 		return rep.p.cached_analysis[k]
 
 	[entry] = get_loop_entry_sites (rep, restrs, hyps, head)
-	seen_head = False
+	seen = set ()
 	after = set ()
 	n = entry
 	splits = rep.p.get_loop_splittables (head)
 	while True:
 		nc = rep.p.nodes[n].get_conts ()
 		n = nc[0]
-		if n in splits:
-			after.add (n)
-		if n == head and seen_head:
+		if n in seen:
 			break
-		elif n == head:
-			seen_head = True
+		if n in splits and head in seen:
+			after.add (n)
+		seen.add (n)
 	rep.p.cached_analysis[k] = after
 	return after
 
