@@ -515,10 +515,16 @@ def trace_suspicious_mem (rep, m, tag = 'C'):
 def trace_var (rep, tag, m, v):
 	p = rep.p
 	ns = walk_model (rep, tag, m)
+	vds = rep.p.compute_var_dependencies ()
 	trace = []
-	def eval (expr, env):
+	vs = syntax.get_expr_var_set (v)
+	def fetch ((n, vc)):
+		if n in vds and [(nm, typ) for (nm, typ) in vs
+				if (nm, typ) not in vds[n]]:
+			return None
 		try:
-			s = solver.smt_expr (expr, env, rep.solv)
+			(_, env) = rep.get_node_pc_env ((n, vc), tag)
+			s = solver.smt_expr (v, env, rep.solv)
 			s_x = solver.parse_s_expression (s)
 			ev = search.eval_model (m, s_x)
 			return (s, solver.smt_expr (ev, {}, None))
@@ -528,11 +534,14 @@ def trace_var (rep, tag, m, v):
 			return None
 	val = None
 	for (n, vc) in ns:
-		(_, env) = rep.get_node_pc_env ((n, vc), tag)
 		n_nm = rep.node_count_name ((n, vc))
-		val2 = eval (v, env)
+		val2 = fetch ((n, vc))
 		if val2 != val:
-			print 'at %s:\t\t%s:\t\t%s' % (n_nm, val2[0], val2[1])
+			if val2 == None:
+				print 'at %s: undefined' % n_nm
+			else:
+				print 'at %s:\t\t%s:\t\t%s' % (n_nm,
+					val2[0], val2[1])
 			val = val2
 			trace.append (((n, vc), val))
 		if n not in p.nodes:
