@@ -99,7 +99,8 @@ H4Update: .FORCE
 
 IGNORES= fastpath_restore,slowpath,c_handle_data_fault,c_handle_instruction_fault,c_handle_interrupt,c_handle_syscall,c_handle_undefined_instruction,c_handle_vm_fault,fastpath_call,fastpath_reply_recv
 
-ASMFunctions.txt: kernel.elf.txt kernel.sigs H4Update
+ASMFunctions.txt: kernel.elf.txt kernel.sigs
+	PATH=${H4PATH} build -nograph
 	PATH=${H4PATH} ${DECOMP_SCRIPT} --fast ./kernel --ignore=${IGNORES}
 	# we move the output to a new location to get around a problem where
 	# the decompiler can fail leaving an incomplete output file.
