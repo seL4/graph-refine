@@ -37,37 +37,65 @@ def build_syms (symtab):
 
 	return (syms, sections)
 
-is_rodata_line = re.compile('^\s*[0123456789abcdefABCDEF]+:\s')
+def install_syms (symtab):
+	(syms, sects) = build_syms (symtab)
+	import target_objects
+	target_objects.symbols.update (syms)
+	target_objects.sections.update (sects)
 
-def build_rodata (rodata_stream):
+is_rodata_line = re.compile('^\s*[0-9a-fA-F]+:\s+[0-9a-fA-F]+\s+')
+
+def build_rodata (rodata_stream, rodata_ranges = [('Section', '.rodata')]):
 	from syntax import structs, fresh_name, Struct, mk_word32
-	from target_objects import sections, trace
+	import syntax
+	from target_objects import symbols, sections, trace
+
+	act_rodata_ranges = []
+	for (kind, nm) in rodata_ranges:
+		if kind == 'Symbol':
+			(addr, size, _) = symbols[nm]
+			act_rodata_ranges.append ((addr, addr + size - 1))
+		elif kind == 'Section':
+			if nm in sections:
+				act_rodata_ranges.append (sections[nm])
+			else:
+				# it's reasonable to supply .rodata as the
+				# expected section only for it to be missing
+				trace ('No %r section in objdump.' % nm)
+		else:
+			assert kind in ['Symbol', 'Section'], rodata_ranges
+
 	rodata = {}
 	for line in rodata_stream:
 		if not is_rodata_line.match (line):
 			continue
 		bits = line.split ()
-		rodata[int (bits[0][:-1], 16)] = int (bits[1], 16)
+		(addr, v) = (int (bits[0][:-1], 16), int (bits[1], 16))
+		if [1 for (start, end) in act_rodata_ranges
+				if start <= addr and addr <= end]:
+			assert addr % 4 == 0, addr
+			rodata[addr] = v
 
-	rodata_min = min (rodata.keys ())
-	rodata_max = max (rodata.keys ()) + 4
-	assert rodata_min % 4 == 0
+	if len (act_rodata_ranges) == 1:
+		rodata_names = ['rodata_struct']
+	else:
+		rodata_names = ['rodata_struct_%d' % (i + 1)
+			for (i, _) in enumerate (act_rodata_ranges)]
 
-	rodata_range = range (rodata_min, rodata_max, 4)
-	for x in rodata_range:
-		if x not in rodata:
-			trace ('.rodata section gap at address %x' % x)
+	rodata_ptrs = []
+	for ((start, end), name) in zip (act_rodata_ranges, rodata_names):
+		struct_name = fresh_name (name, structs)
+		struct = Struct (struct_name, (end - start) + 1, 1)
+		structs[struct_name] = struct
+		typ = syntax.get_global_wrapper (struct.typ)
+		rodata_ptrs.append ((mk_word32 (start), typ))
 
-	struct_name = fresh_name ('rodata', structs)
-	struct = Struct (struct_name, rodata_max - rodata_min, 1)
-	structs[struct_name] = struct
+	return (rodata, act_rodata_ranges, rodata_ptrs)
 
-	(start, end) = sections['.rodata']
-	assert start <= rodata_min
-	assert end + 1 >= rodata_max
-
-	return (rodata, mk_word32 (rodata_min), struct.typ)
-
+def install_rodata (rodata_stream, rodata_ranges = [('Section', '.rodata')]):
+	import target_objects
+	rodata = build_rodata (rodata_stream, rodata_ranges)
+	target_objects.rodata[:] = rodata
 
 # the prunes file isn't really an objdump file, but this seems the best place
 

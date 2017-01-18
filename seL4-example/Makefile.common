@@ -64,7 +64,7 @@ $(if ${SOLV_TEST},,$(error Solver self-test failed (${SOLV} test)))
 include ${SOURCE_ROOT}/Makefile
 
 kernel.elf.rodata: kernel.elf
-	${OBJDUMP} -z -D -j .rodata $^ > $@
+	${OBJDUMP} -z -D $^ > $@
 
 kernel.elf.txt: kernel.elf
 	${OBJDUMP} -dz $^ > $@

@@ -17,10 +17,8 @@ import logic
 import re
 
 f = open ('%s/kernel.elf.symtab' % target_dir)
-(lsymbs, lsects) = objdump.build_syms (f)
+objdump.install_syms (f)
 f.close ()
-symbols.update (lsymbs)
-sections.update (lsects)
 
 f = open ('%s/CFunctions.txt' % target_dir)
 syntax.parse_and_install_all (f, 'C')
@@ -35,7 +33,8 @@ assert not aconst_globals
 assert logic.aligned_address_sanity (afunctions, symbols, 4)
 
 f = open ('%s/kernel.elf.rodata' % target_dir)
-rodata[:] = objdump.build_rodata (f)
+objdump.install_rodata (f, [('Section', '.rodata'), ('Symbol', 'kernel_devices'),
+	('Symbol', 'avail_p_regs'), ('Symbol', 'dev_p_regs')])
 f.close ()
 
 print 'Pseudo-Compiling.'

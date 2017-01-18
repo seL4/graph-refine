@@ -921,7 +921,9 @@ class Solver:
 		imp_ro_name = self.smt_name ('implies-rodata', kind = 'Fun')
 		assert ro_name == 'rodata', repr (ro_name)
 		assert imp_ro_name == 'implies-rodata', repr (imp_ro_name)
-		if '.rodata' not in sections:
+		[rodata_data, rodata_ranges, rodata_ptrs] = rodata
+		if not rodata_ptrs:
+			assert not rodata_data
 			ro_def = 'true'
 			imp_ro_def = 'true'
 		else:
@@ -929,20 +931,19 @@ class Solver:
 			ro_witness_val = self.add_var ('rodata-witness-val', word32T)
 			assert ro_witness == 'rodata-witness'
 			assert ro_witness_val == 'rodata-witness-val'
-			[rodata_data, rodata_addr, rodata_typ] = rodata
 			eq_vs = [(smt_num (p, 32), smt_num (v, 32))
 				for (p, v) in rodata_data.iteritems ()]
-			eq_vs.append (('rodata-witness', 'rodata-witness-val'))
+			eq_vs.append ((ro_witness, ro_witness_val))
 			eqs = ['(= (load-word32 m %s) %s)' % v for v in eq_vs]
 			ro_def = '(and %s)' % ' \n  '.join (eqs)
-			rx = smt_expr (rodata_addr, {}, self)
-			ry = smt_expr (syntax.mk_plus (rodata_addr,
-				syntax.mk_word32 (rodata_typ.size ())), {}, self)
-			assns = ['(bvule %s rodata-witness)' % rx,
-				'(bvult rodata-witness %s)' % ry,
+			ro_ineqs = ['(and (bvule %s %s) (bvule %s %s))'
+				% (smt_num (start, 32), ro_witness,
+					ro_witness, smt_num (end, 32))
+				for (start, end) in rodata_ranges]
+			assns = ['(or %s)' % ' '.join (ro_ineqs),
 				'(= (bvand rodata-witness #x00000003) #x00000000)']
-			assn = '(and %s)' % ' '.join (assns)
-			self.assert_fact_smt (assn)
+			for assn in assns:
+				self.assert_fact_smt (assn)
 			imp_ro_def = eqs[-1]
 		self.send ('(define-fun rodata ((m %s)) Bool %s)' % (
 			smt_typ (builtinTs['Mem']), ro_def))
@@ -1603,7 +1604,7 @@ class Solver:
 			self.ptrs[p_s] = p
 		return p
 
-	def add_pvalids (self, htd_s, typ, p_s, kind):
+	def add_pvalids (self, htd_s, typ, p_s, kind, recursion = False):
 		htd_sexp = parse_s_expression (htd_s)
 		if htd_sexp[0] == 'ite':
 			[cond, l, r] = map (flat_s_expression, htd_sexp[1:])
@@ -1612,15 +1613,13 @@ class Solver:
 				self.add_pvalids (r, typ, p_s, kind))
 
 		pvalids = self.pvalids
-		if '.rodata' in sections:
-			[rodata_data, rodata_addr, rodata_typ] = rodata
-			get_global_wrapper (rodata_typ)
-			rodata_typ = ('Type', rodata_typ)
-			rodata_addr_s = smt_expr (rodata_addr, {}, None)
-			if (htd_s not in pvalids and (typ, p_s)
-					!= (rodata_typ, rodata_addr_s)):
-				var = self.add_pvalids (htd_s, rodata_typ,
-					rodata_addr_s, 'PGlobalValid')
+		if htd_s not in pvalids and not recursion:
+			[_, _, rodata_ptrs] = rodata
+			for (r_addr, r_typ) in rodata_ptrs:
+				r_addr_s = smt_expr (r_addr, {}, None)
+				var = self.add_pvalids (htd_s, ('Type', r_typ),
+					r_addr_s, 'PGlobalValid',
+					recursion = True)
 				self.assert_fact_smt (var)
 
 		p = self.note_ptr (p_s)
