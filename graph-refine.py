@@ -194,6 +194,15 @@ def check_all (omit_set = set (), loops = True, tags = None,
 			% (len (omitted), [pair.name for pair in omitted]))
 	return r
 
+def check_division_pairs (num, denom, loops = True, report_mode = False):
+	pairs = list (set ([pair for f in pairings for pair in pairings[f]]))
+	def pair_size (pair):
+		return (len (functions[pair.l_f].nodes)
+			+ len (functions[pair.r_f].nodes))
+	pairs = sorted ([(pair_size (pair), pair) for pair in pairs])
+	division = [pairs[i][1] for i in range (num, len (pairs), denom)]
+	return check_pairs (division, loops = loops, report_mode = report_mode)
+
 def check_deps (fname, report_mode = False):
 	frontier = set ([fname])
 	funs = set ()
@@ -242,6 +251,12 @@ def main (args):
 					target_objects.danger_set)
 				r = check_all (ex, loops = loops,
 					tags = tags, report_mode = report)
+			elif arg.startswith ('div:'):
+				[_, num, denom] = arg.split (':')
+				num = int (num)
+				denom = int (denom)
+				r = check_division_pairs (num, denom,
+					loops = loops, report_mode = report)
 			elif arg == 'no_loops':
 				loops = False
 			elif arg == 'only_loops':
