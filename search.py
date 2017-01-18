@@ -354,8 +354,10 @@ def get_splittables_after (rep, head, restrs, hyps):
 	after = set ()
 	n = entry
 	splits = rep.p.get_loop_splittables (head)
+	loop = rep.p.loop_body (head)
 	while True:
-		nc = rep.p.nodes[n].get_conts ()
+		nc = [n for n in rep.p.nodes[n].get_conts ()
+			if n in loop]
 		n = nc[0]
 		if n in seen:
 			break
