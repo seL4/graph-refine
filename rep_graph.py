@@ -571,6 +571,7 @@ class GraphSlice:
 			return None
 
 		arcs = self.emit_node ((n, vcount))
+		self.post_emit_node_hooks ((n, vcount))
 		arcs = dict ([(cont, (pc, env)) for (cont, pc, env) in arcs])
 
 		self.arc_pc_envs[(n, vcount)] = arcs
@@ -692,6 +693,10 @@ class GraphSlice:
 			return [(node.cont, pc, env)]
 		else:
 			assert not 'node kind understood'
+
+	def post_emit_node_hooks (self, (n, vcount)):
+		for hook in target_objects.hooks ('post_emit_node'):
+			hook (self, (n, vcount))
 
 	def fetch_known_eqs (self, n_vc, tag):
 		if not self.use_known_eqs:

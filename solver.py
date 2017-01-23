@@ -950,6 +950,11 @@ class Solver:
 		self.send ('(define-fun implies-rodata ((m %s)) Bool %s)' % (
 			smt_typ (builtinTs['Mem']), imp_ro_def))
 
+	def get_eq_rodata_witness (self, v):
+		# depends on assertion above, should probably fix this
+		ro_witness = syntax.mk_var ('rodata-witness', word32T)
+		return syntax.mk_eq (ro_witness, v)
+
 	def check_hyp_raw (self, hyp, model = None, force_solv = False):
 		return self.hyps_sat_raw ([('(not %s)' % hyp, None)],
 			model = model, unsat_core = None,
