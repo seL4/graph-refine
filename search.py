@@ -341,45 +341,41 @@ def update_v_ids_for_model (knowledge, pairs, vs, m):
 		if vs[v][0] not in needed_ks:
 			del vs[v]
 
-def get_splittables_after (rep, head, restrs, hyps):
-	"""get the set of splittables that are visited after the head point
-	on possible entry paths. usually all the splittables bar the head point,
-	unless the loop has multiple entries."""
-	k = ('loop_splittables_after_entry', head, restrs, tuple (hyps))
+def get_entry_visits_up_to (rep, head, restrs, hyps):
+	"""get the set of nodes visited on the entry path entry
+	to the loop, up to and including the head point."""
+	k = ('loop_visits_up_to', head, restrs, tuple (hyps))
 	if k in rep.p.cached_analysis:
 		return rep.p.cached_analysis[k]
 
 	[entry] = get_loop_entry_sites (rep, restrs, hyps, head)
-	seen = set ()
-	after = set ()
-	n = entry
-	splits = rep.p.get_loop_splittables (head)
+	frontier = set ([entry])
+	up_to = set ()
 	loop = rep.p.loop_body (head)
-	while True:
-		nc = [n for n in rep.p.nodes[n].get_conts ()
-			if n in loop]
-		n = nc[0]
-		if n in seen:
-			break
-		if n in splits and head in seen:
-			after.add (n)
-		seen.add (n)
-	rep.p.cached_analysis[k] = after
-	return after
+	while frontier:
+		n = frontier.pop ()
+		if n == head:
+			continue
+		new_conts = [n2 for n2 in rep.p.nodes[n].get_conts ()
+			if n2 in loop if n2 not in up_to]
+		up_to.update (new_conts)
+		frontier.update (new_conts)
+	rep.p.cached_analysis[k] = up_to
+	return up_to
 
 def get_nth_visit_restrs (rep, restrs, hyps, i, visit_num):
 	"""get the nth (visit_num-th) visit to node i, using its loop head
 	as a restriction point. tricky because there may be a loop entry point
 	that brings us in with the loop head before i, or vice-versa."""
 	head = rep.p.loop_id (i)
-	if i not in rep.p.get_loop_splittables (head):
+	if i in get_entry_visits_up_to (rep, head, restrs, hyps):
+		# node i is in the set visited on the entry path, so
+		# the head is visited no more often than it
 		offs = 0
-	elif i in get_splittables_after (rep, head, restrs, hyps):
-		# just before the visit to i, there has already been 1 more
-		# visit to the head
-		offs = 1
 	else:
-		offs = 0
+		# these are visited after the head point on the entry path,
+		# so the head point is visited 1 more time than it.
+		offs = 1
 	return ((head, vc_num (visit_num + offs)), ) + restrs
 
 def get_var_pc_var_list (knowledge, v_i):
