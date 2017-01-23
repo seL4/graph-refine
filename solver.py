@@ -1157,7 +1157,11 @@ class Solver:
 		assert self.parallel_solvers
 		fds = dict ([(output.fileno (), k) for (k, (_, _, output, _, _))
 			in self.parallel_solvers.iteritems ()])
-		(rlist, _, _) = select.select (fds.keys (), [], [])
+		try:
+			(rlist, _, _) = select.select (fds.keys (), [], [])
+		except KeyboardInterrupt, e:
+			self.close_parallel_solvers ()
+			raise e
 		k = fds[rlist.pop ()]
 		(hyps, proc, output, solver, model) = self.parallel_solvers[k]
 		del self.parallel_solvers[k]
