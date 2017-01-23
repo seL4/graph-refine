@@ -65,32 +65,40 @@ def build_rodata (rodata_stream, rodata_ranges = [('Section', '.rodata')]):
 		else:
 			assert kind in ['Symbol', 'Section'], rodata_ranges
 
+	comb_ranges = []
+	for (start, end) in sorted (act_rodata_ranges):
+		if comb_ranges and comb_ranges[-1][1] + 1 == start:
+			(start, _) = comb_ranges[-1]
+			comb_ranges[-1] = (start, end)
+		else:
+			comb_ranges.append ((start, end))
+
 	rodata = {}
 	for line in rodata_stream:
 		if not is_rodata_line.match (line):
 			continue
 		bits = line.split ()
 		(addr, v) = (int (bits[0][:-1], 16), int (bits[1], 16))
-		if [1 for (start, end) in act_rodata_ranges
+		if [1 for (start, end) in comb_ranges
 				if start <= addr and addr <= end]:
 			assert addr % 4 == 0, addr
 			rodata[addr] = v
 
-	if len (act_rodata_ranges) == 1:
+	if len (comb_ranges) == 1:
 		rodata_names = ['rodata_struct']
 	else:
 		rodata_names = ['rodata_struct_%d' % (i + 1)
-			for (i, _) in enumerate (act_rodata_ranges)]
+			for (i, _) in enumerate (comb_ranges)]
 
 	rodata_ptrs = []
-	for ((start, end), name) in zip (act_rodata_ranges, rodata_names):
+	for ((start, end), name) in zip (comb_ranges, rodata_names):
 		struct_name = fresh_name (name, structs)
 		struct = Struct (struct_name, (end - start) + 1, 1)
 		structs[struct_name] = struct
 		typ = syntax.get_global_wrapper (struct.typ)
 		rodata_ptrs.append ((mk_word32 (start), typ))
 
-	return (rodata, act_rodata_ranges, rodata_ptrs)
+	return (rodata, comb_ranges, rodata_ptrs)
 
 def install_rodata (rodata_stream, rodata_ranges = [('Section', '.rodata')]):
 	import target_objects
