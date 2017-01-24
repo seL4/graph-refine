@@ -16,6 +16,7 @@ from logic import azip
 
 from target_objects import functions, pairings, sections, trace, printout
 import target_objects
+import problem
 
 class VisitCount:
 	"""Used to represent a target number of visits to a split point.
@@ -432,6 +433,8 @@ class GraphSlice:
 		the check is done by depth-first-search backward through the
 		graph looking for a source of a variant value."""
 		loop = self.p.loop_id (split)
+		if problem.has_inner_loop (self.p, split):
+			return False
 		loop_set = set (self.p.loop_body (split))
 		
 		orig_nm = nm

@@ -11,6 +11,7 @@
 from rep_graph import mk_graph_slice, Hyp, eq_hyp, pc_true_hyp, pc_false_hyp
 import rep_graph
 from problem import Problem, inline_at_point
+import problem
 
 from solver import to_smt_expr
 from target_objects import functions, pairings, trace, printout
@@ -94,7 +95,8 @@ def inline_reachable_unmatched (p, inline_tag, compare_tag,
 	opts = vc_double_range (3, 3)
 	while True:
 		try:
-			limits = [(n, opts) for n in p.loop_heads ()]
+			heads = problem.loop_heads_including_inner (p)
+			limits = [(n, opts) for n in heads]
 
 			for n in p.nodes.keys ():
 				try:

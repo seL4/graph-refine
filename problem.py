@@ -736,9 +736,9 @@ def inline_at_point (p, n, do_analysis = True):
 
 	return ns.values ()
 
-def loop_inner_loops (p, head):
-	loop_set_all = p.loop_body (head)
-	loop_set = set (loop_set_all) - set ([head])
+def loop_body_inner_loops (p, head, loop_body):
+	loop_set_all = set (loop_body)
+	loop_set = loop_set_all - set ([head])
 	graph = dict([(n, [c for c in p.nodes[n].get_conts ()
 			if c in loop_set])
 		for n in loop_set_all])
@@ -746,6 +746,25 @@ def loop_inner_loops (p, head):
 	comps = logic.tarjan (graph, [head])
 	assert sum ([1 + len (t) for (_, t) in comps]) == len (loop_set_all)
 	return [comp for comp in comps if comp[1]]
+
+def loop_inner_loops (p, head):
+	k = ('inner_loop_set', head)
+	if k in p.cached_analysis:
+		return p.cached_analysis[k]
+	res = loop_body_inner_loops (p, head, p.loop_body (head))
+	p.cached_analysis[k] = res
+	return res
+
+def loop_heads_including_inner (p):
+	heads = p.loop_heads ()
+	check = [(head, p.loop_body (head)) for head in heads]
+	while check:
+		(head, body) = check.pop ()
+		comps = loop_body_inner_loops (p, head, body)
+		heads.extend ([head for (head, _) in comps])
+		check.extend ([(head, [head] + list (body))
+			for (head, body) in comps])
+	return heads
 
 def check_no_inner_loop (p, head):
 	subs = loop_inner_loops (p, head)
@@ -758,6 +777,12 @@ def check_no_inner_loop (p, head):
 
 def has_inner_loop (p, head):
 	return bool (loop_inner_loops (p, head))
+
+def fun_has_inner_loop (f):
+	p = f.as_problem (Problem)
+	p.do_analysis ()
+	return bool ([head for head in p.loop_heads ()
+		if has_inner_loop (p, head)])
 
 def loop_var_analysis (p, head, tail):
 	# getting the set of variables that go round the loop
