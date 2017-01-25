@@ -548,6 +548,17 @@ def loop_var_analysis (p, split):
 	p.cached_analysis[key] = va2
 	return va2
 
+def inline_no_pre_pairing (p):
+	# FIXME: handle code sharing with check.inline_completely_unmatched
+	while True:
+		ns = [n for n in p.nodes if p.nodes[n].kind == 'Call'
+			if p.nodes[n].fname not in pre_pairings]
+		for n in ns:
+			trace ('Inlining %s at %d.' % (p.nodes[n].fname, n))
+			problem.inline_at_point (p, n)
+		if not ns:
+			return
+
 last_asm_stack_depth_fun = [0]
 
 def check_before_guess_asm_stack_depth (fun):
@@ -558,6 +569,7 @@ def check_before_guess_asm_stack_depth (fun):
 	try:
 		p.do_analysis ()
 		p.check_no_inner_loops ()
+		inline_no_pre_pairing (p)
 	except problem.Abort, e:
 		return None
 	rep = rep_graph.mk_graph_slice (p, fast = True)
@@ -578,7 +590,9 @@ def guess_asm_stack_depth (fun):
 	entry = p.get_entry ('Target')
 	(_, sp) = get_stack_sp (p, 'Target')
 
-	offs = get_ptr_offsets (p, [(n, sp) for n in p.nodes],
+	nodes = get_asm_reachable_nodes (p, tag_set = ['Target'])
+
+	offs = get_ptr_offsets (p, [(n, sp) for n in nodes],
 		[(entry, sp, 'InitSP')])
 
 	assert len (offs) == len (p.nodes), map (hex, set (p.nodes)
@@ -986,6 +1000,24 @@ def get_asm_callable (fname):
 				if fun.nodes[n].kind == 'Call':
 					call_cache[fun.nodes[n].fname] = True
 	return call_cache[c_fun]
+
+def get_asm_reachable_nodes (p, tag_set = None):
+	if tag_set == None:
+		tag_set = [tag for tag in p.tags ()
+			if is_asm_node (p, p.get_entry (tag))]
+	frontier = [p.get_entry (tag) for tag in tag_set]
+	nodes = set ()
+	while frontier:
+		n = frontier.pop ()
+		if n in nodes or n not in p.nodes:
+			continue
+		nodes.add (n)
+		node = p.nodes[n]
+		if node.kind == 'Call' and not get_asm_callable (node.fname):
+			continue
+		node = logic.simplify_node_elementary (node)
+		frontier.extend (node.get_conts ())
+	return nodes
 
 def convert_recursion_idents (idents):
 	asm_idents = {}
