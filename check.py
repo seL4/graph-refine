@@ -581,16 +581,18 @@ def proof_check_groups (checks):
 		groups.setdefault (k, []).append ((hyps, hyp, name))
 	return groups.values ()
 
-def test_hyp_group (rep, group):
+def test_hyp_group (rep, group, detail = None):
 	imps = [(hyps, hyp) for (hyps, hyp, _) in group]
 	names = set ([name for (_, _, name) in group])
 
 	trace ('Testing group of hyps: %s' % list (names), push = 1)
-	(res, i) = rep.test_hyp_imps (imps)
+	(res, i, res_kind) = rep.test_hyp_imps (imps)
 	trace ('Group result: %r' % res, push = -1)
 	if res:
 		return (res, None)
 	else:
+		if detail:
+			detail[0] = res_kind
 		return (res, group[i])
 
 def failed_test_sets (p, checks):
@@ -601,7 +603,7 @@ def failed_test_sets (p, checks):
 		sets[name].append ((hyps, hyp))
 	for name in sets:
 		rep = rep_graph.mk_graph_slice (p)
-		(res, _) = rep.test_hyp_imps (sets[name])
+		(res, _, _) = rep.test_hyp_imps (sets[name])
 		if not res:
 			failed.append (name)
 	return failed
@@ -618,12 +620,14 @@ def check_proof (p, proof, use_rep = None):
 		else:
 			rep = use_rep
 
-		(verdict, elt) = test_hyp_group (rep, group)
+		detail = [0]
+		(verdict, elt) = test_hyp_group (rep, group, detail)
 		if verdict:
 			continue
 		(hyps, hyp, name) = elt
 		last_failed_check[0] = elt
 		trace ('%s: proof failed!' % name)
+		trace ('  (failure kind: %r)' % detail[0])
 		return False
 	if save_checked_proofs[0]:
 		save = save_checked_proofs[0]
@@ -707,9 +711,11 @@ def check_proof_report_rec (p, restrs, hyps, proof, step_num, ctxt, inducts):
 		groups = proof_check_groups (checks)
 		for group in groups:
 			rep = rep_graph.mk_graph_slice (p)
-			(res, _) = test_hyp_group (rep, group)
+			detail = [0]
+			(res, _) = test_hyp_group (rep, group, detail)
 			if not res:
 				printout ('    .. failed to prove this.')
+				printout ('      (failure kind: %r)' % detail[0])
 				sys.stdout.flush ()
 				return
 

@@ -1284,7 +1284,7 @@ class Solver:
 
 	def parallel_test_hyps (self, hyps, env, model = None):
 		(res, k) = self.parallel_check_hyps (hyps, env, model)
-		return (res == 'unsat', k)
+		return (res == 'unsat', k, res)
 
 	def slow_solver_multisat (self, hyps, model = None, timeout = 300):
 		trace ('multisat check.')
