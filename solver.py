@@ -1624,6 +1624,8 @@ class Solver:
 		pvalids = self.pvalids
 		if htd_s not in pvalids and not recursion:
 			[_, _, rodata_ptrs] = rodata
+			if not rodata_ptrs:
+				rodata_ptrs = []
 			for (r_addr, r_typ) in rodata_ptrs:
 				r_addr_s = smt_expr (r_addr, {}, None)
 				var = self.add_pvalids (htd_s, ('Type', r_typ),
