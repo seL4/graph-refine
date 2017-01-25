@@ -56,6 +56,20 @@ def split_sum_s_expr (expr, solv, extra_defs):
 		return split_sum_s_expr (solv.defs[expr], solv, extra_defs)
 	elif expr in extra_defs:
 		return split_sum_s_expr (extra_defs[expr], solv, extra_defs)
+	elif expr in ['0', '1']:
+		return ({}, int (expr))
+	elif expr[0] == 'ite':
+		(_, cond, x, y) = expr
+		if y != '0':
+			expr = ('bvadd', ('ite', cond, ('bvsub', x, y), '0'),
+				y)
+			return split_sum_s_expr (expr, solv, extra_defs)
+		(xvar, xconst) = split_sum_s_expr (x, solv, extra_defs)
+		var = dict ([(('ite', cond, v, '0'), n)
+			for (v, n) in xvar.iteritems ()])
+		var.setdefault (('ite', cond, '1', '0'), 0)
+		var[('ite', cond, '1', '0')] += xconst
+		return (var, 0)
 	elif expr[:2] in ['#x', '#b']:
 		val = solver.smt_to_val (expr)
 		assert val.kind == 'Num'
@@ -68,6 +82,8 @@ def simplify_expr_whyps (sexpr, rep, hyps, cache = None, extra_defs = {}):
 		cache = {}
 	if sexpr in extra_defs:
 		sexpr = extra_defs[sexpr]
+	if sexpr in rep.solv.defs:
+		sexpr = rep.solv.defs[sexpr]
 	if sexpr[0] == 'ite':
 		(_, cond, x, y) = sexpr
 		cond_exp = solver.mk_smt_expr (solver.flat_s_expression (cond),
@@ -89,7 +105,7 @@ def simplify_expr_whyps (sexpr, rep, hyps, cache = None, extra_defs = {}):
 last_10_non_const = []
 
 def offs_expr_const (addr_expr, sp_expr, rep, hyps, extra_defs = {},
-		cache = None):
+		cache = None, typ = syntax.word32T):
 	"""if the offset between a stack addr and the initial stack pointer
 	is a constant offset, try to compute it."""
 	addr_x = solver.parse_s_expression (addr_expr)
@@ -106,7 +122,8 @@ def offs_expr_const (addr_expr, sp_expr, rep, hyps, extra_defs = {},
 				new_vs.setdefault (v, 0)
 				new_vs[v] += var[v] * mult
 			const += c * mult
-		vs = [(x, n) for (x, n) in new_vs.iteritems () if n != 0]
+		vs = [(x, n) for (x, n) in new_vs.iteritems ()
+			if n % (2 ** typ.num) != 0]
 		if not vs:
 			return const
 		vs = [(simplify_expr_whyps (x, rep, hyps,
@@ -157,6 +174,7 @@ def get_ptr_offsets (p, n_ptrs, bases, hyps = []):
 		(_, env) = rep.get_node_pc_env (n_vc)
 		smt = solver.smt_expr (ptr, env, rep.solv)
 		smt_bases.append ((smt, k))
+		ptr_typ = ptr.typ
 
 	smt_ptrs = []
 	for (n, ptr) in n_ptrs:
@@ -176,13 +194,16 @@ def get_ptr_offsets (p, n_ptrs, bases, hyps = []):
 
 	offs = []
 	for (v, ptr, hyp) in smt_ptrs:
+		off = None
 		for (ptr2, k) in smt_bases:
 			off = offs_expr_const (ptr, ptr2, rep, [hyp] + hyps,
-				cache = cache, extra_defs = ex_defs)
+				cache = cache, extra_defs = ex_defs,
+				typ = ptr_typ)
 			if off != None:
 				offs.append ((v, off, k))
 				break
-		trace ('get_ptr_offs fallthrough at %d: %s' % v)
+		if off == None:
+			trace ('get_ptr_offs fallthrough at %d: %s' % v)
 	return offs
 
 def get_extra_sp_defs (rep, tag):
