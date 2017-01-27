@@ -655,7 +655,8 @@ def pretty_lambda (t):
 	t = logic.var_subst (t, {('%i', word32T) : v}, must_subst = False)
 	return syntax.pretty_expr (t, print_type = True)
 
-def check_proof_report_rec (p, restrs, hyps, proof, step_num, ctxt, inducts):
+def check_proof_report_rec (p, restrs, hyps, proof, step_num, ctxt, inducts,
+		do_check = True):
 	import sys
 	printout ('Step %d: %s' % (step_num, ctxt))
 	if proof.kind == 'Restr':
@@ -707,7 +708,7 @@ def check_proof_report_rec (p, restrs, hyps, proof, step_num, ctxt, inducts):
 		cases = ['case in (%d) where %d is visited' % (step_num, proof.point),
 			'case in (%d) where %d is not visited' % (step_num, proof.point)]
 
-	if checks:
+	if checks and do_check:
 		groups = proof_check_groups (checks)
 		for group in groups:
 			rep = rep_graph.mk_graph_slice (p)
@@ -730,16 +731,16 @@ def check_proof_report_rec (p, restrs, hyps, proof, step_num, ctxt, inducts):
 	for ((subprob, subproof), case) in xs:
 		(restrs, hyps, _) = subprob
 		res = check_proof_report_rec (p, restrs, hyps, subproof,
-			step_num, case, inducts)
+			step_num, case, inducts, do_check = do_check)
 		if not res:
 			return
 		(step_num, induct_var_num) = res
 		inducts = (induct_var_num, inducts[1])
 	return (step_num, inducts[0])
 
-def check_proof_report (p, proof):
+def check_proof_report (p, proof, do_check = True):
 	res = check_proof_report_rec (p, (), init_point_hyps (p), proof,
-		1, '', (0, {}))
+		1, '', (0, {}), do_check = do_check)
 	return bool (res)
 
 def save_proofs_to_file (fname, mode = 'w'):
