@@ -955,10 +955,11 @@ class Solver:
 		ro_witness = mk_smt_expr ('rodata-witness', word32T)
 		return syntax.mk_eq (ro_witness, v)
 
-	def check_hyp_raw (self, hyp, model = None, force_solv = False):
+	def check_hyp_raw (self, hyp, model = None, force_solv = False,
+			hyp_name = None):
 		return self.hyps_sat_raw ([('(not %s)' % hyp, None)],
 			model = model, unsat_core = None,
-			force_solv = force_solv)
+			force_solv = force_solv, hyps_name = hyp_name)
 
 	def next_hyp (self, (hyp, tag), hyp_dict):
 		self.num_hyps += 1
@@ -968,7 +969,7 @@ class Solver:
 
 	def hyps_sat_raw (self, hyps, model = None, unsat_core = None,
 			force_solv = False, recursion = False,
-			slow_solver = None):
+			slow_solver = None, hyps_name = None):
 		assert self.unsat_cores or unsat_core == None
 
 		hyp_dict = {}
@@ -978,14 +979,17 @@ class Solver:
 		hyps = [self.next_hyp (h, hyp_dict) for h in raw_hyps]
 		succ = False
 		solvs_used = []
-		if force_solv != 'Slow':
-			trace ('testing group of %d hyps:' % len (hyps))
-			solvs_used.append (self.fast_solver.name)
+		if hyps_name == None:
+			hyps_name = 'group of %d hyps' % len (hyps)
+		trace ('testing %s:' % hyps_name)
+		if recursion:
+			trace ('  (recursion)')
+		else:
 			for (hyp, _) in raw_hyps:
-				if not recursion:
-					trace ('  ' + hyp)
-			if recursion:
-				trace ('  (recursion)')
+				trace ('  ' + hyp)
+
+		if force_solv != 'Slow':
+			solvs_used.append (self.fast_solver.name)
 			l = lambda: self.hyps_sat_raw_inner (hyps,
                                         model != None, unsat_core != None,
 					recursion = recursion)
@@ -997,14 +1001,16 @@ class Solver:
 		if succ and m and not recursion:
 			succ = self.check_model ([h for (h, _) in raw_hyps], m)
 
+		if slow_solver == None:
+			slow_solver = self.slow_solver
 		if ((not succ or response not in ['sat', 'unsat'])
-				and self.slow_solver and force_solv != 'Fast'):
+				and slow_solver and force_solv != 'Fast'):
 			if solvs_used:
 				trace ('failed to get result from %s'
 					% solvs_used[0])
-			trace ('running %s' % self.slow_solver.name)
+			trace ('running %s' % slow_solver.name)
 			self.close ()
-			solvs_used.append (self.slow_solver.name)
+			solvs_used.append (slow_solver.name)
 			response = self.use_slow_solver (raw_hyps,
 				model = model, unsat_core = unsat_core,
 				use_this_solver = slow_solver)
@@ -1182,7 +1188,10 @@ class Solver:
 			last_satisfiable_hyps[0] = hyps
 		if model != None and response == 'sat':
 			m = {}
-			assert self.fetch_model_response (m, stream = output)
+			res = self.fetch_model_response (m, stream = output)
+			if not res:
+				# just drop this solver at this point
+				return None
 			state = self.first_check_model_iteration (hyps, m)
 			i = 0
 			check = True
@@ -1212,7 +1221,10 @@ class Solver:
 	def wait_parallel_solver (self):
 		while True:
 			assert self.parallel_solvers
-			res = self.wait_parallel_solver_step ()
+			try:
+				res = self.wait_parallel_solver_step ()
+			except ConversationProblem, e:
+				continue
 			if res != None:
 				return res
 
@@ -1241,7 +1253,7 @@ class Solver:
 		or (False, ki) i-th hypothesis unprovable"""
 		hyps = [(k, hyp) for (k, hyp) in hyps
 			if not self.test_hyp (hyp, env, force_solv = 'Fast',
-				catch = True)]
+				catch = True, hyp_name = "('hyp', %s)" % k)]
 		assert not self.parallel_solvers
 		if not hyps:
 			return ('unsat', None)
@@ -1347,6 +1359,13 @@ class Solver:
 			trace ('Failed to fetch model!')
 			return None
 
+		malformed = [v for v in values if len (v) != 2]
+		if malformed:
+			trace ('bad model response components:')
+			for v in malformed:
+				trace (repr (v))
+			return None
+			
 		filt_values = [(nm, v) for (nm, v) in values
 			if type (v) == str or '_' in v]
 		dropped = len (values) - len (filt_values)
@@ -1513,22 +1532,25 @@ class Solver:
 			raise ConversationProblem ('(get-unsat-core)', res)
 		return res
 
-	def check_hyp (self, hyp, env, model = None, force_solv = False):
+	def check_hyp (self, hyp, env, model = None, force_solv = False,
+			hyp_name = None):
 		hyp = smt_expr (hyp, env, self)
 		return self.check_hyp_raw (hyp, model = model,
-			force_solv = force_solv)
+			force_solv = force_solv, hyp_name = hyp_name)
 
 	def test_hyp (self, hyp, env, model = None, force_solv = False,
-			catch = False):
+			catch = False, hyp_name = None):
 		if catch:
 			try:
-				return self.check_hyp (hyp, env, model = model,
-					force_solv = force_solv) == 'unsat'
+				res = self.check_hyp (hyp, env, model = model,
+					force_solv = force_solv,
+					hyp_name = hyp_name)
 			except SolverFailure, e:
 				return False
 		else:
-			return self.check_hyp (hyp, env, model = model,
-				force_solv = force_solv) == 'unsat'
+			res = self.check_hyp (hyp, env, model = model,
+				force_solv = force_solv, hyp_name = hyp_name)
+		return res == 'unsat'
 
 	def assert_fact_smt (self, fact, unsat_tag = None):
 		self.assertions.append ((fact, unsat_tag))
