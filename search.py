@@ -624,7 +624,7 @@ def eq_known (knowledge, vpair):
 	return set (preds) <= knowledge.facts
 
 def find_split_loop (p, head, restrs, hyps, unfold_limit = 9,
-		node_restrs = None):
+		node_restrs = None, trace_ind_fails = None):
 	assert p.loop_data[head][0] == 'Head'
 	assert p.node_tags[head][0] == p.pairing.tags[0]
 
@@ -642,7 +642,10 @@ def find_split_loop (p, head, restrs, hyps, unfold_limit = 9,
 	else:
 		i_j_opts = default_i_j_opts (unfold_limit)
 
-	ind_fails = []
+	if trace_ind_fails == None:
+		ind_fails = []
+	else:
+		ind_fails = trace_ind_fails
 	for (i_opts, j_opts) in i_j_opts:
 		result = find_split (rep, head, restrs, hyps,
 			i_opts, j_opts, node_restrs = node_restrs)
