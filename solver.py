@@ -952,7 +952,7 @@ class Solver:
 
 	def get_eq_rodata_witness (self, v):
 		# depends on assertion above, should probably fix this
-		ro_witness = syntax.mk_var ('rodata-witness', word32T)
+		ro_witness = mk_smt_expr ('rodata-witness', word32T)
 		return syntax.mk_eq (ro_witness, v)
 
 	def check_hyp_raw (self, hyp, model = None, force_solv = False):
