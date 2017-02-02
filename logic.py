@@ -67,22 +67,21 @@ def azip (xs, ys):
 def mk_mem_eqs (a_imem, c_imem, a_omem, c_omem, tags):
 	[a_imem] = a_imem
 	a_tag, c_tag = tags
+	(c_in, c_out) = (c_tag + '_IN', c_tag + '_OUT')
+	(a_in, a_out) = (a_tag + '_IN', a_tag + '_OUT')
 	if c_imem:
 		[c_imem] = c_imem
-		ieqs = [((a_imem, a_tag + '_IN'), (c_imem, c_tag + '_IN'))]
+		ieqs = [((a_imem, a_in), (c_imem, c_in)),
+			((mk_rodata (c_imem), c_in), (true_term, c_in))]
 	else:
-		ieqs = []
+		ieqs = [((mk_rodata (a_imem), a_in), (true_term, c_in))]
 	if c_omem:
 		[a_m] = a_omem
 		[c_omem] = c_omem
-		oeqs = [((a_m, a_tag + '_OUT'), (c_omem, c_tag + '_OUT'))]
+		oeqs = [((a_m, a_out), (c_omem, c_out)),
+			((mk_rodata (c_omem), c_out), (true_term, c_out))]
 	else:
-		oeqs = [((a_m, a_tag + '_OUT'), (a_imem, a_tag + '_IN'))
-			for a_m in a_omem]
-
-	ieqs += [((mk_rodata (a_imem), a_tag + '_IN'), (true_term, a_tag + '_IN'))]
-	oeqs += [((mk_rodata (a_m), a_tag + '_OUT'), (true_term, a_tag + '_OUT'))
-		for a_m in a_omem]
+		oeqs = [((a_m, a_out), (a_imem, a_in)) for a_m in a_omem]
 
 	return (ieqs, oeqs)
 
