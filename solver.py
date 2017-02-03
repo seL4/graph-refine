@@ -1359,7 +1359,10 @@ class Solver:
 			trace ('Failed to fetch model!')
 			return None
 
-		malformed = [v for v in values if len (v) != 2]
+		expected_set = set (list (self.model_vars)
+			+ [nm for (nm, typ) in self.model_exprs.values ()])
+		malformed = [v for v in values if len (v) != 2
+			or v[0] not in expected_set]
 		if malformed:
 			trace ('bad model response components:')
 			for v in malformed:
