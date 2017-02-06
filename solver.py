@@ -728,8 +728,8 @@ class Solver:
 		preamble = []
 		if solver_impl.fast:
 			preamble += ['(set-option :print-success true)']
-		preamble += ['(set-logic QF_AUFBV)',
-			'(set-option :produce-models true)']
+		preamble += [ '(set-option :produce-models true)',
+			'(set-logic QF_AUFBV)', ]
 		if self.unsat_cores:
 			preamble += ['(set-option :produce-unsat-cores true)']
 
@@ -1370,7 +1370,8 @@ class Solver:
 			return None
 			
 		filt_values = [(nm, v) for (nm, v) in values
-			if type (v) == str or '_' in v]
+			if type (v) == str or '_' in v
+			if set (v) != set (['?'])]
 		dropped = len (values) - len (filt_values)
 		if dropped:
 			trace ('Dropped %d of %d values' % (dropped, len (values)))
@@ -1459,9 +1460,12 @@ class Solver:
 			return True
 		elif res == 'sat':
 			hyps = sorted (set (hyps + model_hyps))
+			trace ('partial model (%d vals) checks out, continuing'
+				% len (hyps))
 			# learned all we'll learn here, iterate
 			return self.next_check_iteration (orig_hyps, hyps, solvs)
 
+		trace ('got %r, reducing model to continue' % res)
 		model = self.reduce_model (model, orig_hyps)
 		model_hyps2 = ['(= %s %s)' % (flat_s_expression (x),
 				smt_expr (v, {}, self))
@@ -2080,7 +2084,7 @@ def add_key_model_vs (sexpr, m, solv, vs):
 		add_key_model_vs (p, m, solv, vs)
 		if v == syntax.true_term:
 			add_key_model_vs (x, m, solv, vs)
-		else:
+		if v == syntax.false_term:
 			add_key_model_vs (y, m, solv, vs)
 	elif type (sexpr) == str:
 		if sexpr not in vs:
@@ -2093,7 +2097,12 @@ def add_key_model_vs (sexpr, m, solv, vs):
 
 def get_model_val (sexpr, m, toplevel = None):
 	import search
-	return search.eval_model (m, sexpr)
+	try:
+		return search.eval_model (m, sexpr)
+	except AssertionError, e:
+		# this is awful, but happens sometimes because we're
+		# evaluating in incomplete models
+		return None
 
 last_model_to_reduce = [0]
 
