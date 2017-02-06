@@ -1329,7 +1329,7 @@ def build_proof_rec (searcher, p, restrs, hyps, name = "problem"):
 	printout ('Now doing proof search in %s.' % nm1)
 	pf1 = build_proof_rec_with_restrs (restr_points, kinds[0], searcher,
 		p, restrs, hyps1, must_find = False, name = nm1)
-	printout ('Now doing proof search in %s.' % nm1)
+	printout ('Now doing proof search in %s.' % nm2)
 	pf2 = build_proof_rec_with_restrs (restr_points, kinds[1], searcher,
 		p, restrs, hyps2, must_find = False, name = nm2)
 	return ProofNode (kind, split, [pf1, pf2])
