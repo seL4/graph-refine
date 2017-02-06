@@ -1326,12 +1326,13 @@ def build_proof_rec (searcher, p, restrs, hyps, name = "problem"):
 		printout ("Discovered a loop relation for split points %s"
 			% list (restr_points))
 		printout ("  (in %s)" % name)
-	subpfs = [build_proof_rec_with_restrs (restr_points, k,
-			searcher, p, restrs, hyps_i, must_find = False,
-			name = nm)
-		for (nm, hyps_i, k)
-		in [(nm1, hyps1, kinds[0]), (nm2, hyps2, kinds[1])]]
-	return ProofNode (kind, split, subpfs)
+	printout ('Now doing proof search in %s.' % nm1)
+	pf1 = build_proof_rec_with_restrs (restr_points, kinds[0], searcher,
+		p, restrs, hyps1, must_find = False, name = nm1)
+	printout ('Now doing proof search in %s.' % nm1)
+	pf2 = build_proof_rec_with_restrs (restr_points, kinds[1], searcher,
+		p, restrs, hyps2, must_find = False, name = nm2)
+	return ProofNode (kind, split, [pf1, pf2])
 
 def build_proof_rec_with_restrs (split_points, kind, searcher, p, restrs,
 		hyps, must_find = True, name = "problem"):
