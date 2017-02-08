@@ -1239,9 +1239,10 @@ class Solver:
 			ks = [k for k in ks if k in self.parallel_solvers]
 		solvs = [(proc, output) for (_, proc, output, _, _)
 			in [self.parallel_solvers[k] for k in ks]]
+		if ks:
+			printout (' X<-- %d parallel solvers killed: %s'
+				% (len (ks), reason))
 		for k in ks:
-			printout (' X<-- parallel solver %s killed: %s'
-				% (k, reason))
 			del self.parallel_solvers[k]
 		procs = [proc for (proc, _) in solvs]
 		outputs = [output for (_, output) in solvs]
