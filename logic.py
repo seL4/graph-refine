@@ -1191,7 +1191,7 @@ def interesting_linear_series_exprs (p, loop, va, tags = None,
 			import solver
 			fun = functions[node.fname]
 			arg_input_map = dict (azip (fun.inputs, node.args))
-			pairs = [pair for pair in pairings[node.fname]
+			pairs = [pair for pair in pairings.get (node.fname, [])
 				if pair.tags == tags]
 			if not pairs:
 				continue
