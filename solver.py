@@ -759,7 +759,10 @@ class Solver:
 			self.send (msg, replay=False)
 
 	def close (self):
-		self.close_parallel_solvers ()
+		self.close_parallel_solvers (reason = 'self.close')
+		self.close_online_solver ()
+
+	def close_online_solver (self):
 		if self.online_solver:
 			self.online_solver.stdin.close()
 			self.online_solver.stdout.close()
@@ -1009,7 +1012,7 @@ class Solver:
 				trace ('failed to get result from %s'
 					% solvs_used[0])
 			trace ('running %s' % slow_solver.name)
-			self.close ()
+			self.close_online_solver ()
 			solvs_used.append (slow_solver.name)
 			response = self.use_slow_solver (raw_hyps,
 				model = model, unsat_core = unsat_core,
@@ -1171,7 +1174,7 @@ class Solver:
 		try:
 			(rlist, _, _) = select.select (fds.keys (), [], [])
 		except KeyboardInterrupt, e:
-			self.close_parallel_solvers ()
+			self.close_parallel_solvers (reason = 'interrupted')
 			raise e
 		k = fds[rlist.pop ()]
 		(hyps, proc, output, solver, model) = self.parallel_solvers[k]
@@ -1191,6 +1194,7 @@ class Solver:
 			res = self.fetch_model_response (m, stream = output)
 			if not res:
 				# just drop this solver at this point
+				trace ('failed to extract model.')
 				return None
 			state = self.first_check_model_iteration (hyps, m)
 			i = 0
@@ -1228,7 +1232,7 @@ class Solver:
 			if res != None:
 				return res
 
-	def close_parallel_solvers (self, ks = None):
+	def close_parallel_solvers (self, ks = None, reason = '?'):
 		if ks == None:
 			ks = self.parallel_solvers.keys ()
 		else:
@@ -1236,6 +1240,8 @@ class Solver:
 		solvs = [(proc, output) for (_, proc, output, _, _)
 			in [self.parallel_solvers[k] for k in ks]]
 		for k in ks:
+			printout (' X<-- parallel solver %s killed: %s'
+				% (k, reason))
 			del self.parallel_solvers[k]
 		procs = [proc for (proc, _) in solvs]
 		outputs = [output for (_, output) in solvs]
@@ -1280,7 +1286,8 @@ class Solver:
 			elif strat == 'hyp' and res == 'unsat':
 				ks = [(solver.name, strat, k)
 					for (solver, strat) in self.strategy]
-				self.close_parallel_solvers (ks)
+				self.close_parallel_solvers (ks,
+					reason = 'hyp shown unsat')
 				solved += 1
 				if solved < len (hyps):
 					spawn (hyps[solved], 'hyp')
@@ -1291,7 +1298,7 @@ class Solver:
 				res = 'timeout'
 				trace ('  - all solvers timed out or failed.')
 				break
-		self.close_parallel_solvers ()
+		self.close_parallel_solvers (reason = ('checked %r' % res))
 		return (res, k)
 
 	def parallel_test_hyps (self, hyps, env, model = None):
@@ -1427,18 +1434,20 @@ class Solver:
 		return hyps
 
 	def check_model_iteration (self, (hyps, ex, solvs), (res, model)):
+		printout ('in check model iteration')
+		printout ('parallel solvers running: %r' % self.parallel_solvers.keys ())
+		printout ('parallel model state keys: %r' % self.parallel_model_states.keys ())
 		orig_hyps = hyps
 		if res == 'sat':
 			# confirm experiment
 			if ex != None:
 				hyps = sorted (set (hyps + ex))
+		elif res == 'unsat' and ex == None:
+			printout ("WARNING: inconsistent sat/unsat.")
+			inconsistent_hyps.append ((self, hyps))
+			return False
 		else:
-			# if not sat and not an experiment, we're stuck
-			if ex == None:
-				printout ("WARNING: inconsistent sat/unsat.")
-				inconsistent_hyps.append (hyps)
-				return False
-			# if not sat, ignore model contents
+			# since not sat, ignore model contents
 			model = None
 
 		if not model:
