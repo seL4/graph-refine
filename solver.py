@@ -1240,7 +1240,7 @@ class Solver:
 		solvs = [(proc, output) for (_, proc, output, _, _)
 			in [self.parallel_solvers[k] for k in ks]]
 		if ks:
-			printout (' X<-- %d parallel solvers killed: %s'
+			trace (' X<-- %d parallel solvers killed: %s'
 				% (len (ks), reason))
 		for k in ks:
 			del self.parallel_solvers[k]
@@ -1435,9 +1435,6 @@ class Solver:
 		return hyps
 
 	def check_model_iteration (self, (hyps, ex, solvs), (res, model)):
-		printout ('in check model iteration')
-		printout ('parallel solvers running: %r' % self.parallel_solvers.keys ())
-		printout ('parallel model state keys: %r' % self.parallel_model_states.keys ())
 		orig_hyps = hyps
 		if res == 'sat':
 			# confirm experiment
