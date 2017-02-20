@@ -1013,23 +1013,21 @@ def split_search (head, knowledge):
 				knowledge.pairs[pair] = ('Failed',
 					'ExpectedSplitWeak', eqs)
 				continue
-			split = v_eqs_to_split (p, pair, eqs,
+			split = build_and_check_split (p, pair, eqs,
 				knowledge.restrs, knowledge.hyps,
-				tags = knowledge.tags)
+				knowledge.tags)
 			if split == None:
 				knowledge.pairs[pair] = ('Failed',
 					'SplitWeak', eqs)
 				knowledge.add_weak_split (eqs)
 				continue
-			if check_split_induct (p, knowledge.restrs,
-					knowledge.hyps, split,
-					tags = knowledge.tags):
-				v_eq_cache.add ((pair, tuple (eqs)))
-				trace ('Tested v_eqs!')
-				return ('Split', split)
-			else:
+			elif split == 'InductFailed':
 				knowledge.pairs[pair] = ('Failed',
 					'InductFailed', eqs)
+			else:
+				v_eq_cache.add ((pair, tuple (eqs)))
+				trace ('Found split!')
+				return ('Split', split)
 		if endorsed:
 			continue
 
@@ -1038,6 +1036,30 @@ def split_search (head, knowledge):
 		eqs = mk_pairing_v_eqs (knowledge, pair, endorsed = False)
 		assert eqs, pair
 		knowledge.eqs_add_model (eqs)
+
+def build_and_check_split (p, pair, eqs, restrs, hyps, tags):
+	split = v_eqs_to_split (p, pair, eqs, restrs, hyps, tags = tags)
+	if split == None:
+		return None
+	res = check_split_induct (p, restrs, hyps, split, tags = tags)
+	if res:
+		return split
+	# induction has failed at this point, but we might be able to rescue
+	# it with some extra linear series eqs
+	((l_split, _, l_step), _) = pair
+	k = ('extra_linear_seq_eqs', l_split, l_step)
+	if k in p.cached_analysis:
+		return 'InductFailed'
+	if not [v for (v, data) in get_loop_var_analysis_at (p, l_split)
+			if data[0] == 'LoopLinearSeries']:
+		return 'InductFailed'
+	import loop_bounds
+	lin_series_eqs = loop_bounds.get_linear_series_eqs (p, l_split,
+		restrs, [], omit_standard = True)
+	p.cached_analysis[k] = lin_series_eqs
+	if not lin_series_eqs:
+		return 'InductFailed'
+	return build_and_check_split (p, pair, eqs, restrs, hyps, tags)
 
 def trace_search_fail (knowledge):
 	trace (('Exhausted split candidates for %s' % knowledge.name))
@@ -1200,6 +1222,9 @@ def mk_seq_eqs (p, split, step, with_rodata):
 				mk_cast (minus_loop_step, var.typ)))
 		else:
 			assert not 'var_deps type understood'
+
+	k = ('extra_linear_seq_eqs', split, step)
+	eqs += p.cached_analysis.get (k, [])
 
 	return eqs
 

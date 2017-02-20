@@ -228,10 +228,13 @@ def linear_eq_induct_step_checks (p, restrs, hyps, tag, split,
         for (hyp, desc) in linear_eq_hyps_at_visit (tag, split, eqs,
             restrs, vc_offs (1))]
 
-def get_linear_series_hyps (p, split,restrs,hyps):
+def get_linear_series_eqs (p, split, restrs, hyps, omit_standard = False):
 
-    k = ('linear_series_hyps', split, restrs, tuple (hyps))
+    k = ('linear_series_eqs', split, restrs, tuple (hyps))
     if k in p.cached_analysis:
+        if omit_standard:
+          standard = set (search.mk_seq_eqs (p, split, 1, with_rodata = False))
+          return set (p.cached_analysis[k]) - standard
         return p.cached_analysis[k]
 
     cands = search.mk_seq_eqs (p, split, 1, with_rodata = False)
@@ -265,10 +268,16 @@ def get_linear_series_hyps (p, split,restrs,hyps):
             failed.append (cand)
 
     assert do_checks ([], eqs)
+    p.cached_analysis[k] = eqs
+    if omit_standard:
+      standard = set (search.mk_seq_eqs (p, split, 1, with_rodata = False))
+      return set (eqs) - standard
+    return eqs
 
+def get_linear_series_hyps (p, split, restrs, hyps):
+    eqs = get_linear_series_eqs (p, split, restrs, hyps)
     hyps = [h for (h, _) in linear_eq_hyps_at_visit (tag, split, eqs,
              restrs, vc_offs (0))]
-    p.cached_analysis[k] = hyps
     return hyps
 
 def get_induct_eq_hyp (p, split, restrs, n):
