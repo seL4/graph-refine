@@ -750,7 +750,7 @@ def get_necessary_split_opts (p, head, restrs, hyps, tags = None):
 	vis = stuff['vis']
 	hyps = stuff['hyps']
 	for ((n, expr), (n2, expr2), (l_start, l_step), (r_start, r_step),
-			(oset, oset2)) in seq_eqs:
+			_, _) in seq_eqs:
 		eqs = [rep_graph.eq_hyp ((expr,
 			(vis (n, l_start + (i * l_step)), l_tag)),
 			(expr2, (vis (n2, r_start + (i * r_step)), r_tag)))
@@ -867,17 +867,18 @@ def get_linear_seq_eq (rep, m, stuff, expr_t1):
 		vs = [v.val + (i << v.typ.num) for i in range (-2, 3)]
 		(_, v) = min ([(abs (v), v) for v in vs])
 		return v
-	(kind, n1, expr1, offs, oset) = expr_t1
+	(kind, n1, expr1, offs1, oset1) = expr_t1
 	smt = stuff['smt']
 	expr_init = smt (expr1, n1, 0)
 	expr_v = get_int_min (expr_init)
-	offs_v = get_int_min (smt (offs, n1, 1))
-	r_seqs = [(n, expr, get_int_min (mk_minus (expr_init, smt (expr, n, 0))),
-			get_int_min (smt (offs, n, 0)), oset2)
+	offs_v = get_int_min (smt (offs1, n1, 1))
+	r_seqs = [(n, expr, offs, oset2,
+			get_int_min (mk_minus (expr_init, smt (expr, n, 0))),
+			get_int_min (smt (offs, n, 0)))
 		for (kind2, n, expr, offs, oset2) in sorted (stuff['r_seq_vs'])
 		if kind2 == kind]
 
-	for (n, expr, diff, offs_v2, oset2) in sorted (r_seqs):
+	for (n, expr, offs2, oset2, diff, offs_v2) in sorted (r_seqs):
 		mult = offs_v / offs_v2
 		if offs_v % offs_v2 != 0 or mult > 8:
 			necessary_split_opts_trace.append (('StepWrong', offs_v,
@@ -886,19 +887,8 @@ def get_linear_seq_eq (rep, m, stuff, expr_t1):
 			necessary_split_opts_trace.append (('StartWrong', diff,
 				offs_v2))
 		return ((n1, expr1), (n, expr), (0, 1),
-			(diff / offs_v2, mult), (oset, oset2))
+			(diff / offs_v2, mult), (offs1, offs2), (oset1, oset2))
 	return None
-
-def note_oset_limit (p, head, restrs, hyps, (oset, oset2)):
-	"""We have the set of base offsets available for each matching linear
-	sequence. If the base offsets have different types, e.g. a 16-bit
-	accumulator and offset vs a 32-bit one, it strongly suggests that
-	a 16-bit overflow is impossible."""
-	oset_typs = set ([expr.typ for expr in oset])
-	oset2_typs = set ([expr.typ for expr in oset])
-	if oset_typs == oset2_typs:
-		return
-	assert not "unimplemented", (oset, oset2)
 
 last_failed_pairings = []
 
