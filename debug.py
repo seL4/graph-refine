@@ -119,7 +119,7 @@ def walk_model (rep, tag, m):
 				rep.get_pc ((n, vc), tag))
 			== syntax.true_term]
 
-	era_sort (rep, n_vcs)
+	n_vcs = era_sort (rep, n_vcs)
 
 	return n_vcs
 
@@ -746,9 +746,16 @@ def var_analysis (p, n):
 	for kind in cats:
 		print '%s:' % kind
 		for (v, offs) in cats[kind]:
-			print '  %s' % syntax.pretty_expr (v)
+			print '  %s   (%s)' % (syntax.pretty_expr (v),
+				syntax.pretty_type (v.typ))
 			if offs:
 				print '      ++ %s' % syntax.pretty_expr (offs)
+
+def loop_num_leaves (p, n):
+	for n in p.loop_body (n):
+		va = search.get_loop_var_analysis_at (p, n)
+		n_leaf = len ([1 for (v, kind) in va if kind == 'LoopLeaf'])
+		print (n, n_leaf)
 
 def try_pairing_at_funcall (p, name, head = None, restrs = None, hyps = None,
 		at = 'At'):
