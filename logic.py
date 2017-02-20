@@ -1083,7 +1083,6 @@ def lv_expr (expr, env):
 
 	lvs = [lv_expr (v, env) for v in expr.vals]
 	rs = [lv[1] for lv in lvs]
-	arg_offs = [lv[2] for lv in lvs]
 	mk_offs = lambda vals: syntax.Expr ('Op', expr.typ, name = expr.name,
 		vals = vals)
 	if None in rs:
@@ -1092,20 +1091,22 @@ def lv_expr (expr, env):
 		return (expr, 'LoopConst', None, set ())
 	offs_set = set.union (* [lv[3] for lv in lvs])
 	arg_offs = []
-	for (expr, _, offs, _) in lvs:
-		if offs == None and expr.typ.kind == 'Word':
-			arg_offs.append (syntax.mk_num (0, expr.typ))
+	for (expr2, k, offs, _) in lvs:
+		if k == 'LoopConst' and expr2.typ.kind == 'Word':
+			arg_offs.append (syntax.mk_num (0, expr2.typ))
 		else:
 			arg_offs.append (offs)
 	if expr.is_op (expr_linear_sum):
-		return (expr, 'LoopLinearSeries', mk_offs (arg_offs), offs_set)
+		if set (rs) == set (['LoopConst', 'LoopLinearSeries']):
+			return (expr, 'LoopLinearSeries', mk_offs (arg_offs),
+				offs_set)
 	elif expr.is_op ('Times'):
 		if set (rs) == set (['LoopLinearSeries', 'LoopConst']):
 			# the new offset is the product of the linear offset
 			# and the constant value
-			[linear_offs] = [offs for (_, k, offs) in lvs
+			[linear_offs] = [offs for (_, k, offs, _) in lvs
 				if k == 'LoopLinearSeries']
-			[const_value] = [v for (v, k, _) in lvs
+			[const_value] = [v for (v, k, _, _) in lvs
 				if k == 'LoopConst']
 			return (expr, 'LoopLinearSeries',
 				mk_offs ([linear_offs, const_value]), offs_set)
@@ -1134,11 +1135,11 @@ def linear_series_exprs (p, loop, va, ret_inner = False):
 	loop_body = p.loop_body (loop)
 	frontier = [n2 for n2 in p.nodes[loop].get_conts ()
 		if n2 in loop_body]
-	def lv_merge ((v1, lv1, offs1), (v2, lv2, offs2)):
+	def lv_merge ((v1, lv1, offs1, oset1), (v2, lv2, offs2, oset2)):
 		if v1 != v2:
-			return (None, None, None)
+			return (None, None, None, None)
 		assert lv1 == lv2 and offs1 == offs2
-		return (v1, lv1, offs1)
+		return (v1, lv1, offs1, oset1)
 	def compute_post (n):
 		if n in post_cache:
 			return post_cache[n]
@@ -1163,7 +1164,7 @@ def linear_series_exprs (p, loop, va, ret_inner = False):
 			if n2 in loop_body]
 		all_vs = set.union (* [set (env) for env in envs])
 		cache[n] = dict ([(v, foldr1 (lv_merge,
-				[env.get (v, (None, None, None))
+				[env.get (v, (None, None, None, None))
 					for env in envs]))
 			for v in all_vs])
 		frontier.extend ([n2 for n2 in p.nodes[n].get_conts ()
