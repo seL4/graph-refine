@@ -22,6 +22,7 @@ import logic
 
 from target_objects import trace, printout
 import target_objects
+import itertools
 
 last_knowledge = [1]
 
@@ -727,72 +728,29 @@ last_necessary_split_opts = [0]
 def get_necessary_split_opts (p, head, restrs, hyps, tags = None):
 	if not tags:
 		tags = p.pairing.tags
-	last_necessary_split_opts[0] = (p, head, restrs, hyps, tags)
+	[l_tag, r_tag] = tags
 
 	rep = rep_graph.mk_graph_slice (p, fast = True)
 	entries = get_loop_entry_sites (rep, restrs, hyps, head)
 	if len (entries) > 1:
 		return ('CaseSplit', ((entries[0], tags[0]), [entries[0]]))
-
-	[l_tag, r_tag] = tags
-	assert p.node_tags[head][0] == l_tag
-	l_seq_vs = get_interesting_linear_series_exprs (p, head)
-	if not l_seq_vs:
-		return None
-	r_seq_vs = {}
 	for n in init_loops_to_split (p, restrs):
 		if p.node_tags[n][0] != r_tag:
 			continue
-		vs = get_interesting_linear_series_exprs (p, n)
-		r_seq_vs.update (vs)
-		entries = get_loop_entry_sites (rep, restrs, hyps, head)
+		entries = get_loop_entry_sites (rep, restrs, hyps, n)
 		if len (entries) > 1:
 			return ('CaseSplit', ((entries[0], r_tag),
 				[entries[0]]))
-	if not r_seq_vs:
+
+	stuff = linear_setup_stuff (rep, head, restrs, hyps, tags)
+	if stuff == None:
 		return None
+	seq_eqs = get_matching_linear_seqs (rep, head, restrs, hyps, tags)
 
-	def vis (n, i):
-		restrs2 = get_nth_visit_restrs (rep, restrs, hyps, n, i)
-		return (n, restrs2)
-	smt = lambda expr, n, i: rep.to_smt_expr (expr, vis (n, i))
-	smt_pc = lambda n, i: rep.get_pc (vis (n, i))
-
-	# remove duplicates by concretising
-	l_seq_vs = dict ([(smt (expr, n, 2), (kind, n, expr, offs))
-		for n in l_seq_vs for (kind, expr, offs) in l_seq_vs[n]]).values ()
-	r_seq_vs = dict ([(smt (expr, n, 2), (kind, n, expr, offs))
-                for n in r_seq_vs for (kind, expr, offs) in r_seq_vs[n]]).values ()
-
-	hyps = hyps + [rep_graph.pc_triv_hyp ((vis (n, 3), r_tag))
-		for n in set ([n for (_, n, _, _) in r_seq_vs])]
-	hyps = hyps + [rep_graph.pc_triv_hyp ((vis (n, 3), l_tag))
-		for n in set ([n for (_, n, _, _) in l_seq_vs])]
-	hyps = hyps + [check.non_r_err_pc_hyp (tags,
-			restr_others (p, restrs, 2))]
-
-	necessary_split_opts_trace[:] = []
-	for (kind, n, expr, offs) in sorted (l_seq_vs):
-		rel_r_seq_vs = [v for v in r_seq_vs if v[0] == kind]
-		if not rel_r_seq_vs:
-			necessary_split_opts_trace.append ((n, kind, 'NoneRelevant'))
-			continue
-		m = {}
-		offs_smt = smt (offs, n, 1)
-		eq = mk_eq (mk_times (offs_smt, mk_num (4, offs_smt.typ)),
-			mk_num (0, offs_smt.typ))
-		ex_hyps = [rep_graph.pc_true_hyp ((vis (n, 1), l_tag)),
-			rep_graph.pc_true_hyp ((vis (n, 2), l_tag))]
-		res = rep.test_hyp_whyps (eq, hyps + ex_hyps, model = m)
-		if not m:
-			necessary_split_opts_trace.append ((n, kind, 'NoModel'))
-			continue
-		seq_eq = get_linear_seq_eq (rep, m, smt, smt_pc,
-			(kind, n, expr, offs), r_seq_vs)
-		if not seq_eq:
-			continue
-		necessary_split_opts_trace.append ((n, kind, ('Seq', seq_eq)))
-		((n2, expr2), (l_start, l_step), (r_start, r_step)) = seq_eq
+	vis = stuff['vis']
+	hyps = stuff['hyps']
+	for ((n, expr), (n2, expr2), (l_start, l_step), (r_start, r_step),
+			(oset, oset2)) in seq_eqs:
 		eqs = [rep_graph.eq_hyp ((expr,
 			(vis (n, l_start + (i * l_step)), l_tag)),
 			(expr2, (vis (n2, r_start + (i * r_step)), r_tag)))
@@ -814,23 +772,112 @@ def get_necessary_split_opts (p, head, restrs, hyps, tags = None):
 			(r_start, r_step), 'Seq check failed'))
 	return None
 
-def get_linear_seq_eq (rep, m, smt, smt_pc, expr1, expr2s):
+def linear_setup_stuff (rep, head, restrs, hyps, tags):
+	[l_tag, r_tag] = tags
+	k = ('linear_seq setup', head, restrs, tuple (hyps), tuple (tags))
+	p = rep.p
+	if k in p.cached_analysis:
+		return p.cached_analysis[k]
+
+	assert p.node_tags[head][0] == l_tag
+	l_seq_vs = get_interesting_linear_series_exprs (p, head)
+	if not l_seq_vs:
+		return None
+	r_seq_vs = {}
+	for n in init_loops_to_split (p, restrs):
+		if p.node_tags[n][0] != r_tag:
+			continue
+		vs = get_interesting_linear_series_exprs (p, n)
+		r_seq_vs.update (vs)
+	if not r_seq_vs:
+		return None
+
+	def vis (n, i):
+		restrs2 = get_nth_visit_restrs (rep, restrs, hyps, n, i)
+		return (n, restrs2)
+	smt = lambda expr, n, i: rep.to_smt_expr (expr, vis (n, i))
+	smt_pc = lambda n, i: rep.get_pc (vis (n, i))
+
+	# remove duplicates by concretising
+	l_seq_vs = dict ([(smt (expr, n, 2), (kind, n, expr, offs, oset))
+		for n in l_seq_vs
+		for (kind, expr, offs, oset) in l_seq_vs[n]]).values ()
+	r_seq_vs = dict ([(smt (expr, n, 2), (kind, n, expr, offs, oset))
+                for n in r_seq_vs
+		for (kind, expr, offs, oset) in r_seq_vs[n]]).values ()
+
+	hyps = hyps + [rep_graph.pc_triv_hyp ((vis (n, 3), r_tag))
+		for n in set ([n for (_, n, _, _, _) in r_seq_vs])]
+	hyps = hyps + [rep_graph.pc_triv_hyp ((vis (n, 3), l_tag))
+		for n in set ([n for (_, n, _, _, _) in l_seq_vs])]
+	hyps = hyps + [check.non_r_err_pc_hyp (tags,
+			restr_others (p, restrs, 2))]
+
+	r = {'l_seq_vs': l_seq_vs, 'r_seq_vs': r_seq_vs,
+		'hyps': hyps, 'vis': vis, 'smt': smt, 'smt_pc': smt_pc}
+	p.cached_analysis[k] = r
+	return r
+
+def get_matching_linear_seqs (rep, head, restrs, hyps, tags):
+	k = ('matching linear seqs', head, restrs, tuple (hyps), tuple (tags))
+	p = rep.p
+	if k in p.cached_analysis:
+		v = p.cached_analysis[k]
+		(x, y) = itertools.tee (v[0])
+		v[0] = x
+		return y
+
+	[l_tag, r_tag] = tags
+	stuff = linear_setup_stuff (rep, head, restrs, hyps, tags)
+	if stuff == None:
+		return []
+
+	hyps = stuff['hyps']
+	vis = stuff['vis']
+
+	def get_model (n, offs):
+		m = {}
+		offs_smt = stuff['smt'] (offs, n, 1)
+		eq = mk_eq (mk_times (offs_smt, mk_num (4, offs_smt.typ)),
+			mk_num (0, offs_smt.typ))
+		ex_hyps = [rep_graph.pc_true_hyp ((vis (n, 1), l_tag)),
+			rep_graph.pc_true_hyp ((vis (n, 2), l_tag))]
+		res = rep.test_hyp_whyps (eq, hyps + ex_hyps, model = m)
+		if not m:
+			necessary_split_opts_trace.append ((n, kind, 'NoModel'))
+			return None
+		return m
+
+	r = (seq_eq
+		for (kind, n, expr, offs, oset) in sorted (stuff['l_seq_vs'])
+		if [v for v in stuff['r_seq_vs'] if v[0] == kind]
+		for m in [get_model (n, offs)]
+		if m
+		for seq_eq in [get_linear_seq_eq (rep, m, stuff,
+					(kind, n, expr, offs, oset))]
+		if seq_eq != None)
+	(x, y) = itertools.tee (r)
+	p.cached_analysis[k] = [y]
+	return x
+
+def get_linear_seq_eq (rep, m, stuff, expr_t1):
 	def get_int_min (expr):
 		v = eval_model_expr (m, rep.solv, expr)
 		assert v.kind == 'Num', v
 		vs = [v.val + (i << v.typ.num) for i in range (-2, 3)]
 		(_, v) = min ([(abs (v), v) for v in vs])
 		return v
-	(kind, n1, expr, offs) = expr1
-	expr_init = smt (expr, n1, 0)
+	(kind, n1, expr1, offs, oset) = expr_t1
+	smt = stuff['smt']
+	expr_init = smt (expr1, n1, 0)
 	expr_v = get_int_min (expr_init)
 	offs_v = get_int_min (smt (offs, n1, 1))
 	r_seqs = [(n, expr, get_int_min (mk_minus (expr_init, smt (expr, n, 0))),
-			get_int_min (smt (offs, n, 0)))
-		for (kind2, n, expr, offs) in expr2s
+			get_int_min (smt (offs, n, 0)), oset2)
+		for (kind2, n, expr, offs, oset2) in sorted (stuff['r_seq_vs'])
 		if kind2 == kind]
 
-	for (n, expr, diff, offs_v2) in sorted (r_seqs):
+	for (n, expr, diff, offs_v2, oset2) in sorted (r_seqs):
 		mult = offs_v / offs_v2
 		if offs_v % offs_v2 != 0 or mult > 8:
 			necessary_split_opts_trace.append (('StepWrong', offs_v,
@@ -838,8 +885,20 @@ def get_linear_seq_eq (rep, m, smt, smt_pc, expr1, expr2s):
 		if diff % offs_v2 != 0 or diff < 0 or (diff / offs_v2) > 8:
 			necessary_split_opts_trace.append (('StartWrong', diff,
 				offs_v2))
-		return ((n, expr), (0, 1), (diff / offs_v2, mult))
+		return ((n1, expr1), (n, expr), (0, 1),
+			(diff / offs_v2, mult), (oset, oset2))
 	return None
+
+def note_oset_limit (p, head, restrs, hyps, (oset, oset2)):
+	"""We have the set of base offsets available for each matching linear
+	sequence. If the base offsets have different types, e.g. a 16-bit
+	accumulator and offset vs a 32-bit one, it strongly suggests that
+	a 16-bit overflow is impossible."""
+	oset_typs = set ([expr.typ for expr in oset])
+	oset2_typs = set ([expr.typ for expr in oset])
+	if oset_typs == oset2_typs:
+		return
+	assert not "unimplemented", (oset, oset2)
 
 last_failed_pairings = []
 
