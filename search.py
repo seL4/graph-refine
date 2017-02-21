@@ -729,6 +729,7 @@ def get_necessary_split_opts (p, head, restrs, hyps, tags = None):
 	if not tags:
 		tags = p.pairing.tags
 	[l_tag, r_tag] = tags
+	last_necessary_split_opts[0] = (p, head, restrs, hyps, tags)
 
 	rep = rep_graph.mk_graph_slice (p, fast = True)
 	entries = get_loop_entry_sites (rep, restrs, hyps, head)
@@ -756,7 +757,8 @@ def get_necessary_split_opts (p, head, restrs, hyps, tags = None):
 			(expr2, (vis (n2, r_start + (i * r_step)), r_tag)))
 			for i in range (2)]
 		eq = foldr1 (mk_and, map (rep.interpret_hyp, eqs))
-		if rep.test_hyp_whyps (eq, hyps):
+		m = {}
+		if rep.test_hyp_whyps (eq, hyps, model = m):
 			return mk_i_j_opts ([(l_start + i, l_step)
 					for i in range (r_step + 1)],
 				[(r_start + i, r_step)
@@ -768,7 +770,7 @@ def get_necessary_split_opts (p, head, restrs, hyps, tags = None):
 			# immediate case split on difference between entry paths
 			checks = [(hyps, eq_hyp, 'eq') for eq_hyp in eqs]
 			return derive_case_split (rep, n_vcs, checks)
-		necessary_split_opts_trace.append ((n, kind, (l_start, l_step),
+		necessary_split_opts_trace.append ((n, expr, (l_start, l_step),
 			(r_start, r_step), 'Seq check failed'))
 	return None
 

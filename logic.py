@@ -1089,7 +1089,7 @@ def lv_expr (expr, env):
 		return (None, None, None, None)
 	if set (rs) == set (['LoopConst']):
 		return (expr, 'LoopConst', None, set ())
-	offs_set = set.union (* [lv[3] for lv in lvs])
+	offs_set = set.union (* ([lv[3] for lv in lvs] + [set ()]))
 	arg_offs = []
 	for (expr2, k, offs, _) in lvs:
 		if k == 'LoopConst' and expr2.typ.kind == 'Word':
