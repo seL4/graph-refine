@@ -743,7 +743,7 @@ class Solver:
 		active_solvers.append (self)
 		while len (active_solvers) > max_active_solvers[0]:
 			solv = active_solvers.pop (0)
-			solv.close ()
+			solv.close ('active solver limit')
 
 		if use_this_solver:
 			solver = use_this_solver
@@ -758,8 +758,9 @@ class Solver:
 		for (msg, _) in self.replayable:
 			self.send (msg, replay=False)
 
-	def close (self):
-		self.close_parallel_solvers (reason = 'self.close')
+	def close (self, reason = '?'):
+		self.close_parallel_solvers (reason = 'self.close (%s)'
+			% reason)
 		self.close_online_solver ()
 
 	def close_online_solver (self):
@@ -769,7 +770,7 @@ class Solver:
 			self.online_solver = None
 
 	def __del__ (self):
-		self.close ()
+		self.close ('__del__')
 
 	def smt_name (self, name, kind = ('Var', None),
 			ignore_external_names = False):
