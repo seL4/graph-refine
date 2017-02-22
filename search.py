@@ -97,6 +97,20 @@ def find_split_limit (p, n, restrs, hyps, kind, bound = 51, must_find = True,
 		assert not 'split limit found'
 	return None
 
+def get_split_limit (p, n, restrs, hyps, kind, bound = 51,
+		must_find = True, est_bound = 1, hints = None):
+	k = ('SplitLimit', n, restrs, tuple (hyps), kind)
+	if k in p.cached_analysis:
+		(lim, prev_bound) = p.cached_analysis[k]
+		if lim != None or bound <= prev_bound:
+			return lim
+	if hints == None:
+		hints = [est_bound, est_bound + 1, est_bound + 2]
+	res = find_split_limit (p, n, restrs, hyps, 'Number',
+		hints = hints, must_find = must_find, bound = bound)
+	p.cached_analysis[k] = (res, bound)
+	return res
+
 def init_case_splits (p, hyps, tags = None):
 	if 'init_case_splits' in p.cached_analysis:
 		return p.cached_analysis['init_case_splits']
@@ -636,7 +650,7 @@ def find_split_loop (p, head, restrs, hyps, unfold_limit = 9,
 	rep = mk_graph_slice (p, fast = True)
 
 	nec = get_necessary_split_opts (p, head, restrs, hyps)
-	if nec and nec[0] == 'CaseSplit':
+	if nec and nec[0] in ['CaseSplit', 'LoopUnroll']:
 		return nec
 	elif nec:
 		i_j_opts = nec
@@ -749,16 +763,23 @@ def get_necessary_split_opts (p, head, restrs, hyps, tags = None):
 	seq_eqs = get_matching_linear_seqs (rep, head, restrs, hyps, tags)
 
 	vis = stuff['vis']
-	hyps = stuff['hyps']
-	for ((n, expr), (n2, expr2), (l_start, l_step), (r_start, r_step),
-			_, _) in seq_eqs:
+	for v in seq_eqs:
+		if v[0] == 'LoopUnroll':
+			(_, n, est_bound) = v
+			lim = get_split_limit (p, n, restrs, hyps, 'Number',
+				est_bound = est_bound, must_find = False)
+			if lim != None:
+				return ('LoopUnroll', n)
+			continue
+		((n, expr), (n2, expr2), (l_start, l_step), (r_start, r_step),
+			_, _) = v
 		eqs = [rep_graph.eq_hyp ((expr,
 			(vis (n, l_start + (i * l_step)), l_tag)),
 			(expr2, (vis (n2, r_start + (i * r_step)), r_tag)))
 			for i in range (2)]
 		eq = foldr1 (mk_and, map (rep.interpret_hyp, eqs))
 		m = {}
-		if rep.test_hyp_whyps (eq, hyps, model = m):
+		if rep.test_hyp_whyps (eq, stuff['hyps'], model = m):
 			return mk_i_j_opts ([(l_start + i, l_step)
 					for i in range (r_step + 1)],
 				[(r_start + i, r_step)
@@ -766,9 +787,10 @@ def get_necessary_split_opts (p, head, restrs, hyps, tags = None):
 				unfold_limit = 100)
 		n_vcs = entry_path_no_loops (rep, l_tag, m, head)
 		path_hyps = [rep_graph.pc_true_hyp ((n_vc, l_tag)) for n_vc in n_vcs]
-		if rep.test_hyp_whyps (eq, hyps + path_hyps):
+		if rep.test_hyp_whyps (eq, stuff['hyps'] + path_hyps):
 			# immediate case split on difference between entry paths
-			checks = [(hyps, eq_hyp, 'eq') for eq_hyp in eqs]
+			checks = [(stuff['hyps'], eq_hyp, 'eq')
+				for eq_hyp in eqs]
 			return derive_case_split (rep, n_vcs, checks)
 		necessary_split_opts_trace.append ((n, expr, (l_start, l_step),
 			(r_start, r_step), 'Seq check failed'))
@@ -786,6 +808,7 @@ def linear_setup_stuff (rep, head, restrs, hyps, tags):
 	if not l_seq_vs:
 		return None
 	r_seq_vs = {}
+	restr_env = {p.loop_id (head): restrs}
 	for n in init_loops_to_split (p, restrs):
 		if p.node_tags[n][0] != r_tag:
 			continue
@@ -856,7 +879,9 @@ def get_matching_linear_seqs (rep, head, restrs, hyps, tags):
 		for m in [get_model (n, offs)]
 		if m
 		for seq_eq in [get_linear_seq_eq (rep, m, stuff,
-					(kind, n, expr, offs, oset))]
+					(kind, n, expr, offs, oset)),
+			get_model_r_side_unroll (rep, tags, m,
+				restrs, hyps, stuff)]
 		if seq_eq != None)
 	(x, y) = itertools.tee (r)
 	p.cached_analysis[k] = [y]
@@ -883,13 +908,56 @@ def get_linear_seq_eq (rep, m, stuff, expr_t1):
 	for (n, expr, offs2, oset2, diff, offs_v2) in sorted (r_seqs):
 		mult = offs_v / offs_v2
 		if offs_v % offs_v2 != 0 or mult > 8:
-			necessary_split_opts_trace.append (('StepWrong', offs_v,
-				offs_v2))
+			necessary_split_opts_trace.append ((n, expr,
+				'StepWrong', offs_v, offs_v2))
 		if diff % offs_v2 != 0 or diff < 0 or (diff / offs_v2) > 8:
-			necessary_split_opts_trace.append (('StartWrong', diff,
-				offs_v2))
+			necessary_split_opts_trace.append ((n, expr,
+				'StartWrong', diff, offs_v2))
 		return ((n1, expr1), (n, expr), (0, 1),
 			(diff / offs_v2, mult), (offs1, offs2), (oset1, oset2))
+	return None
+
+def get_model_r_side_unroll (rep, tags, m, restrs, hyps, stuff):
+	p = rep.p
+	[l_tag, r_tag] = tags
+
+	l_visited_ns_vcs = logic.dict_list ([(n, vc)
+		for (tag, n, vc) in rep.node_pc_env_order
+		if tag == l_tag
+		if eval_pc (rep, m, (n, vc))])
+	l_arc_interesting = [(n, vc, kind, expr)
+		for (n, vcs) in l_visited_ns_vcs.iteritems ()
+		if len (vcs) == 1
+		for vc in vcs
+		for (kind, expr)
+			in logic.interesting_node_exprs (p, n, tags = tags)]
+
+	# FIXME: cloned
+	def canon_n (n, typ):
+		vs = [n + (i << typ.num) for i in range (-2, 3)]
+		(_, v) = min ([(abs (v), v) for v in vs])
+		return v
+	def get_int_min (expr):
+		v = eval_model_expr (m, rep.solv, expr)
+		assert v.kind == 'Num', v
+		return canon_n (v.val, v.typ)
+	def eval (expr, n, vc):
+		expr = rep.to_smt_expr (expr, (n, vc))
+		return get_int_min (expr)
+
+	val_interesting_map = logic.dict_list ([((kind, eval (expr, n, vc)), n)
+		for (n, vc, kind, expr) in l_arc_interesting])
+
+	smt = stuff['smt']
+
+	for (kind, n, expr, offs, _) in stuff['r_seq_vs']:
+		expr_n = get_int_min (smt (expr, n, 0))
+		offs_n = get_int_min (smt (offs, n, 0))
+		hit = ([i for i in range (64)
+			if (kind, canon_n (expr_n + (offs_n * i), expr.typ))
+				in val_interesting_map])
+		if [i for i in hit if i > 4]:
+			return ('LoopUnroll', p.loop_id (n), max (hit))
 	return None
 
 last_failed_pairings = []
@@ -1265,7 +1333,7 @@ def v_eqs_to_split (p, pair, v_eqs, restrs, hyps, tags = None):
 		tags = p.pairing.tags
 	hyps = hyps + check.split_loop_hyps (tags, split, restrs, exit = True)
 
-	r_max = find_split_limit (p, r_n, restrs, hyps, 'Offset',
+	r_max = get_split_limit (p, r_n, restrs, hyps, 'Offset',
 		bound = (n + 2) * r_step, must_find = False,
 		hints = [n * r_step, n * r_step + 1])
 	if r_max == None:
@@ -1332,6 +1400,14 @@ def init_loops_to_split (p, restrs):
 def restr_others_both (p, restrs, n, m):
 	extras = [(sp, vc_double_range (n, m))
 		for sp in loops_to_split (p, restrs)]
+	return restrs + tuple (extras)
+
+def restr_others_as_necessary (p, n, restrs, init_bound, offs_bound,
+		skip_loops = []):
+	extras = [(sp, vc_double_range (init_bound, offs_bound))
+		for sp in loops_to_split (p, restrs)
+		if sp not in skip_loops
+		if p.is_reachable_from (sp, n)]
 	return restrs + tuple (extras)
 
 def loop_no_match_unroll (rep, restrs, hyps, split, other_tag, unroll):
@@ -1449,7 +1525,7 @@ def build_proof_rec_with_restrs (split_points, kind, searcher, p, restrs,
 	return ProofNode ('Restr', (sp, (kind, (min_v, max_v))), [subproof])
 
 def get_proof_split_limit (p, sp, restrs, hyps, kind, must_find = False):
-	limit = find_split_limit (p, sp, restrs, hyps, kind,
+	limit = get_split_limit (p, sp, restrs, hyps, kind,
 		must_find = must_find)
 	if limit == None:
 		return None
@@ -1506,6 +1582,8 @@ def default_searcher (p, restrs, hyps):
 		trace (' .. done checking loop no match', push = -1)
 
 		(kind, split) = find_split_loop (p, n, restrs, hyps)
+		if kind == 'LoopUnroll':
+			return ('Restr', ('Number', [split]))
 		return (kind, split)
 
 	if r_to_split:

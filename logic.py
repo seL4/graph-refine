@@ -606,6 +606,7 @@ def mk_align_valid_ineq (typ, p):
 
 # generic operations on function/problem graphs
 def dict_list (xys, keys = None):
+	"""dict_list ([(1, 2), (1, 3), (2, 4)]) = {1: [2, 3], 2: [4]}"""
 	d = {}
 	for (x, y) in xys:
 		d.setdefault (x, [])
@@ -1175,6 +1176,38 @@ def linear_series_exprs (p, loop, va, ret_inner = False):
 			for (v, (_, (lv, offs))) in cache[n].iteritems ()]))
 		for n in cache])
 
+def interesting_node_exprs (p, n, tags = None, use_pairings = True):
+	if tags == None:
+		tags = p.pairing.tags
+	node = p.nodes[n]
+	memaccs = node.get_mem_accesses ()
+	vs = [(kind, ptr) for (kind, ptr, v, m) in memaccs]
+	vs += [('MemUpdateArg', v) for (kind, ptr, v, m) in memaccs
+		if kind == 'MemUpdate']
+
+	if node.kind == 'Call' and use_pairings:
+		tag = p.node_tags[n][0]
+		from target_objects import functions, pairings
+		import solver
+		fun = functions[node.fname]
+		arg_input_map = dict (azip (fun.inputs, node.args))
+		pairs = [pair for pair in pairings.get (node.fname, [])
+			if pair.tags == tags]
+		if not pairs:
+			return vs
+		[pair] = pairs
+		in_eq_vs = [(('Call', pair.name, i),
+				var_subst (v, arg_input_map))
+			for (i, ((lhs, l_s), (rhs, r_s)))
+				in enumerate (pair.eqs[0])
+			if l_s.endswith ('_IN') and r_s.endswith ('_IN')
+			if l_s != r_s
+			if solver.typ_representable (lhs.typ)
+			for (v, site) in [(lhs, l_s), (rhs, r_s)]
+			if site == '%s_IN' % tag]
+		vs.extend (in_eq_vs)
+	return vs
+
 def interesting_linear_series_exprs (p, loop, va, tags = None,
 		use_pairings = True):
 	if tags == None:
@@ -1183,33 +1216,7 @@ def interesting_linear_series_exprs (p, loop, va, tags = None,
 		ret_inner = True)
 	res_env = {}
 	for (n, env) in expr_env.iteritems ():
-		memaccs = p.nodes[n].get_mem_accesses ()
-		vs = [(kind, ptr) for (kind, ptr, v, m) in memaccs]
-		vs += [('MemUpdateArg', v) for (kind, ptr, v, m) in memaccs
-			if kind == 'MemUpdate']
-
-		node = p.nodes[n]
-		if node.kind == 'Call' and use_pairings:
-			tag = p.node_tags[n][0]
-			from target_objects import functions, pairings
-			import solver
-			fun = functions[node.fname]
-			arg_input_map = dict (azip (fun.inputs, node.args))
-			pairs = [pair for pair in pairings.get (node.fname, [])
-				if pair.tags == tags]
-			if not pairs:
-				continue
-			[pair] = pairs
-			in_eq_vs = [(('Call', pair.name, i),
-					var_subst (v, arg_input_map))
-				for (i, ((lhs, l_s), (rhs, r_s)))
-					in enumerate (pair.eqs[0])
-				if l_s.endswith ('_IN') and r_s.endswith ('_IN')
-				if l_s != r_s
-				if solver.typ_representable (lhs.typ)
-				for (v, site) in [(lhs, l_s), (rhs, r_s)]
-				if site == '%s_IN' % tag]
-			vs.extend (in_eq_vs)
+		vs = interesting_node_exprs (p, n)
 
 		vs = [(kind, v, lv_expr (v, env)) for (kind, v) in vs]
 		vs = [(kind, v, offs, offs_set)
