@@ -740,10 +740,11 @@ class Solver:
 		return preamble
 
 	def startup_solver (self, use_this_solver = None):
-		active_solvers.append (self)
-		while len (active_solvers) > max_active_solvers[0]:
-			solv = active_solvers.pop (0)
-			solv.close ('active solver limit')
+		if self not in active_solvers:
+			active_solvers.append (self)
+			while len (active_solvers) > max_active_solvers[0]:
+				solv = active_solvers.pop (0)
+				solv.close ('active solver limit')
 
 		if use_this_solver:
 			solver = use_this_solver
