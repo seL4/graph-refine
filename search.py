@@ -106,7 +106,7 @@ def get_split_limit (p, n, restrs, hyps, kind, bound = 51,
 			return lim
 	if hints == None:
 		hints = [est_bound, est_bound + 1, est_bound + 2]
-	res = find_split_limit (p, n, restrs, hyps, 'Number',
+	res = find_split_limit (p, n, restrs, hyps, kind,
 		hints = hints, must_find = must_find, bound = bound)
 	p.cached_analysis[k] = (res, bound)
 	return res
@@ -780,6 +780,8 @@ def get_necessary_split_opts (p, head, restrs, hyps, tags = None):
 		eq = foldr1 (mk_and, map (rep.interpret_hyp, eqs))
 		m = {}
 		if rep.test_hyp_whyps (eq, stuff['hyps'], model = m):
+			trace ('found necessary split info: (%s, %s), (%s, %s)'
+				% (l_start, l_step, r_start, r_step))
 			return mk_i_j_opts ([(l_start + i, l_step)
 					for i in range (r_step + 1)],
 				[(r_start + i, r_step)
@@ -1146,6 +1148,8 @@ def trace_search_fail (knowledge):
 		if str (it[1][1]) == 'InductFailed']
 	if ind_fails:
 		trace (  'Inductive failures!')
+	else:
+		trace (  'No inductive failures.')
 	for f in ind_fails:
 		trace ('    %s' % (f,))
 	return ind_fails
