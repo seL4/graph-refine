@@ -85,7 +85,6 @@ def find_split_limit (p, n, restrs, hyps, kind, bound = 51, must_find = True,
 	bound_range = [0, bound]
 	best_bound_found = [None]
 	def check (i):
-		print (i, bound_range)
 		if i < bound_range[0]:
 			return True
 		if i > bound_range[1]:
