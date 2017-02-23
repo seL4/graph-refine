@@ -80,22 +80,41 @@ def find_split_limit (p, n, restrs, hyps, kind, bound = 51, must_find = True,
 		rep = mk_graph_slice (p, fast = True)
 	else:
 		rep = use_rep
-	check_order = hints + [i for i in split_sample_set (bound)
-		if i not in hints]
-	for i in check_order:
+	check_order = hints + split_sample_set (bound) + [bound]
+	# bounds strictly outside this range won't be considered
+	bound_range = [0, bound]
+	best_bound_found = [None]
+	def check (i):
+		print (i, bound_range)
+		if i < bound_range[0]:
+			return True
+		if i > bound_range[1]:
+			return False
 		restrs2 = restrs + ((n, VisitCount (kind, i)), )
 		pc = rep.get_pc ((n, restrs2))
 		restrs3 = restr_others (p, restrs2, 2)
 		epc = rep.get_pc (('Err', restrs3), tag = tag)
 		hyp = mk_implies (mk_not (epc), mk_not (pc))
-		if rep.test_hyp_whyps (hyp, hyps):
-			trace ('split limit found: %d' % i, push = -1)
-			return i
+		res = rep.test_hyp_whyps (hyp, hyps)
+		if res:
+			trace ('split limit found: %d' % i)
+			bound_range[1] = i - 1
+			best_bound_found[0] = i
+		else:
+			bound_range[0] = i + 1
+		return res
 
-	trace ('No split limit found for %d (%s).' % (n, tag), push = -1)
-	if must_find:
-		assert not 'split limit found'
-	return None
+	map (check, check_order)
+	while bound_range[0] <= bound_range[1]:
+		split = (bound_range[0] + bound_range[1]) / 2
+		check (split)
+
+	bound = best_bound_found[0]
+	if bound == None:
+		trace ('No split limit found for %d (%s).' % (n, tag))
+		if must_find:
+			assert not 'split limit found'
+	return bound
 
 def get_split_limit (p, n, restrs, hyps, kind, bound = 51,
 		must_find = True, est_bound = 1, hints = None):
