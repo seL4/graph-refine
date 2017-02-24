@@ -616,7 +616,7 @@ def guess_asm_stack_depth (fun):
 	offs = get_ptr_offsets (p, [(n, sp) for n in nodes],
 		[(entry, sp, 'InitSP')])
 
-	assert len (offs) == len (p.nodes), map (hex, set (p.nodes)
+	assert len (offs) == len (nodes), map (hex, set (nodes)
 		- set ([n for ((n, _), _, _) in offs]))
 
 	all_offs = [(n, signed_offset (off, 32, 10 ** 6))
