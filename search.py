@@ -941,6 +941,7 @@ def get_model_r_side_unroll (rep, tags, m, restrs, hyps, stuff):
 	p = rep.p
 	[l_tag, r_tag] = tags
 
+	r_kinds = set ([kind for (kind, n, _, _, _) in stuff['r_seq_vs']])
 	l_visited_ns_vcs = logic.dict_list ([(n, vc)
 		for (tag, n, vc) in rep.node_pc_env_order
 		if tag == l_tag
@@ -950,7 +951,10 @@ def get_model_r_side_unroll (rep, tags, m, restrs, hyps, stuff):
 		if len (vcs) == 1
 		for vc in vcs
 		for (kind, expr)
-			in logic.interesting_node_exprs (p, n, tags = tags)]
+			in logic.interesting_node_exprs (p, n, tags = tags)
+		if kind in r_kinds
+		if expr.typ.kind == 'Word']
+	l_kinds = set ([kind for (n, vc, kind, _) in l_arc_interesting])
 
 	# FIXME: cloned
 	def canon_n (n, typ):
@@ -971,6 +975,10 @@ def get_model_r_side_unroll (rep, tags, m, restrs, hyps, stuff):
 	smt = stuff['smt']
 
 	for (kind, n, expr, offs, _) in stuff['r_seq_vs']:
+		if kind not in l_kinds:
+			continue
+		if expr.typ.kind != 'Word':
+			continue
 		expr_n = get_int_min (smt (expr, n, 0))
 		offs_n = get_int_min (smt (offs, n, 0))
 		hit = ([i for i in range (64)
