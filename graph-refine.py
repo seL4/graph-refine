@@ -226,6 +226,15 @@ def save_compiled_funcs (fname):
 			out.write (s + '\n')
 	out.close ()
 
+def rerun_set (vs):
+	def get_strs (vs):
+		return [v for v in vs if type (v) == str] + [v2
+			for v in vs if type (v) != str for v2 in get_strs (v)]
+	vs = set (get_strs (vs))
+	pairs = map (name_search, vs)
+	strs = [pair.funs[pair.tags[0]] for pair in pairs if pair]
+	return ' '.join (strs)
+
 def main (args):
 	excluding = False
 	excludes = set ()
