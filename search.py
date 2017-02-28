@@ -930,16 +930,21 @@ def get_linear_seq_eq (rep, m, stuff, expr_t1):
 		if offs_v % offs_v2 != 0 or mult > 8:
 			necessary_split_opts_trace.append ((n, expr,
 				'StepWrong', offs_v, offs_v2))
-		if diff % offs_v2 != 0 or diff < 0 or (diff / offs_v2) > 8:
+		elif diff % offs_v2 != 0 or diff < 0 or (diff / offs_v2) > 8:
 			necessary_split_opts_trace.append ((n, expr,
 				'StartWrong', diff, offs_v2))
-		return ((n1, expr1), (n, expr), (0, 1),
-			(diff / offs_v2, mult), (offs1, offs2), (oset1, oset2))
+		else:
+			return ((n1, expr1), (n, expr), (0, 1),
+				(diff / offs_v2, mult), (offs1, offs2),
+				(oset1, oset2))
 	return None
+
+last_r_side_unroll = [None]
 
 def get_model_r_side_unroll (rep, tags, m, restrs, hyps, stuff):
 	p = rep.p
 	[l_tag, r_tag] = tags
+	last_r_side_unroll[0] = (rep, tags, m, restrs, hyps, stuff)
 
 	r_kinds = set ([kind for (kind, n, _, _, _) in stuff['r_seq_vs']])
 	l_visited_ns_vcs = logic.dict_list ([(n, vc)
