@@ -426,8 +426,13 @@ def simplify_sexp (smt_xp, rep, m, flatten = True):
 	else:
 		return smt_xp
 
-def trace_mems (rep, m, verbose = False, symbs = True):
-	for tag in reversed (rep.p.pairing.tags):
+def trace_mems (rep, m, verbose = False, symbs = True, tags = None):
+	if tags == None:
+		if rep.p.pairing:
+			tags = reversed (rep.p.pairing.tags)
+		else:
+			tags = rep.p.tags ()
+	for tag in tags:
 		print '%s mem trace:' % tag
 		trace_mem (rep, tag, m, verbose = verbose, symbs = symbs)
 
