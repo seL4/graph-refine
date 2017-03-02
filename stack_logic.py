@@ -206,21 +206,30 @@ def get_ptr_offsets (p, n_ptrs, bases, hyps = []):
 			trace ('get_ptr_offs fallthrough at %d: %s' % v)
 	return offs
 
-def get_extra_sp_defs (rep, tag):
+extra_symbols = set ()
+
+def preserves_sp (fname):
 	"""all functions will keep the stack pointer equal, whether they have
-	pairing partners or not. add these extra defs/equalities for the
+	pairing partners or not."""
+	assume_sp_equal = bool (target_objects.hooks ('assume_sp_equal'))
+	if not extra_symbols:
+		for fname2 in target_objects.symbols:
+			extra_symbols.add(fname2)
+			extra_symbols.add('_'.join (fname2.split ('.')))
+	return (get_asm_calling_convention (fname)
+		or assume_sp_equal
+		or fname in extra_symbols)
+
+def get_extra_sp_defs (rep, tag):
+	"""add extra defs/equalities about stack pointer for the
 	purposes of stack depth analysis."""
 	# FIXME how to parametrise this?
 	sp = mk_var ('r13', syntax.word32T)
 	defs = {}
 
-	assume_sp_equal = bool (target_objects.hooks ('assume_sp_equal'))
-
 	items = [(n_vc, x) for (n_vc, x) in rep.funcs.iteritems ()
 		if logic.is_int (n_vc[0])
-		if get_asm_calling_convention (rep.p.nodes[n_vc[0]].fname)
-			or assume_sp_equal
-			or rep.p.nodes[n_vc[0]].fname in target_objects.symbols]
+		if preserves_sp (rep.p.nodes[n_vc[0]].fname)]
 	for ((n, vc), (inputs, outputs, _)) in items:
 		if rep.p.node_tags[n][0] == tag:
 			inp_sp = solver.smt_expr (sp, inputs, rep.solv)
@@ -1109,7 +1118,11 @@ def deserialise_stack_bounds (lines):
 		bounds[fname] = bound
 	return bounds
 
+funs_with_tag = {}
+
 def get_functions_with_tag (tag):
+	if tag in funs_with_tag:
+		return funs_with_tag[tag]
 	visit = set ([pre_pairings[f][tag] for f in pre_pairings
 		if tag in pre_pairings[f]])
 	visit.update ([pair.funs[tag] for f in pairings
@@ -1119,6 +1132,7 @@ def get_functions_with_tag (tag):
 		f = visit.pop ()
 		funs.add (f)
 		visit.update (set (functions[f].function_calls ()) - funs)
+	funs_with_tag[tag] = funs
 	return funs
 
 def compute_stack_bounds (quiet = False):
@@ -1227,17 +1241,25 @@ def inst_const_rets (node):
 def node_const_rets (node):
 	if "instruction'" in node.fname:
 		return inst_const_rets (node)
-	if node.fname not in pre_pairings:
+	if node.fname in pre_pairings:
+		if pre_pairings[node.fname]['ASM'] != node.fname:
+			return None
+		cc = get_asm_calling_convention_at_node (node)
+		input_set = set ([v for arg in node.args
+			for v in syntax.get_expr_var_set (arg)])
+		callee_saved_set = set (cc['callee_saved'])
+		return [mk_var (nm, typ) for (nm, typ) in node.rets
+			if mk_var (nm, typ) in callee_saved_set
+			if (nm, typ) in input_set]
+	elif preserves_sp (node.fname):
+		if node.fname not in get_functions_with_tag ('ASM'):
+			return None
+		f_outs = functions[node.fname].outputs
+		return [mk_var (nm, typ)
+			for ((nm, typ), (nm2, _)) in azip (node.rets, f_outs)
+			if nm2 == 'r13']
+	else:
 		return None
-	if pre_pairings[node.fname]['ASM'] != node.fname:
-		return None
-	cc = get_asm_calling_convention_at_node (node)
-	input_set = set ([v for arg in node.args
-		for v in syntax.get_expr_var_set (arg)])
-	callee_saved_set = set (cc['callee_saved'])
-	return [mk_var (nm, typ) for (nm, typ) in node.rets
-		if mk_var (nm, typ) in callee_saved_set
-		if (nm, typ) in input_set]
 
 def const_ret_hook (node, nm, typ):
 	consts = node_const_rets (node)
