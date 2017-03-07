@@ -127,16 +127,24 @@ def investigate_cond (rep, m, cond, simplify = True, rec = True):
 	cond_def = rep.solv.defs[cond]
 	while rec and type (cond_def) == str and cond_def in rep.solv.defs:
 		cond_def = rep.solv.defs[cond_def]
-	bits = solver.split_hyp_sexpr (cond_def, [])
-	for bit in bits:
+	def do_bit (bit):
 		if bit == 'true':
-			continue
+			return True
 		valid = eval_model_bool (m, bit)
 		if simplify:
 			# looks a bit strange to do this now but some pointer
 			# lookups have to be done with unmodified s-exprs
 			bit = simplify_sexp (bit, rep, m, flatten = False)
 		print '  %s: %s' % (valid, solver.flat_s_expression (bit))
+		return valid
+	while cond_def[0] == '=>':
+		valid = do_bit (cond_def[1])
+		if not valid:
+			break
+		cond_def = cond_def[2]
+	bits = solver.split_hyp_sexpr (cond_def, [])
+	for bit in bits:
+		do_bit (bit)
 
 def eval_model_bool (m, x):
 	if hasattr (x, 'typ'):
