@@ -582,7 +582,8 @@ def inline_no_pre_pairing (p):
 	# FIXME: handle code sharing with check.inline_completely_unmatched
 	while True:
 		ns = [n for n in p.nodes if p.nodes[n].kind == 'Call'
-			if p.nodes[n].fname not in pre_pairings]
+			if p.nodes[n].fname not in pre_pairings
+			if not is_instruction (p.nodes[n].fname)]
 		for n in ns:
 			trace ('Inlining %s at %d.' % (p.nodes[n].fname, n))
 			problem.inline_at_point (p, n)
