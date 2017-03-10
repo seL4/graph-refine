@@ -200,7 +200,7 @@ available with their SMTLIB2 names. The operators are:
   - Comparison relations on words (result is bool):
     + Less/bvult, LessEquals/bvule, SignedLess/bvslt, SignedLessEquals/bvsle
   - Unary operators on words:
-    + BWNot/bvnot, CountLeadingZeroes, WordReverse
+    + BWNot/bvnot, CountLeadingZeroes, CountTrailingZeroes, WordReverse
   - Cast operators on words - result type may be different to argument type:
     + WordCast, WordCastSigned
   - Memory operations:
@@ -959,7 +959,7 @@ ops = {'Plus':2, 'Minus':2, 'Times':2, 'Modulus':2,
 	'Or':2, 'Implies':2, 'Equals':2, 'Less':2,
 	'LessEquals':2, 'SignedLess':2, 'SignedLessEquals':2,
 	'ShiftLeft':2, 'ShiftRight':2, 'CountLeadingZeroes':1,
-	'WordReverse':1, 'SignedShiftRight':2,
+	'CountTrailingZeroes':1, 'WordReverse':1, 'SignedShiftRight':2,
 	'Not':1, 'BWNot':1, 'WordCast':1, 'WordCastSigned':1,
 	'True':0, 'False':0, 'UnspecifiedPrecond':0,
 	'MemUpdate':3, 'MemAcc':2, 'IfThenElse':3, 'ArrayIndex':2,

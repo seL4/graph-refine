@@ -333,6 +333,10 @@ def smt_expr (expr, env, solv):
 		v = smt_expr (v, env, solv)
 		oper = solv.get_smt_derived_oper (expr.name, expr.typ.num)
 		return '(%s %s)' % (oper, v)
+	elif expr.is_op ('CountTrailingZeroes'):
+		[v] = expr.vals
+		expr = syntax.mk_word_reverse (syntax.mk_clz (v))
+		return smt_expr (expr, env, solv)
 	elif expr.is_op (['PValid', 'PGlobalValid',
 			'PWeakValid', 'PArrayValid']):
 		if expr.name == 'PArrayValid':
