@@ -490,9 +490,10 @@ def eval_model (m, s, toplevel = None):
 		n_extend = int (n_extend)
 		[x] = xs
 		assert x.typ.kind == 'Word' and x.kind == 'Num'
-		val = x.val
 		if ex_kind == 'sign_extend':
 			val = get_signed_val (x)
+		else:
+			val = get_unsigned_val (x)
 		result = mk_num (val, x.typ.num + n_extend)
 	elif op[0] == '_' and op[1] == 'extract':
 		[_, _, n_top, n_bot] = op
@@ -563,8 +564,16 @@ def eval_model (m, s, toplevel = None):
 	m[s] = result
 	return result
 
+def get_unsigned_val (x):
+	assert x.typ.kind == 'Word'
+	assert x.kind == 'Num'
+	bits = x.typ.num
+	v = x.val & ((1 << bits) - 1)
+	return v
+
 def get_signed_val (x):
 	assert x.typ.kind == 'Word'
+	assert x.kind == 'Num'
 	bits = x.typ.num
 	v = x.val & ((1 << bits) - 1)
 	if v >= (1 << (bits - 1)):

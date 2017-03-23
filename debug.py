@@ -567,6 +567,30 @@ def trace_var (rep, tag, m, v):
 			trace.append (msg)
 	return trace
 
+def trace_deriv_ops (rep, m, tag):
+	n_vcs = walk_model (rep, tag, m)
+	derivs = set (('CountTrailingZeroes', 'CountLeadingZeroes',
+		'WordReverse'))
+	def get_derivs (node):
+		dvs = set ()
+		def visit (expr):
+			if expr.is_op (derivs):
+				dvs.add (expr)
+		node.visit (lambda x: (), visit)
+		return dvs
+	for (n, vc) in n_vcs:
+		if n not in rep.p.nodes:
+			continue
+		dvs = get_derivs (rep.p.nodes[n])
+		if not dvs:
+			continue
+		print '%s:' % (rep.node_count_name ((n, vc)))
+		for dv in dvs:
+			[x] = dv.vals
+			x = rep.to_smt_expr (x, (n, vc))
+			x = eval_str (x, {}, rep.solv, m)
+			print '\t%s: %s' % (dv.name, x)
+
 def check_pairings ():
 	for p in pairings.itervalues ():
 		print p['C'], p['ASM']

@@ -335,7 +335,7 @@ def smt_expr (expr, env, solv):
 		return '(%s %s)' % (oper, v)
 	elif expr.is_op ('CountTrailingZeroes'):
 		[v] = expr.vals
-		expr = syntax.mk_word_reverse (syntax.mk_clz (v))
+		expr = syntax.mk_clz (syntax.mk_word_reverse (v))
 		return smt_expr (expr, env, solv)
 	elif expr.is_op (['PValid', 'PGlobalValid',
 			'PWeakValid', 'PArrayValid']):
