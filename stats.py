@@ -19,9 +19,9 @@ def scan_proofs (res_f):
 		if line.startswith ('Testing Function'):
 			(_, nm) = line.split (' pair ', 1)
 			nm = nm.strip ()
+			pair = pairings_names[nm]
 		if line.startswith ('ProofNode '):
 			pn = eval (line)
-			pair = pairings_names[nm]
 			proofs[pair] = pn
 	res_f.close ()
 	return proofs
@@ -76,6 +76,7 @@ def tabulate_problems_with_linear_splits (data):
 		wsz = split_metrics (pn)[0]
 		rows.setdefault (wsz, [])
 		rows[wsz].append (has_nec)
+	print 'Breakdown of presence of necessary splits:'
 	for i in sorted (rows):
 		print 'Window size %d:' % i
 		tr = len ([v for v in rows[i] if v])
@@ -140,10 +141,51 @@ def tabulate_example_traces (split_problems, data):
 	for (w, trace) in big_traces:
 		print '  %d: %s' % (w, trace)
 
+def scan_times (res_f):
+	nm = None
+	times = {}
+	pairings_set = set ([p for f in pairings for p in pairings[f]])
+	pairings_names = dict ([(pair.name, pair) for pair in pairings_set])
+	for line in res_f:
+		if line.startswith ('Testing Function'):
+			(_, nm) = line.split (' pair ', 1)
+			nm = nm.strip ()
+			pair = pairings_names[nm]
+		if line.startswith ('Result ') and 'time taken:' in line:
+			(_, time) = line.split ('time taken:', 1)
+			time = time.strip ()
+			assert time[-1] == 's'
+			time = float (time[:-1])
+			times[pair] = time
+	res_f.close ()
+	return times 
+
+def problem_difficult_estimate (p):
+	return (len (p.nodes), len (p.loop_heads ()),
+		len ([n for n in p.nodes if p.loop_id (n)]))
+
+def tabulate_timing_estimates (problems, times):
+	pair_probs = {}
+	for (p, _, _, _) in problems:
+		pair_probs[p.pairing] = p
+	print
+	print 'Timing estimate info: (nodes, loops, loop nodes, time)'
+	for pair in pair_probs:
+		time = times[pair]
+		p = pair_probs[pair]
+		print '  %d %d %d %0.2f' % (problem_difficult_estimate (p)
+			+ (time,))
+
 def do_all (fname):
-	split_problems = scan_split_problems (fname)
+	proofs = scan_proofs (open (fname))
+	problems = all_problems (proofs)
+	times = scan_times (open (fname))
+
+	split_problems = filter_split_problems (problems)
 	data = problems_with_linear_splits (split_problems)
 
 	tabulate_example_traces (split_problems, data)
 	tabulate_problems_with_linear_splits (data)
+
+	tabulate_timing_estimates (problems, times)
 
