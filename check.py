@@ -202,6 +202,19 @@ class ProofNode:
 		for proof in self.subproofs:
 			proof.serialise (p, ss)
 
+	def all_subproofs (self):
+		return [self] + [proof for proof1 in self.subproofs
+			for proof in proof1.all_subproofs ()]
+
+	def all_subproblems (self, p, restrs, hyps, name):
+		subproblems = proof_subproblems (p, self.kind,
+			self.args, restrs, hyps, name)
+		subproofs = logic.azip (subproblems, self.subproofs)
+		return [(self, restrs, hyps)] + [problem
+			for ((restrs2, hyps2, name2), proof) in subproofs
+			for problem in proof.all_subproblems (p, restrs2,
+				hyps2, name2)]
+
 	def save_serialise (self, p, fname):
 		f = open (fname, 'w')
 		ss = []

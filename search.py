@@ -265,6 +265,7 @@ class SearchKnowledge:
 		self.facts = set ()
 		self.weak_splits = set ()
 		self.premise = syntax.true_term
+		self.live_pairs_trace = []
 
 	def add_model (self, m):
 		self.model_trace.append (m)
@@ -1119,6 +1120,7 @@ def split_search (head, knowledge):
 			if eqs != None]
 		trace (' ... %d live pairings, %d endorsed' %
 			(len (pair_eqs), len (endorsed)))
+		knowledge.live_pairs_trace.append (len (pair_eqs))
 		for (pair, eqs) in endorsed:
 			if knowledge.is_weak_split (eqs):
 				trace ('  dropping endorsed - probably weak.')
