@@ -284,6 +284,13 @@ def main (args):
 				tags.add (arg[2:])
 			elif arg.startswith ('target:'):
 				pass
+			elif arg.startswith ('skip-proofs-of:'):
+				(_, fname) = arg.split(':', 1)
+				import stats
+				prev_proofs = stats.scan_proofs (open (fname))
+				prev_fs = [f for pair in prev_proofs
+					for f in pair.funs.values ()]
+				excludes.update (prev_fs)
 			elif excluding:
 				excludes.add (arg)
 			elif arg.startswith ('deps:'):
