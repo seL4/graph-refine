@@ -58,16 +58,20 @@ def split_metrics (proofnode):
 	r_side = r_start + (r_step * 2) + 1
 	return (max (l_side, r_side), (l_start, l_step), (r_start, r_step))
 
+def has_linear_split ((info, p, pn, restrs, hyps)):
+	loop_head = pn.split[0][0]
+	nec = search.get_necessary_split_opts (p, loop_head,
+		restrs, hyps)
+	return nec != None
+
 def problems_with_linear_splits (split_problems):
 	probs = sorted ([(split_metrics (pn), p, pn, restrs, hyps)
 		for (p, pn, restrs, hyps) in split_problems])
 	data = []
 	for (i, (info, p, pn, restrs, hyps)) in enumerate (probs):
 		print 'Handling loop %d in %s' % (i, p.name)
-		loop_head = pn.split[0][0]
-		nec = search.get_necessary_split_opts (p, loop_head,
-			restrs, hyps)
-		data.append ((info, pn, nec == None))
+		h = has_linear_split ((info, p, pn, restrs, hyps))
+		data.append ((info, pn, h))
 	return data
 
 def tabulate_problems_with_linear_splits (data):
@@ -96,12 +100,14 @@ def example_problems (split_problems, num):
 		for i in range (num)]))
 	return [probs[i] for i in prob_idxs]
 
-def big_example_problem (split_problems, data):
+def big_example_problem (split_problems):
+	probs = filter (problem_var_analysis_nonempty, split_problems)
 	probs = sorted ([(split_metrics (pn), p, pn, restrs, hyps)
 		for (p, pn, restrs, hyps) in split_problems])
-	probs_with_nec = [prob for (prob, nec) in logic.azip (probs, data)
-		if nec]
-	return probs_with_nec[-1]
+	probs.reverse ()
+	probs_with_lin = (prob for prob in probs
+		if has_linear_split (prob))
+	return probs_with_lin.next ()
 
 def trace_split_loop_pairs_window (problem, window_size):
 	(_, p, pn, restrs, hyps) = problem
@@ -125,7 +131,7 @@ def tabulate_example_traces (split_problems, data):
 			trace_split_loop_pairs_window (prob, prob[0][0] + 1))
 		for prob in probs]
 
-	prob = big_example_problem (split_problems, data)
+	prob = big_example_problem (split_problems)
 	big_traces = []
 	for i in range (prob[0][0] + 2):
 		if not search.mk_i_j_opts (unfold_limit = i):
@@ -140,6 +146,20 @@ def tabulate_example_traces (split_problems, data):
 	print 'Search pair decay in large problem, window sizes:'
 	for (w, trace) in big_traces:
 		print '  %d: %s' % (w, trace)
+
+	print 'Example again in gnuplot-happy format:'
+	for (w, (_, trace)) in ex_traces:
+		print
+		print
+		for v in trace:
+			print v
+
+	print 'Large example again:'
+	for (w, trace) in big_traces:
+		print
+		print
+		for v in trace:
+			print v
 
 def scan_times (res_f):
 	nm = None
@@ -164,17 +184,26 @@ def problem_difficult_estimate (p):
 	return (len (p.nodes), len (p.loop_heads ()),
 		len ([n for n in p.nodes if p.loop_id (n)]))
 
-def tabulate_timing_estimates (problems, times):
+def tabulate_timing_estimates (problems, proofs, times):
 	pair_probs = {}
 	for (p, _, _, _) in problems:
 		pair_probs[p.pairing] = p
 	print
-	print 'Timing estimate info: (nodes, loops, loop nodes, time)'
+	print 'Timing estimate info: (nodes, loops, loop nodes, proof nodes, time)'
 	for pair in pair_probs:
 		time = times[pair]
 		p = pair_probs[pair]
-		print '  %d %d %d %0.2f' % (problem_difficult_estimate (p)
-			+ (time,))
+		print '  %d %d %d %d %0.2f' % (problem_difficult_estimate (p)
+			+ (len (proofs[pair].all_subproofs ()), )
+			+ (time, ))
+
+def print_total_time (times):
+	time_vals = sorted (times.values ())
+	import datetime
+	def strs (seconds):
+		return (seconds, str (datetime.timedelta (seconds = int (seconds))))
+	print 'Slowest problem: %ss (%s)' % strs (time_vals[-1])
+	print 'Total time: %ss (%s)' % strs (sum (time_vals))
 
 def do_all (fname):
 	proofs = scan_proofs (open (fname))
@@ -187,5 +216,8 @@ def do_all (fname):
 	tabulate_example_traces (split_problems, data)
 	tabulate_problems_with_linear_splits (data)
 
-	tabulate_timing_estimates (problems, times)
+	print_total_time (times)
+
+	tabulate_timing_estimates (problems, proofs, times)
+
 
