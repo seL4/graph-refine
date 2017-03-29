@@ -940,7 +940,7 @@ def get_linear_seq_eq (rep, m, stuff, expr_t1):
 		if offs_v % offs_v2 != 0 or mult > 8:
 			necessary_split_opts_trace.append ((n, expr,
 				'StepWrong', offs_v, offs_v2))
-		elif diff % offs_v2 != 0 or diff < 0 or (diff / offs_v2) > 8:
+		elif diff % offs_v2 != 0 or (diff * offs_v2) < 0 or (diff / offs_v2) > 8:
 			necessary_split_opts_trace.append ((n, expr,
 				'StartWrong', diff, offs_v2))
 		else:
