@@ -451,7 +451,7 @@ def smt_expr_memacc (m, p, typ, solv):
 	if typ.num in [8, 32, 64]:
 		sexp = '(load-word%d %s %s)' % (typ.num, m, p)
 	else:
-		assert not 'word load type supported'
+		assert not 'word load type supported', typ
 	solv.note_model_expr (p, syntax.word32T)
 	solv.note_model_expr (sexp, typ)
 	return sexp

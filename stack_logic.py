@@ -1201,6 +1201,8 @@ def mk_stack_pairings (pairing_tups, stack_bounds_fname = None,
 			f.write(line)
 		f.close ()
 
+	problematic_clones ()
+
 	return mk_pairings (stack_bounds)
 
 def asm_stack_rep_hook (p, (nm, typ), kind, n):
@@ -1280,17 +1282,21 @@ def get_const_rets (p, node_set = None):
 def problematic_clones ():
 	clones = [s for s in target_objects.symbols if '.clone.' in s]
 	clones = ['_'.join (s.split ('.')) for s in clones]
-	print 'Clone symbols: %s' % clones
+	if not clones:
+		return
+	printout ('Clone symbols: %s' % clones)
 	clone_calls = set ([f for f in clones
 		if f in functions
 		if functions[f].function_calls ()])
-	print 'Clones with function calls: %s' % clone_calls
+	printout ('Clones with function calls: %s' % clone_calls)
+	if not clone_calls:
+		return
 	clone_problems = set ([f for f in clone_calls
 		if [f2 for f2 in functions
 			if f in functions[f2].function_calls ()
 			if len (set (functions[f2].function_calls ())) > 1]
 		])
-	print 'Problematic clones: %s' % clone_problems
+	printout ('Problematic clones: %s' % clone_problems)
 	return clone_problems
 
 def add_hooks ():
