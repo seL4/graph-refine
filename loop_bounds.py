@@ -461,7 +461,7 @@ def load_bounds ():
         known.append ((ctxt, prob_hash, bound))
     known_bounds['Loaded'] = True
 
-def get_bound_ctxt (split, call_ctxt):
+def get_bound_ctxt (split, call_ctxt, use_cache = True):
     trace ('Getting bound for 0x%x in context %s.' % (split, call_ctxt))
     (p, hyps, addr_map) = get_call_ctxt_problem (split, call_ctxt)
 
@@ -501,7 +501,7 @@ def get_bound_ctxt (split, call_ctxt):
     known = known_bounds.get (split_bin_addr, [])
     for (call_ctxt2, h, prev_bounds2, bound) in known:
       match = (not call_ctxt2 or call_ctxt[- len (call_ctxt2):] == call_ctxt2)
-      if match and h == p_h and prev_bounds2 == prev_bounds:
+      if match and use_cache and h == p_h and prev_bounds2 == prev_bounds:
         return bound
     bound = search_bin_bound (p, restrs, hyps, split)
     known = known_bounds.setdefault (split_bin_addr, [])
@@ -749,7 +749,10 @@ from trace_refute import (function_limit, ctxt_within_function_limits)
 def call_ctxt_computable (split, call_ctxt):
     fs = [trace_refute.identify_function ([], [call_site])
       for call_site in call_ctxt]
-    return not ([f for f in fs if trace_refute.has_complex_loop (f)])
+    non_computable = [f for f in fs if trace_refute.has_complex_loop (f)]
+    if non_computable:
+      trace ('avoiding functions with complex loops: %s' % non_computable)
+    return not non_computable
 
 def get_bound_super_ctxt_inner (split, call_ctxt,
       no_splitting = (False, None)):
@@ -766,6 +769,7 @@ def get_bound_super_ctxt_inner (split, call_ctxt,
     if len (call_ctxt) < 3 and len (safe_call_sites) == 1:
       call_ctxt2 = list (safe_call_sites) + call_ctxt
       if call_ctxt_computable (split, call_ctxt2):
+        trace ('using unique calling context %s' % str ((split, call_ctxt2)))
         return get_bound_super_ctxt (split, call_ctxt2)
 
     fname = trace_refute.identify_function (call_ctxt, [split])
@@ -777,21 +781,28 @@ def get_bound_super_ctxt_inner (split, call_ctxt,
     if bound:
       return bound
 
+    trace ('no bound found immediately.')
+
     if no_splitting[0]:
       assert no_splitting[1], no_splitting
       no_splitting[1][0] = True
+      trace ('cannot split by context (recursion).')
       return None
 
     # try to split over potential call sites
     if len (call_ctxt) >= 3:
+      trace ('cannot split by context (context depth).')
       return None
 
     if len (call_sites) == 0:
       # either entry point or nonsense
+      trace ('cannot split by context (reached top level).')
       return None
 
-    if [call_site for call_site in safe_call_sites
-        if not call_ctxt_computable (split, [call_site] + call_ctxt)]:
+    problem_sites = [call_site for call_site in safe_call_sites
+        if not call_ctxt_computable (split, [call_site] + call_ctxt)]
+    if problem_sites:
+      trace ('cannot split by context (issues in %s).' % problem_sites)
       return None
 
     anc_bounds = [get_bound_super_ctxt (split, [call_site] + call_ctxt,
