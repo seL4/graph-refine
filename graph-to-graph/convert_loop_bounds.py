@@ -15,14 +15,14 @@ import imm_utils
 import sys
 
 #extract all loop heads from loops_by_fs
-def loopHeadsToWorkOn(lbfs, funs_with_phantom_preempt, worker):
+def loopHeadsToWorkOn(lbfs, funs_with_phantom_preempt, worker_ids):
     ret = []
     n_ignored = 0
     for f in lbfs:
         for head in lbfs[f]:
             if (f not in funs_with_phantom_preempt) and ("ignore" in lbfs[f][head][1]):
                 n_ignored +=1
-            elif (worker == -1) or (lbfs[f][head][2] == worker):
+            elif (-1 in worker_ids) or (lbfs[f][head][2] in worker_ids):
                 ret += lbfs[f].keys()
     print 'ignored %d loops' % n_ignored
     print 'working on %s' % str(map(hex,ret))
@@ -31,9 +31,9 @@ def loopHeadsToWorkOn(lbfs, funs_with_phantom_preempt, worker):
 def phantomPreemptsAnnoFileName(target_dir_name):
     return '%s/preempt_refutes.txt' % target_dir_name
 
-def convert_loop_bounds(target_dir_name, worker_id=None, cached_only=False):
-    if worker_id == None:
-        worker_id = -1
+def convert_loop_bounds(target_dir_name, worker_ids=None, cached_only=False):
+    if worker_ids == None:
+        worker_ids = set([-1])
     print 'target_dir_name: %s' % target_dir_name
     args = target_objects.load_target(target_dir_name)
     target_dir = target_objects.target_dir
@@ -47,7 +47,7 @@ def convert_loop_bounds(target_dir_name, worker_id=None, cached_only=False):
     if funs_with_phantom_preempt:
         preempt_annotations_file = open(phantomPreemptsAnnoFileName(target_dir), 'w')
     #print 'funs_with_phantom_preempt: %s' % str(funs_with_phantom_preempt)
-    bin_heads = loopHeadsToWorkOn(lbfs, funs_with_phantom_preempt, worker_id)
+    bin_heads = loopHeadsToWorkOn(lbfs, funs_with_phantom_preempt, worker_ids)
     funs_with_unbounded_loop = set()
     #all_loop_heads = loop_bounds.get_all_loop_heads()
     print 'bin_heads: ' + str(bin_heads)
@@ -93,14 +93,20 @@ if __name__== '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("target_dir_name")
     parser.add_argument('--worker_id', type=int, help="what bound marker is this instance responsible for, -1 means everything", default= -1)
+    parser.add_argument('--worker_ids', type=str, help="multiple worker IDs, e.g. 1,2,3", default= None)
     parser.add_argument('--cached_only', type=bool, default=False, help="Only read what's cached in LoopBounds.txt")
     args = parser.parse_args()
-    worker_id = args.worker_id
+    worker_ids = set ([args.worker_id])
+    if args.worker_ids != None:
+      ids = args.worker_ids.split(",")
+      try:
+        worker_ids = set(map(int,ids))
+      except ValueError, e:
+        print "Worker IDs not numeric: %s" % ids
+        sys.exit(-1)
     target_dir_name = args.target_dir_name
-    print "I am worker %d" % worker_id
-    addr_to_bound = {}
-    target_dir_name = sys.argv[1]
-    lbfs = convert_loop_bounds(target_dir_name, worker_id, cached_only = args.cached_only)
+    print "I am workers %s" % sorted(worker_ids)
+    lbfs = convert_loop_bounds(target_dir_name, worker_ids, cached_only = args.cached_only)
     if lbfs is None:
         sys.exit(-1)
 
