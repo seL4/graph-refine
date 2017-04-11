@@ -160,12 +160,14 @@ def mk_not_callable_hyps (p):
 	return hyps
 
 last_get_ptr_offsets = [0]
+last_get_ptr_offsets_setup = [0]
 
-def get_ptr_offsets (p, n_ptrs, bases, hyps = []):
+def get_ptr_offsets (p, n_ptrs, bases, hyps = [], cache = None):
 	"""detect which ptrs are guaranteed to be at constant offsets
 	from some set of basis ptrs"""
 	rep = rep_graph.mk_graph_slice (p, fast = True)
-	cache = {}
+	if cache == None:
+		cache = {}
 	last_get_ptr_offsets[0] = (p, n_ptrs, bases, hyps)
 
 	smt_bases = []
@@ -187,6 +189,8 @@ def get_ptr_offsets (p, n_ptrs, bases, hyps = []):
 		smt_ptrs.append (((n, ptr), smt, hyp))
 
 	hyps = hyps + mk_not_callable_hyps (p)
+	for tag in set ([p.node_tags[n][0] for (n, _) in n_ptrs]):
+		hyps = hyps + init_correctness_hyps (p, tag)
 	tags = set ([p.node_tags[n][0] for (n, ptr) in n_ptrs])
 	ex_defs = {}
 	for t in tags:
@@ -205,6 +209,26 @@ def get_ptr_offsets (p, n_ptrs, bases, hyps = []):
 		if off == None:
 			trace ('get_ptr_offs fallthrough at %d: %s' % v)
 	return offs
+
+def init_correctness_hyps (p, tag):
+	(_, fname, _) = p.get_entry_details (tag)
+	if fname not in pairings:
+		# conveniently handles bootstrap case
+		return []
+	# revise if multi-pairings for ASM an option
+	[pair] = pairings[fname]
+	true_tag = None
+	if tag in pair.funs:
+		true_tag = tag
+	elif p.hook_tag_hints.get (tag, tag) in pair.funs:
+		true_tag = p.hook_tag_hints.get (tag, tag)
+	if true_tag == None:
+		return []
+	(inp_eqs, _) = pair.eqs
+	in_tag = "%s_IN" % true_tag
+	eqs = [eq for eq in inp_eqs if eq[0][1] == in_tag
+		and eq[1][1] == in_tag]
+	return check.inst_eqs (p, (), eqs, {true_tag: tag})
 
 extra_symbols = set ()
 
@@ -227,17 +251,20 @@ def get_extra_sp_defs (rep, tag):
 	sp = mk_var ('r13', syntax.word32T)
 	defs = {}
 
-	items = [(n_vc, x) for (n_vc, x) in rep.funcs.iteritems ()
+	fcalls = [n_vc for n_vc in rep.funcs
 		if logic.is_int (n_vc[0])
+		if rep.p.node_tags[n_vc[0]][0] == tag
 		if preserves_sp (rep.p.nodes[n_vc[0]].fname)]
-	for ((n, vc), (inputs, outputs, _)) in items:
-		if rep.p.node_tags[n][0] == tag:
-			inp_sp = solver.smt_expr (sp, inputs, rep.solv)
-			inp_sp = solver.parse_s_expression (inp_sp)
-			out_sp = solver.smt_expr (sp, outputs, rep.solv)
-			out_sp = solver.parse_s_expression (out_sp)
-			if inp_sp != out_sp:
-				defs[out_sp] = inp_sp
+	for (n, vc) in fcalls:
+		(inputs, outputs, _) = rep.funcs[(n, vc)]
+		if (sp.name, sp.typ) not in outputs:
+			continue
+		inp_sp = solver.smt_expr (sp, inputs, rep.solv)
+		inp_sp = solver.parse_s_expression (inp_sp)
+		out_sp = solver.smt_expr (sp, outputs, rep.solv)
+		out_sp = solver.parse_s_expression (out_sp)
+		if inp_sp != out_sp:
+			defs[out_sp] = inp_sp
 	return defs
 
 def get_stack_sp (p, tag):
