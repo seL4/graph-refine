@@ -64,7 +64,8 @@ def convert_loop_bounds(target_dir_name, worker_ids=None, cached_only=False):
              print '%s injected with phantom preemption point' % f
         else:
             try:
-                ret = loop_bounds.get_bound_super_ctxt(head,[],cached_only)
+                ret = loop_bounds.get_bound_super_ctxt(head,[],
+                    known_bound_only = cached_only)
             except problem.Abort, e:
                 print 'failed to analyse %s, problem aborted' % f
             except:

@@ -140,3 +140,27 @@ default: report.txt
 
 .PHONY: .FORCE
 .FORCE:
+
+# WCET (worst-case execution time) targets
+
+GTG=${GREF_ROOT}/graph-to-graph/
+HERE=$(shell pwd)
+
+loop_counts_1.py: StackBounds.txt ${GRAPH_REFINE_INPUTS}
+	cd ${GTG} ; python graph_to_graph.py ${HERE} handleSyscall --l
+	cp loop_counts.py $@
+
+lb_reports/report_%.txt : loop_counts_1.py
+	mkdir -p lb_reports
+	cd ${GTG} ; python convert_loop_bounds.py --worker-id $* ${HERE} &> ${HERE}/lb_reports/pre-report_$*.txt
+	tail -n 500 lb_reports/pre-report_$*.txt > $@
+	rm lb_reports/pre-report_$*.txt
+
+ALL_LB_REPORTS=$(patsubst %, lb_reports/report_%.txt, 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 )
+
+lb_reports/fin_report.txt : ${ALL_LB_REPORTS}
+	cd ${GTG} ; python convert_loop_bounds.py $* ${HERE} &> ${HERE}/lb_reports/pre-freport.txt
+	mv lb_reports/pre-freport.txt $@
+
+lb: lb_reports/fin_report.txt
+
