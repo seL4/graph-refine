@@ -540,6 +540,11 @@ def search_bin_bound (p, restrs, hyps, split):
 
     [c_tag] = c_tags
 
+    rep = rep_graph.mk_graph_slice (p)
+    if len (search.get_loop_entry_sites (rep, restrs, hyps, split)) != 1:
+      # technical, but it's not going to work in this case
+      return None
+
     return getBinaryBoundFromC (p, c_tag, split, restrs, hyps)
 
 def rab_test ():
