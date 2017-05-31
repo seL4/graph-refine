@@ -148,16 +148,31 @@ def build_compound_problem (fnames):
 
 	return (p, free_hyps, addr_map, fun_tag_pairs)
 
+def get_uniform_loop_vc (p, n):
+	l_id = p.loop_id (n)
+	assert l_id != None, n
+	if n == l_id:
+		restrs = rep_graph.vc_offs (0)
+	else:
+		restrs = rep_graph.vc_offs (1)
+	restrs = search.restr_others_both (p, restrs, 2, 2)
+	return vc
 
-def get_vis (p, n, tag = None):
-	# assuming no loops
-	(n, vc) = stack_logic.default_n_vc (p, n)
+def get_vis (p, n, tag = None, focused_loops = None):
+	# not well configured for loops except in the 'uniform' case
 	if not tag:
 		tag = p.node_tags[n][0]
+	if focused_loops and tag in focused_loops:
+		l_id = focused_loops[tag]
+		assert p.loop_id (n) == l_id, (n, tag, l_id)
+		vc = get_uniform_loop_vc (p, n)
+	else:
+		(n, vc) = stack_logic.default_n_vc (p, n)
 	return ((n, vc), tag)
 
-def get_pc_hyp_local (rep, n):
-	return rep_graph.pc_true_hyp (get_vis (rep.p, n))
+def get_pc_hyp_local (rep, n, focused_loops = None):
+	return rep_graph.pc_true_hyp (get_vis (rep.p, n,
+		focused_loops = focused_loops))
 
 def find_actual_call_node (p, n):
 	"""we're getting call addresses from the binary trace, and using the
@@ -255,7 +270,7 @@ def previous_verdict (call_stack, f, arc):
 	for (stack, points, verdict) in verdicts.get (f, []):
 		suffix = call_stack[len (call_stack) - len (stack) : ]
 		if tuple (suffix) == tuple (stack):
-			if verdict == 'impossible':
+			if verdict in ('impossible', 'impossible_in_loop'):
 				if set (points) <= set (arc):
 					return True
 			if verdict == 'possible':
@@ -301,7 +316,7 @@ def all_reachable (p, addrs):
 
 parent_ctxt_limit = 3
 
-def call_stack_parent_arc_extras (stack, ctxt_arcs, max_length):
+def call_stack_parent_arc_extras (stack, ctxt_arcs, max_length, top_loop):
 	rng = range (1, len (stack))[ - parent_ctxt_limit : ][ - max_length : ]
 	arc_extras = []
 	for i in rng:
@@ -309,6 +324,11 @@ def call_stack_parent_arc_extras (stack, ctxt_arcs, max_length):
 		f = body_addrs[stack[i]]
 		p = functions[f].as_problem (problem.Problem)
 		arcs = ctxt_arcs[tuple (prev_stack)]
+		if top_loop != None and i == rng[0]:
+			assert uniform_loop_id (stack[i]) == top_loop, (stack, i)
+			arcs = [[x for x in a if uniform_loop_id (x) == top_loop]
+				for a in arcs]
+			arcs = [a for a in arcs if a]
 		arcs = [a for a in arcs if all_reachable (p, a + [stack[i]])]
 		arcs = sorted ([(len (a), a) for a in arcs])
 		if arcs:
@@ -334,17 +354,62 @@ def has_complex_loop (fname):
 	has_complex_loop_cache[fname] = result
 	return result
 
-
-def pick_stack_subset (call_stack):
+def pick_stack_setup (call_stack):
 	# how much stack to use?
 	stack = list (call_stack [ - parent_ctxt_limit : ])
 	for (i, addr) in reversed (list (enumerate (stack))):
 		f2 = get_body_addrs_fun (addr)
 		if should_avoid_fun (f2) or has_complex_loop (f2):
-			stack = stack [ i + 1 : ]
-			break
-	return stack
+			return (None, stack [ i + 1 : ])
+		if uniform_loop_id (addr) != None:
+			return (uniform_loop_id (addr), stack [ i : ])
+		elif addr_in_loop (addr):
+			return (None, stack [ i + 1 : ])
+	return (None, stack)
 
+loops_info_cache = {}
+
+def fun_loops_info (fname):
+	if fname in loops_info_cache:
+		return loops_info_cache[fname]
+	p = functions[fname].as_problem (problem.Problem)
+	p.do_analysis ()
+	info = {}
+	for l_id in p.loop_heads ():
+		ext_reachable = [n for n in p.loop_body (l_id)
+			if [n2 for n2 in p.preds[n] if p.loop_id (n2) != l_id]]
+		if ext_reachable != [l_id]:
+			trace ("Loop in %s non-uniform, additional entries %s."
+				% (fname, ext_reachable))
+			uniform = False
+		elif problem.has_inner_loop (p, l_id):
+			trace ("Loop in %s non-uniform, inner loop." % fname)
+			uniform = False
+		else:
+			assert is_addr (l_id), (fname, l_id)
+			uniform = True
+		for n in p.loop_body (l_id):
+			info[n] = (l_id, uniform)
+	loops_info_cache[fname] = info
+	return info
+
+def addr_in_loop (call_site):
+	fname = get_body_addrs_fun (call_site)
+	info = fun_loops_info (fname)
+	if call_site not in info:
+		return None
+	(l_id, uniform) = info[call_site]
+	return (l_id != None)
+
+def uniform_loop_id (call_site):
+	fname = get_body_addrs_fun (call_site)
+	info = fun_loops_info (fname)
+	if call_site not in info:
+		return None
+	(l_id, uniform) = info[call_site]
+	if not uniform:
+		return None
+	return l_id
 
 def refute_function_arcs (call_stack, arcs, ctxt_arcs):
 	last_refute_attempt[0] = (call_stack, arcs, ctxt_arcs)
@@ -367,12 +432,12 @@ def refute_function_arcs (call_stack, arcs, ctxt_arcs):
 
 	# ignore complex loops
 	if has_complex_loop (f):
-		print 'has loop: %s, skipping' % f
+		print 'has complex loop: %s, skipping' % f
 		return
 
-	stack = pick_stack_subset (call_stack)
+	(top_loop, stack) = pick_stack_setup (call_stack)
 	arc_extras = call_stack_parent_arc_extras (call_stack, ctxt_arcs,
-		len (stack))
+		len (stack), top_loop)
 
 	arcs = [arc for arc in arcs
 		if previous_verdict (stack, f,
@@ -386,13 +451,20 @@ def refute_function_arcs (call_stack, arcs, ctxt_arcs):
 	call_tags = zip (tag_pairs[:-1], tag_pairs[1:])
 	call_hyps = [get_call_link_hyps (p, addr_map[n], from_tp, to_tp)
 		for (n, (from_tp, to_tp)) in zip (stack, call_tags)]
+	focused_loops = {}
+	if top_loop != None:
+		top_loop_split = p.loop_id (addr_map[top_loop])
+		top_loop_tag = p.node_tags[top_loop_split][0]
+		assert top_loop_tag in tag_pairs[0].values ()
+		focused_loops[top_loop_tag] = top_loop_split
 
 	for arc in arcs:
 		arc2 = add_arc_extras (arc, arc_extras)
 		if previous_verdict (stack, f, arc2) != None:
 			continue
 		print 'fresh %s arc %s: %s' % (f, stack, arc)
-		vis_pcs = [(get_pc_hyp_local (rep, addr_map[addr]), (addr, i))
+		vis_pcs = [(get_pc_hyp_local (rep, addr_map[addr],
+				focused_loops = focused_loops), (addr, i))
 			for (addr, i) in arc2]
 		vis_pcs = dict (vis_pcs).items ()
 
@@ -406,7 +478,11 @@ def refute_function_arcs (call_stack, arcs, ctxt_arcs):
 		stack2 = stack [ - len (used_call_hyps) : ]
 		used_vis = [(addr, i) for (_, (addr, i)) in used_vis_pcs]
 		verdicts.setdefault (f, [])
-		verdicts[f].append ((stack2, used_vis, 'impossible'))
+		if len (stack2) == len (stack) and top_loop != None:
+			vdct = 'impossible_in_loop'
+		else:
+			vdct = 'impossible'
+		verdicts[f].append ((stack2, used_vis, vdct))
 		new_refutes[f] = True
 		print 'added %s refutation %s: %s' % (f, stack, used_vis)
 
@@ -479,7 +555,8 @@ def load_verdicts (fname):
 		stack = parse_num_list (stack)
 		visits = parse_num_arrow_list (visits)
 		verdict = verdict.strip ()
-		assert verdict in ['possible', 'impossible'], verdict
+		assert verdict in ('possible', 'impossible',
+			'impossible_in_loop'), verdict
 		fn = identify_function (stack, visits)
 		verdicts.setdefault (fn, [])
 		verdicts[fn].append ((stack, visits, verdict))
