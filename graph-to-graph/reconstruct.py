@@ -390,9 +390,10 @@ def parse(elf_file_name, fun_name):
     read_tcfg_map()
 
 def profile():
-    bb_addr_to_count = {}
+    bb_addr_exec_count = {}
     funs_to_bb_addrs = {}
     funs_to_count = {}
+    fun_entries_to_count = {}
     total_inst_ran = 0
     global tcfg_to_bb_map
     maxi = 0
@@ -404,28 +405,47 @@ def profile():
         total_inst_ran += inst_count
         if inst_count == 0:
             continue
-        if (bb_addr not in bb_addr_to_count):
-            bb_addr_to_count[bb_addr] = 0
-        bb_addr_to_count[bb_addr] += inst_count
+        bb_addr_exec_count.setdefault (bb_addr, 0)
+        bb_addr_exec_count[bb_addr] += path_counts[i][j]
 
         if path_counts[i][j] > maxi:
             maxi = path_counts[i][j]
             max_edge = (i,j)
 
-    for bb_addr in bb_addr_to_count:
+	ctxt = id_to_context.get (j, [])
+        if len(id_to_context.get (i, [])) < len(ctxt):
+            fun = elfFile().addrs_to_f[bb_addr]
+            if i in id_to_bb_addr:
+                call_addr = id_to_bb_addr[i]
+                entry_name = '(%x in %s)' % (call_addr,
+                  elfFile().addrs_to_f[call_addr])
+            else:
+                entry_name = '(at depth %d)' % len(ctxt)
+            fun_entries_to_count.setdefault (fun, {})
+            fun_entries_to_count[fun].setdefault (entry_name, 0)
+            fun_entries_to_count[fun][entry_name] += path_counts[i][j]
+
+    bb_addr_to_size = buildBBAddrToSize()
+
+    for bb_addr in bb_addr_exec_count:
         fun = elfFile().addrs_to_f[bb_addr]
         if fun not in funs_to_count:
             funs_to_count[fun] = 0
             funs_to_bb_addrs[fun] = []
         funs_to_bb_addrs[fun].append( bb_addr )
-        funs_to_count[fun] += bb_addr_to_count[bb_addr]
+        inst_count = bb_addr_exec_count[bb_addr] * bb_addr_to_size[bb_addr]
+        funs_to_count[fun] += inst_count
 
-    bb_addr_to_size = buildBBAddrToSize()
     for fun in sorted(funs_to_count, key= lambda x: funs_to_count[x], reverse=True):
         count = funs_to_count[fun]
-        print "%s: %u insturctions / %.2f %%" % (fun, count, float (count) / total_inst_ran * 100)
+        print "%s: %u instructions / %.2f %%" % (fun, count, float (count) / total_inst_ran * 100)
+        for (prev_fun, n) in fun_entries_to_count.get(fun, {}).iteritems():
+            print '  + entered %d times from %s' % (n, prev_fun)
         for bb_addr in sorted(funs_to_bb_addrs[fun]):
-            print "     %x-%x : %u " % (bb_addr, bb_addr + bb_addr_to_size[bb_addr] -4, bb_addr_to_count[bb_addr])
+            sz = bb_addr_to_size[bb_addr]
+            ecount = bb_addr_exec_count[bb_addr]
+            print "     %x-%x : %dx %dins " % (bb_addr, bb_addr + sz - 4,
+                ecount, sz / 4)
 
     print "\n\n Dominating executing path:"
     i,j = max_edge
