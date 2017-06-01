@@ -152,11 +152,11 @@ def get_uniform_loop_vc (p, n):
 	l_id = p.loop_id (n)
 	assert l_id != None, n
 	if n == l_id:
-		restrs = rep_graph.vc_offs (0)
+		restrs = tuple ([(l_id, rep_graph.vc_offs (0))])
 	else:
-		restrs = rep_graph.vc_offs (1)
+		restrs = tuple ([(l_id, rep_graph.vc_offs (1))])
 	restrs = search.restr_others_both (p, restrs, 2, 2)
-	return vc
+	return restrs
 
 def get_vis (p, n, tag = None, focused_loops = None):
 	# not well configured for loops except in the 'uniform' case
@@ -223,18 +223,19 @@ def get_unique_call_site (p, fname, tag):
 	else:
 		return None
 
-def get_call_link_hyps (p, n, (from_tags, from_pair), (to_tags, to_pair)):
+def get_call_link_hyps (p, n, (from_tags, from_pair), (to_tags, to_pair),
+		focused_loops = None):
 	n = find_actual_call_node (p, n)
 	fname = p.nodes[n].fname
 	assert fname == to_pair.funs['ASM']
-	vis = get_vis (p, n)
+	vis = get_vis (p, n, focused_loops = focused_loops)
 	hyps = rep_graph.mk_function_link_hyps (p, vis, to_tags['ASM'],
 		adjust_eq_seq = adj_eq_seq_for_asm_fun_link (fname))
 
 	c_fname = to_pair.funs['C']
 	cn = get_unique_call_site (p, c_fname, from_tags['C'])
 	if cn != None:
-		vis = get_vis (p, cn)
+		vis = get_vis (p, cn, focused_loops = focused_loops)
 		hyps += rep_graph.mk_function_link_hyps (p, vis, to_tags['C'])
 	return hyps
 
@@ -393,20 +394,20 @@ def fun_loops_info (fname):
 	loops_info_cache[fname] = info
 	return info
 
-def addr_in_loop (call_site):
-	fname = get_body_addrs_fun (call_site)
+def addr_in_loop (addr):
+	fname = get_body_addrs_fun (addr)
 	info = fun_loops_info (fname)
-	if call_site not in info:
+	if addr not in info:
 		return None
-	(l_id, uniform) = info[call_site]
+	(l_id, uniform) = info[addr]
 	return (l_id != None)
 
-def uniform_loop_id (call_site):
-	fname = get_body_addrs_fun (call_site)
+def uniform_loop_id (addr):
+	fname = get_body_addrs_fun (addr)
 	info = fun_loops_info (fname)
-	if call_site not in info:
+	if addr not in info:
 		return None
-	(l_id, uniform) = info[call_site]
+	(l_id, uniform) = info[addr]
 	if not uniform:
 		return None
 	return l_id
@@ -447,16 +448,19 @@ def refute_function_arcs (call_stack, arcs, ctxt_arcs):
 
 	funs = [body_addrs[addr] for addr in stack] + [f]
 	(p, hyps, addr_map, tag_pairs) = build_compound_problem (funs)
-	rep = rep_graph.mk_graph_slice (p)
-	call_tags = zip (tag_pairs[:-1], tag_pairs[1:])
-	call_hyps = [get_call_link_hyps (p, addr_map[n], from_tp, to_tp)
-		for (n, (from_tp, to_tp)) in zip (stack, call_tags)]
+
 	focused_loops = {}
 	if top_loop != None:
 		top_loop_split = p.loop_id (addr_map[top_loop])
 		top_loop_tag = p.node_tags[top_loop_split][0]
-		assert top_loop_tag in tag_pairs[0].values ()
+		assert top_loop_tag in tag_pairs[0][0].values ()
 		focused_loops[top_loop_tag] = top_loop_split
+
+	rep = rep_graph.mk_graph_slice (p)
+	call_tags = zip (tag_pairs[:-1], tag_pairs[1:])
+	call_hyps = [get_call_link_hyps (p, addr_map[n], from_tp, to_tp,
+			focused_loops = focused_loops)
+		for (n, (from_tp, to_tp)) in zip (stack, call_tags)]
 
 	for arc in arcs:
 		arc2 = add_arc_extras (arc, arc_extras)
