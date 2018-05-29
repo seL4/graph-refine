@@ -374,7 +374,21 @@ def substitute_simple (func):
 		func.nodes[n] = node.subst_exprs (subst_expr,
 			ss = set (['Symbol', 'PAlignValid']))
 
+def missing_symbols (functions):
+	symbols_needed = set()
+	def visitor (expr):
+		if expr.kind == 'Symbol':
+			symbols_needed.add(expr.name)
+	for func in functions.itervalues ():
+		for node in func.nodes.itervalues ():
+			node.visit (lambda l: (), visitor)
+	trouble = symbols_needed - set (symbols)
+	if trouble:
+		print ('Symbols missing for substitution: %r' % trouble)
+	return trouble
+
 def compile_funcs (functions):
+	assert not missing_symbols (functions)
 	for (f, func) in functions.iteritems ():
 		substitute_simple (func)
 		check_compile (func)
