@@ -1176,14 +1176,19 @@ def compute_stack_bounds (quiet = False):
 	if quiet:
 		target_objects.tracer[0] = lambda s, n: ()
 
-	c_fs = get_functions_with_tag ('C')
-	idents = get_recursion_identifiers (c_fs)
-	asm_idents = convert_recursion_idents (idents)
-	asm_fs = get_functions_with_tag ('ASM')
-	printout ('Computed recursion limits.')
+	try:
+		c_fs = get_functions_with_tag ('C')
+		idents = get_recursion_identifiers (c_fs)
+		asm_idents = convert_recursion_idents (idents)
+		asm_fs = get_functions_with_tag ('ASM')
+		printout ('Computed recursion limits.')
 
-	bounds = compute_asm_stack_bounds (asm_idents, asm_fs)
-	printout ('Computed stack bounds.')
+		bounds = compute_asm_stack_bounds (asm_idents, asm_fs)
+		printout ('Computed stack bounds.')
+	except Exception, e:
+		if quiet:
+			target_objects.tracer[0] = prev_tracer
+		raise e
 
 	if quiet:
 		target_objects.tracer[0] = prev_tracer
