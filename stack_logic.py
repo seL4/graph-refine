@@ -162,7 +162,8 @@ def mk_not_callable_hyps (p):
 last_get_ptr_offsets = [0]
 last_get_ptr_offsets_setup = [0]
 
-def get_ptr_offsets (p, n_ptrs, bases, hyps = [], cache = None):
+def get_ptr_offsets (p, n_ptrs, bases, hyps = [], cache = None,
+		fail_early = False):
 	"""detect which ptrs are guaranteed to be at constant offsets
 	from some set of basis ptrs"""
 	rep = rep_graph.mk_graph_slice (p, fast = True)
@@ -208,6 +209,7 @@ def get_ptr_offsets (p, n_ptrs, bases, hyps = [], cache = None):
 				break
 		if off == None:
 			trace ('get_ptr_offs fallthrough at %d: %s' % v)
+			assert not fail_early, (v, ptr)
 	return offs
 
 def init_correctness_hyps (p, tag):
@@ -636,6 +638,11 @@ def check_before_guess_asm_stack_depth (fun):
 		err_pc = rep.get_pc (default_n_vc (p, 'Err'), 'Target')
 	except solver.EnvMiss, e:
 		return None
+
+	inlined_funs = set ([fn for (_, _, fn) in p.inline_scripts['Target']])
+	if inlined_funs:
+		printout ('  (also involves %s)' % ', '.join(inlined_funs))
+
 	return p
 
 def guess_asm_stack_depth (fun):
@@ -651,7 +658,7 @@ def guess_asm_stack_depth (fun):
 	nodes = get_asm_reachable_nodes (p, tag_set = ['Target'])
 
 	offs = get_ptr_offsets (p, [(n, sp) for n in nodes],
-		[(entry, sp, 'InitSP')])
+		[(entry, sp, 'InitSP')], fail_early = True)
 
 	assert len (offs) == len (nodes), map (hex, set (nodes)
 		- set ([n for ((n, _), _, _) in offs]))
@@ -841,7 +848,8 @@ def compute_recursion_idents (group, extra_unfolds):
 	idents = {}
 	group = set (group)
 	recursion_trace.append ('Computing for group %s' % group)
-	trace ('Computing recursion idents for group %s' % group)
+	printout ('Doing recursion analysis for function group:')
+	printout ('  %s' % list(group))
 	prevs = set ([f for f in functions
 		if [f2 for f2 in functions[f].function_calls () if f2 in group]])
 	for f in prevs - group:
@@ -1228,7 +1236,7 @@ def mk_stack_pairings (pairing_tups, stack_bounds_fname = None,
 			f.write(line)
 		f.close ()
 
-	problematic_clones ()
+	problematic_synthetic ()
 
 	return mk_pairings (stack_bounds)
 
@@ -1306,25 +1314,33 @@ def get_const_rets (p, node_set = None):
 		const_rets[n] = [(v.name, v.typ) for v in consts]
 	return const_rets
 
-def problematic_clones ():
-	clones = [s for s in target_objects.symbols if '.clone.' in s]
-	clones = ['_'.join (s.split ('.')) for s in clones]
-	if not clones:
+def problematic_synthetic ():
+	synth = [s for s in target_objects.symbols
+		if '.clone.' in s or '.part.' in s or '.constprop.' in s]
+	synth = ['_'.join (s.split ('.')) for s in synth]
+	if not synth:
 		return
-	printout ('Clone symbols: %s' % clones)
-	clone_calls = set ([f for f in clones
+	printout ('Synthetic symbols: %s' % synth)
+	synth_calls = set ([f for f in synth
 		if f in functions
 		if functions[f].function_calls ()])
-	printout ('Clones with function calls: %s' % clone_calls)
-	if not clone_calls:
+	printout ('Synthetic symbols which make function calls: %s'
+		% synth_calls)
+	if not synth_calls:
 		return
-	clone_problems = set ([f for f in clone_calls
+	synth_stack = set ([f for f in synth_calls
+		if [node for node in functions[f].nodes.itervalues ()
+			if node.kind == 'Basic'
+			if ('r13', word32T) in node.get_lvals ()]])
+	printout ('Synthetic symbols which call and move sp: %s'
+		% synth_stack)
+	synth_problems = set ([f for f in synth_stack
 		if [f2 for f2 in functions
 			if f in functions[f2].function_calls ()
 			if len (set (functions[f2].function_calls ())) > 1]
 		])
-	printout ('Problematic clones: %s' % clone_problems)
-	return clone_problems
+	printout ('Problematic synthetics: %s' % synth_problems)
+	return synth_problems
 
 def add_hooks ():
 	k = 'stack_logic'
