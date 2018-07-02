@@ -284,6 +284,10 @@ def smt_num (num, bits):
 	assert len (rep) == digs
 	return prefix + rep
 
+def smt_num_t (num, typ):
+	assert typ.kind == 'Word', typ
+	return smt_num (num, typ.num)
+
 def mk_smt_expr (smt_expr, typ):
 	return Expr ('SMTExpr', typ, val = smt_expr)
 
@@ -422,7 +426,7 @@ def smt_expr (expr, env, solv):
 		maybe_note_model_expr (sexp, expr.typ, expr.vals, solv)
 		return sexp
 	elif expr.kind == 'Num':
-		return smt_num (expr.val, expr.typ.num)
+		return smt_num_t (expr.val, expr.typ)
 	elif expr.kind == 'Var':
 		if (expr.name, expr.typ) not in env:
 			trace ('Env miss for %s in smt_expr' % expr.name)
@@ -822,8 +826,8 @@ class Solver:
 			except ConversationProblem, e:
 				trace ('SMT conversation problem (attempt %d)'
 					% (i + 1))
-				trace ('I sent %r' % e.prompt)
-				trace ('I got %r' % e.response)
+				trace ('I sent %s' % repr (e.prompt))
+				trace ('I got %s' % repr (e.response))
 				trace ('restarting solver')
 				self.online_solver = None
 				err = (e.prompt, e.response)

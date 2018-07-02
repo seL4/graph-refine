@@ -1041,10 +1041,8 @@ class GraphSlice:
 		return hyp.interpret (self)
 
 	def interpret_hyp_imps (self, hyps, concl):
-		imp = concl
-		for h in hyps:
-			imp = mk_implies (self.interpret_hyp (h), imp)
-		return logic.strengthen_hyp (imp)
+		hyps = map (self.interpret_hyp, hyps)
+		return logic.strengthen_hyp (syntax.mk_n_implies (hyps, concl))
 
 	def test_hyp_whyps (self, hyp, hyps, cache = None, fast = False,
 			model = None):

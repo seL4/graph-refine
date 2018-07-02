@@ -343,7 +343,7 @@ def model_sx_word (m, sx):
 	v = search.eval_model (m, sx)
 	assert v.typ.kind == 'Word'
 	x = v.val & ((1 << v.typ.num) - 1)
-	return solver.smt_num (x, v.typ.num)
+	return solver.smt_num_t (x, v.typ)
 
 def m_var_name (expr):
 	while expr.is_op ('MemUpdate'):
@@ -362,7 +362,7 @@ def eval_str (expr, env, solv, m):
 		assert v in [syntax.true_term, syntax.false_term]
 		return v.name
 	elif v.typ.kind == 'Word':
-		return solver.smt_num (v.val, v.typ.num)
+		return solver.smt_num_t (v.val, v.typ)
 	else:
 		assert not 'type printable', v
 
@@ -787,6 +787,30 @@ def var_analysis (p, n):
 				syntax.pretty_type (v.typ))
 			if offs:
 				print '      ++ %s' % syntax.pretty_expr (offs)
+
+def var_value_sites (rep, v):
+	if type (v) == str:
+		matches = lambda (nm, _): v in nm
+	elif type (v) == tuple:
+		matches = lambda (nm, typ): v == (nm, typ)
+	v_ord = []
+	d = {}
+	for (tag, n, vc) in rep.node_pc_env_order:
+		(pc, env) = rep.get_node_pc_env ((n, vc), tag = tag)
+		for (v2, smt_exp) in env.iteritems ():
+			if matches (v2):
+				if smt_exp not in d:
+					v_ord.append (smt_exp)
+					d[smt_exp] = []
+				d[smt_exp].append ((n, vc))
+	for smt_exp in v_ord:
+		print smt_exp
+		if smt_exp in rep.solv.defs:
+			print ('  = %s' % repr (rep.solv.defs[smt_exp]))
+		print ('  - at: %s' % d[smt_exp])
+	if v_ord:
+		print ('')
+	return (v_ord, d)
 
 def loop_num_leaves (p, n):
 	for n in p.loop_body (n):

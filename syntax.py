@@ -1322,6 +1322,12 @@ def mk_implies (x, y):
 	assert y.typ == boolT
 	return Expr ('Op', boolT, name = 'Implies', vals = [x, y])
 
+def mk_n_implies (xs, y):
+	imp = y
+	for x in reversed (xs):
+		imp = mk_implies (x, imp)
+	return imp
+
 def mk_and (x, y):
 	assert x.typ == boolT
 	assert y.typ == boolT
