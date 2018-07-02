@@ -13,11 +13,11 @@
 # rebuild if a custom tool is updated.
 
 # necessary configuration
-CC?=gcc
 
 SOURCE_ROOT?=../../seL4
 
 L4V_ROOT?=../../l4v
+L4V_ARCH?=ARM
 PARSERPATH?=${L4V_ROOT}/tools/c-parser/standalone-parser
 CSPEC_PATH?=${L4V_ROOT}/spec/cspec/c
 
@@ -25,21 +25,18 @@ HOL4_ROOT?=../../HOL4
 DECOMP_DIR?=${HOL4_ROOT}/examples/machine-code/graph
 
 GREF_ROOT?=..
-TOOLPREFIX?=$(shell bash ${GREF_ROOT}/seL4-example/get_tool_prefix.sh)
-$(if ${TOOLPREFIX},,$(error failed to pick a toolset))
 
 OBJDUMP?=${TOOLPREFIX}objdump
 
-# standard configuration
-UMM_TYPES=umm_types.txt
-ARCH=arm
-ARMV=armv7-a
-PLAT=imx6
-CPU=cortex-a9
-FASTPATH=yes
-CONFIG_DOMAIN_SCHEDULE=${CSPEC_PATH}/config_arm.c
+# derived configuration
 
-# optional configuration
+TOOLPREFIX?=$(shell bash ${GREF_ROOT}/seL4-example/get_tool_prefix.sh)
+$(if ${TOOLPREFIX},,$(error failed to pick a toolset))
+
+CSPEC_BUILD_PREFIX=build/${L4V_ARCH}
+CSPEC_BUILD_PATH=${CSPEC_PATH}/${CSPEC_BUILD_PREFIX}
+CONFIG=${L4V_ARCH}_verified.cmake
+CONFIG_DOMAIN_SCHEDULE=${CSPEC_PATH}/config_sched.c
 
 # sanity test configuration
 
@@ -58,10 +55,34 @@ SOLV=python ${GREF_ROOT}/solver.py
 SOLV_TEST = $(shell ${SOLV} testq | grep 'Solver self-test succ')
 $(if ${SOLV_TEST},,$(error Solver self-test failed (${SOLV} test)))
 
-
 # compile and decompile
 
-include ${SOURCE_ROOT}/Makefile
+KERNEL_DEPS = $(shell find ${SOURCE_ROOT} -type f)
+
+${CSPEC_BUILD_PATH}/kernel_all.c_pp: ${KERNEL_DEPS} ${CONFIG_DOMAIN_SCHEDULE}
+	# have the l4v build system build its kernel source
+	cd ${CSPEC_PATH} && make ${CSPEC_BUILD_PREFIX}/kernel_all.c_pp
+
+kernel_all.c_pp: build/.cmake_done
+	cd build && ninja kernel_all_pp_wrapper
+	cp -a build/kernel_all_pp.c $@
+
+kernel.elf: build/.cmake_done kernel_all.c_pp
+	cd build && ninja kernel.elf
+	cp -a build/kernel.elf $@
+
+ABS_SOURCE_ROOT=$(realpath ${SOURCE_ROOT})
+
+build/.cmake_done: ${KERNEL_DEPS} ${CONFIG_DOMAIN_SCHEDULE}
+	# hack borrowed from l4v, create a new build dir each time
+	rm -rf build
+	mkdir -p build
+	cd build && cmake -DCROSS_COMPILER_PREFIX=${TOOLPREFIX} \
+		-DCMAKE_TOOLCHAIN_FILE=${ABS_SOURCE_ROOT}/gcc.cmake -C ${ABS_SOURCE_ROOT}/configs/${CONFIG} \
+		-DKernelDomainSchedule=$(realpath ${CONFIG_DOMAIN_SCHEDULE}) \
+		-G Ninja ${ABS_SOURCE_ROOT} \
+		-DKernelOptimisation=${CONFIG_OPTIMISATION_LEVEL}
+	touch build/.cmake_done
 
 kernel.elf.rodata: kernel.elf
 	${OBJDUMP} -z -D $^ > $@
@@ -74,7 +95,7 @@ kernel.elf.symtab: kernel.elf
 
 kernel.sigs: kernel_all.c_pp
 	MAKEFILES= make -C ${PARSERPATH} standalone-cparser
-	${PARSERPATH}/c-parser ARM --underscore_idents --mmbytes $^ > $@.tmp
+	${PARSERPATH}/c-parser ${L4V_ARCH} --underscore_idents --mmbytes $^ > $@.tmp
 	mv $@.tmp $@
 
 summary.txt: kernel_all.c_pp 
@@ -92,27 +113,27 @@ kernel.tar.gz: kernel.elf.rodata kernel.elf.txt kernel.elf.symtab \
 
 tar: kernel.tar.gz
 
+clean:
+	rm -rf build kernel.elf.* kernel_all* kernel.tar*
+
+.PHONY: clean
+
 H4PATH=$(realpath ${HOL4_ROOT}/bin):${PATH}
 
 H4Update: .FORCE
-	PATH=${H4PATH} build -nograph
+	PATH=${H4PATH} build
 	cd ${DECOMP_DIR} ; PATH=${H4PATH} Holmake
 
 IGNORES= fastpath_restore,slowpath,c_handle_data_fault,c_handle_instruction_fault,c_handle_interrupt,c_handle_syscall,c_handle_undefined_instruction,c_handle_vm_fault,fastpath_call,fastpath_reply_recv,restore_user_context
 
 ASMFunctions.txt: kernel.elf.txt kernel.sigs
-	PATH=${H4PATH} build -nograph
+	PATH=${H4PATH} build
 	PATH=${H4PATH} ${DECOMP_SCRIPT} --fast ./kernel --ignore=${IGNORES}
 	# we move the output to a new location to get around a problem where
 	# the decompiler can fail leaving an incomplete output file.
 	mv kernel_mc_graph.txt ASMFunctions.txt
 
-L4V_KERNEL_ALL= ${CSPEC_PATH}/kernel_all.c_pp
-
-$(L4V_KERNEL_ALL): .FORCE
-	MAKEFILES= make -C ${L4V_ROOT}/spec c-kernel
-
-KERNEL_ALL_FILES= kernel_all.c_pp $(L4V_KERNEL_ALL)
+KERNEL_ALL_FILES= kernel_all.c_pp ${CSPEC_BUILD_PATH}/kernel_all.c_pp
 
 CFunctions.txt: $(KERNEL_ALL_FILES) ${L4V_ROOT}/tools/asmrefine/*.thy
 	# it's important that the parser and compiler see the same source

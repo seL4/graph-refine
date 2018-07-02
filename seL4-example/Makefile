@@ -10,6 +10,6 @@
 
 # optional configuration
 
-CONFIG_OPTIMISATION_O1=y
+CONFIG_OPTIMISATION_LEVEL=-O1
 
 include Makefile.common
