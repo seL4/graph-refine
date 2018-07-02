@@ -69,6 +69,7 @@ instruction_fun_specs = {
 	'dsb': ("impl'dsb", []),
 	'dmb': ("impl'dmb", []),
 	'isb': ("impl'isb", []),
+	'wfi': ("impl'wfi", []),
 }
 
 instruction_name_aliases = {
@@ -151,7 +152,10 @@ def mk_asm_inst_spec (fname):
 		return
 	(_, ident) = fname.split ("'", 1)
         (args, ident) = split_inst_name_regs (ident)
-	assert all ([arg.startswith ('%') for arg in args]), fname
+	if not all ([arg.startswith ('%') for arg in args]):
+		printout ('Warning: asm instruction name: formatting: %r'
+			% fname)
+		return
 	base_ident = ident.split ("_")[0]
 	if base_ident not in instruction_fun_specs:
 		return
@@ -166,9 +170,27 @@ def mk_asm_inst_spec (fname):
 	functions[fname].nodes[1] = call
 	functions[fname].entry = 1
 
-def add_inst_specs ():
+def add_inst_specs (report_problematic = True):
 	for f in functions.keys ():
 		mk_asm_inst_spec (f)
 		mk_bin_inst_spec (f)
+	if report_problematic:
+		problematic_instructions ()
+
+def problematic_instructions ():
+	add_inst_specs (report_problematic = False)
+	unhandled = {}
+	for f in functions:
+		for f2 in functions[f].function_calls ():
+			if "instruction'" not in f2:
+				continue
+			if functions[f2].entry:
+				continue
+			unhandled.setdefault (f, [])
+			unhandled[f].append (f2)
+	for f in unhandled:
+		printout ('Function %r contains unhandled instructions:' % f)
+		printout ('  %s' % unhandled[f])
+	return unhandled
 
 

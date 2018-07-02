@@ -31,14 +31,17 @@ def default_n_vc (p, n):
 	specific = [(head, rep_graph.vc_offs (1)) for _ in [1] if head]
 	return (n, tuple (general + specific))
 
-def split_sum_s_expr (expr, solv, extra_defs):
+def split_sum_s_expr (expr, solv, extra_defs, typ):
 	"""divides up a linear expression 'a - b - 1 + a'
-	into ({'a':2, 'b': -1}, -1)"""
+	into ({'a':2, 'b': -1}, -1) i.e. 'a' times 2 etc and constant
+	value of -1."""
+	def rec (expr):
+		return split_sum_s_expr (expr, solv, extra_defs, typ)
 	if expr[0] == 'bvadd':
 		var = {}
 		const = 0
 		for x in expr[1:]:
-			(var2, const2) = split_sum_s_expr (x, solv, extra_defs)
+			(var2, const2) = rec (x)
 			for (v, count) in var2.iteritems ():
 				var.setdefault (v, 0)
 				var[v] += count
@@ -46,30 +49,16 @@ def split_sum_s_expr (expr, solv, extra_defs):
 		return (var, const)
 	elif expr[0] == 'bvsub':
 		(_, lhs, rhs) = expr
-		(lvar, lconst) = split_sum_s_expr (lhs, solv, extra_defs)
-		(rvar, rconst) = split_sum_s_expr (rhs, solv, extra_defs)
+		(lvar, lconst) = rec (lhs)
+		(rvar, rconst) = rec (rhs)
 		const = lconst - rconst
 		var = dict ([(v, lvar.get (v, 0) - rvar.get (v, 0))
 			for v in set.union (set (lvar), set (rvar))])
 		return (var, const)
 	elif expr in solv.defs:
-		return split_sum_s_expr (solv.defs[expr], solv, extra_defs)
+		return rec (solv.defs[expr])
 	elif expr in extra_defs:
-		return split_sum_s_expr (extra_defs[expr], solv, extra_defs)
-	elif expr in ['0', '1']:
-		return ({}, int (expr))
-	elif expr[0] == 'ite':
-		(_, cond, x, y) = expr
-		if y != '0':
-			expr = ('bvadd', ('ite', cond, ('bvsub', x, y), '0'),
-				y)
-			return split_sum_s_expr (expr, solv, extra_defs)
-		(xvar, xconst) = split_sum_s_expr (x, solv, extra_defs)
-		var = dict ([(('ite', cond, v, '0'), n)
-			for (v, n) in xvar.iteritems ()])
-		var.setdefault (('ite', cond, '1', '0'), 0)
-		var[('ite', cond, '1', '0')] += xconst
-		return (var, 0)
+		return rec (extra_defs[expr])
 	elif expr[:2] in ['#x', '#b']:
 		val = solver.smt_to_val (expr)
 		assert val.kind == 'Num'
@@ -77,9 +66,24 @@ def split_sum_s_expr (expr, solv, extra_defs):
 	else:
 		return ({expr: 1}, 0)
 
-def simplify_expr_whyps (sexpr, rep, hyps, cache = None, extra_defs = {}):
+def split_merge_ite_sum_sexpr (foo):
+	(s0, s1) = [solver.smt_num_t (n, typ) for n in [0, 1]]
+	if y != s0:
+		expr = ('bvadd', ('ite', cond, ('bvsub', x, y), s0), y)
+		return rec (expr)
+	(xvar, xconst) = rec (x)
+	var = dict ([(('ite', cond, v, s0), n)
+		for (v, n) in xvar.iteritems ()])
+	var.setdefault (('ite', cond, s1, s0), 0)
+	var[('ite', cond, s1, s0)] += xconst
+	return (var, 0)
+
+def simplify_expr_whyps (sexpr, rep, hyps, cache = None, extra_defs = {},
+		bool_hyps = None):
 	if cache == None:
 		cache = {}
+	if bool_hyps == None:
+		bool_hyps = []
 	if sexpr in extra_defs:
 		sexpr = extra_defs[sexpr]
 	if sexpr in rep.solv.defs:
@@ -88,15 +92,19 @@ def simplify_expr_whyps (sexpr, rep, hyps, cache = None, extra_defs = {}):
 		(_, cond, x, y) = sexpr
 		cond_exp = solver.mk_smt_expr (solver.flat_s_expression (cond),
 			syntax.boolT)
-		if rep.test_hyp_whyps (cond_exp, hyps, cache = cache):
+		(mk_nimp, mk_not) = (syntax.mk_n_implies, syntax.mk_not)
+		if rep.test_hyp_whyps (mk_nimp (bool_hyps, cond_exp),
+				hyps, cache = cache):
 			return x
-		elif rep.test_hyp_whyps (syntax.mk_not (cond_exp), hyps,
-				cache = cache):
+		elif rep.test_hyp_whyps (mk_nimp (bool_hyps, mk_not (cond_exp)),
+				hyps, cache = cache):
 			return y
 		x = simplify_expr_whyps (x, rep, hyps, cache = cache,
-			extra_defs = extra_defs)
+			extra_defs = extra_defs,
+			bool_hyps = bool_hyps + [cond_exp])
 		y = simplify_expr_whyps (y, rep, hyps, cache = cache,
-			extra_defs = extra_defs)
+			extra_defs = extra_defs,
+			bool_hyps = bool_hyps + [syntax.mk_not (cond_exp)])
 		if x == y:
 			return x
 		return ('ite', cond, x, y)
@@ -117,7 +125,8 @@ def offs_expr_const (addr_expr, sp_expr, rep, hyps, extra_defs = {},
 		start_vs = list (vs)
 		new_vs = {}
 		for (x, mult) in vs:
-			(var, c) = split_sum_s_expr (x, rep.solv, extra_defs)
+			(var, c) = split_sum_s_expr (x, rep.solv, extra_defs,
+				typ = typ)
 			for v in var:
 				new_vs.setdefault (v, 0)
 				new_vs[v] += var[v] * mult
@@ -130,10 +139,13 @@ def offs_expr_const (addr_expr, sp_expr, rep, hyps, extra_defs = {},
 				cache = cache, extra_defs = extra_defs), n)
 			for (x, n) in vs]
 		if sorted (vs) == sorted (start_vs):
+			pass # vs = split_merge_ite_sum_sexpr (vs)
+		if sorted (vs) == sorted (start_vs):
 			trace ('offs_expr_const: not const')
 			trace ('%s - %s' % (addr_expr, sp_expr))
 			trace (str (vs))
-			last_10_non_const.append ((addr_expr, sp_expr, vs))
+			trace (str (hyps))
+			last_10_non_const.append ((addr_expr, sp_expr, vs, hyps))
 			del last_10_non_const[:-10]
 			return None
 
@@ -209,6 +221,7 @@ def get_ptr_offsets (p, n_ptrs, bases, hyps = [], cache = None,
 				break
 		if off == None:
 			trace ('get_ptr_offs fallthrough at %d: %s' % v)
+			trace (str ([hyp] + hyps))
 			assert not fail_early, (v, ptr)
 	return offs
 
@@ -641,7 +654,8 @@ def check_before_guess_asm_stack_depth (fun):
 
 	inlined_funs = set ([fn for (_, _, fn) in p.inline_scripts['Target']])
 	if inlined_funs:
-		printout ('  (also involves %s)' % ', '.join(inlined_funs))
+		printout ('  (stack analysis also involves %s)'
+			% ', '.join(inlined_funs))
 
 	return p
 
@@ -1188,7 +1202,7 @@ def compute_stack_bounds (quiet = False):
 	except Exception, e:
 		if quiet:
 			target_objects.tracer[0] = prev_tracer
-		raise e
+		raise
 
 	if quiet:
 		target_objects.tracer[0] = prev_tracer
