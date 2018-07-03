@@ -341,9 +341,16 @@ def investigate_funcall_pair (rep, m, l_n_vc, r_n_vc,
 
 def model_sx_word (m, sx):
 	v = search.eval_model (m, sx)
-	assert v.typ.kind == 'Word'
-	x = v.val & ((1 << v.typ.num) - 1)
+	x = expr_num (v)
 	return solver.smt_num_t (x, v.typ)
+
+def expr_num (expr):
+	assert expr.typ.kind == 'Word'
+	return expr.val & ((1 << expr.typ.num) - 1)
+
+def str_to_num (smt_str):
+	v = solver.smt_to_val(smt_str)
+	return expr_num (v)
 
 def m_var_name (expr):
 	while expr.is_op ('MemUpdate'):
@@ -401,7 +408,8 @@ def trace_mem (rep, tag, m, verbose = False, simplify = True, symbs = True,
 			if verbose:
 				print '\t %s -- %s' % (addr_s, v_s)
 			if symbs:
-				(hit_symbs, secs) = find_symbol (addr, output = False)
+				addr_n = str_to_num (addr)
+				(hit_symbs, secs) = find_symbol (addr_n, output = False)
 				ss = hit_symbs + secs
 				if ss:
 					print '\t [%s]' % ', '.join (ss)
