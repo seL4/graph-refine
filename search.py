@@ -805,9 +805,11 @@ def get_necessary_split_opts (p, head, restrs, hyps, tags = None):
 			(vis (n, l_start + (i * l_step)), l_tag)),
 			(expr2, (vis (n2, r_start + (i * r_step)), r_tag)))
 			for i in range (2)]
+		vis_hyp = rep_graph.pc_true_hyp ((vis (n, l_start), l_tag))
+		vis_hyps = [vis_hyp] + stuff['hyps']
 		eq = foldr1 (mk_and, map (rep.interpret_hyp, eqs))
 		m = {}
-		if rep.test_hyp_whyps (eq, stuff['hyps'], model = m):
+		if rep.test_hyp_whyps (eq, vis_hyps, model = m):
 			trace ('found necessary split info: (%s, %s), (%s, %s)'
 				% (l_start, l_step, r_start, r_step))
 			return mk_i_j_opts ([(l_start + i, l_step)
