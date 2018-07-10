@@ -1126,7 +1126,7 @@ def lv_expr (expr, env):
 
 # FIXME: this should probably be unified with compute_var_cycle_analysis,
 # but doing so is complicated
-def linear_series_exprs (p, loop, va, ret_inner = False):
+def linear_series_exprs (p, loop, va):
 	def lv_init (v, data):
 		if data[0] == 'LoopLinearSeries':
 			return (v, 'LoopLinearSeries', data[2], set ([data[2]]))
@@ -1173,11 +1173,7 @@ def linear_series_exprs (p, loop, va, ret_inner = False):
 			for v in all_vs])
 		frontier.extend ([n2 for n2 in p.nodes[n].get_conts ()
 			if n2 in loop_body])
-	if ret_inner:
-		return cache
-	return dict ([(n, dict ([(v, (lv, offs))
-			for (v, (_, (lv, offs))) in cache[n].iteritems ()]))
-		for n in cache])
+	return cache
 
 def interesting_node_exprs (p, n, tags = None, use_pairings = True):
 	if tags == None:
@@ -1215,8 +1211,7 @@ def interesting_linear_series_exprs (p, loop, va, tags = None,
 		use_pairings = True):
 	if tags == None:
 		tags = p.pairing.tags
-	expr_env = linear_series_exprs (p, loop, va,
-		ret_inner = True)
+	expr_env = linear_series_exprs (p, loop, va)
 	res_env = {}
 	for (n, env) in expr_env.iteritems ():
 		vs = interesting_node_exprs (p, n)
