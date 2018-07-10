@@ -589,18 +589,21 @@ def mk_align_valid_ineq (typ, p):
 		(_, typ) = typ
 		align = typ.align ()
 		size = mk_word32 (typ.size ())
+		size_req = []
 	else:
 		assert typ[0] == 'Array', typ
 		(kind, typ, num) = typ
 		align = typ.align ()
 		size = mk_times (mk_word32 (typ.size ()), num)
+		size_lim = ((2 ** 32) - 4) / typ.size ()
+		size_req = [mk_less_eq (num, mk_word32 (size_lim))]
 	assert align in [1, 4, 8]
 	w0 = mk_word32 (0)
 	if align > 1:
 		align_req = [mk_eq (mk_bwand (p, mk_word32 (align - 1)), w0)]
 	else:
 		align_req = []
-	return foldr1 (mk_and, align_req + [mk_not (mk_eq (p, w0)),
+	return foldr1 (mk_and, align_req + size_req + [mk_not (mk_eq (p, w0)),
 		mk_implies (mk_less (w0, size),
 			mk_less_eq (p, mk_uminus (size)))])
 

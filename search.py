@@ -1491,6 +1491,9 @@ def restr_point_name (p, n):
 	else:
 		return str (n)
 
+def fail_searcher (p, restrs, hyps):
+	return ('Fail Searcher', None)
+
 def build_proof_rec (searcher, p, restrs, hyps, name = "problem"):
 	trace ('doing build proof rec with restrs = %r, hyps = %r' % (restrs, hyps))
 
@@ -1507,7 +1510,7 @@ def build_proof_rec (searcher, p, restrs, hyps, name = "problem"):
 			searcher, p, restrs, hyps, name = name)
 	elif kind == 'Leaf':
 		return ProofNode ('Leaf', None, ())
-	assert kind in ['CaseSplit', 'Split']
+	assert kind in ['CaseSplit', 'Split'], kind
 	split = details
 	if kind == 'CaseSplit':
 		(split, hints) = details

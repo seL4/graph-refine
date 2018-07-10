@@ -852,3 +852,9 @@ def try_pairing_at_funcall (p, name, head = None, restrs = None, hyps = None,
 		else:
 			return res
 
+def init_true_hyp (p, tag, expr):
+	n = p.get_entry (tag)
+	vis = ((n, ()), tag)
+	assert expr.typ == syntax.boolT, expr
+	return rep_graph.eq_hyp ((expr, vis), (syntax.true_term, vis))
+
