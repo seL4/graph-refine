@@ -124,7 +124,7 @@ H4Update: .FORCE
 	PATH=${H4PATH} build
 	cd ${DECOMP_DIR} ; PATH=${H4PATH} Holmake
 
-IGNORES= fastpath_restore,slowpath,c_handle_data_fault,c_handle_instruction_fault,c_handle_interrupt,c_handle_syscall,c_handle_undefined_instruction,c_handle_vm_fault,fastpath_call,fastpath_reply_recv,restore_user_context
+IGNORES= fastpath_restore,slowpath,fastpath_call,fastpath_reply_recv,restore_user_context,lockTLBEntry,lockTLBEntryCritical
 
 ASMFunctions.txt: kernel.elf.txt kernel.sigs
 	PATH=${H4PATH} build
