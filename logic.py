@@ -584,6 +584,12 @@ def var_not_in_expr (var, expr):
 	v2 = (var.name, var.typ)
 	return all_vars_have_prop (expr, lambda v: v != v2)
 
+def mk_array_size_ineq (typ, num, p):
+	align = typ.align ()
+	size = mk_times (mk_word32 (typ.size ()), num)
+	size_lim = ((2 ** 32) - 4) / typ.size ()
+	return mk_less_eq (num, mk_word32 (size_lim))
+
 def mk_align_valid_ineq (typ, p):
 	if typ[0] == 'Type':
 		(_, typ) = typ
@@ -595,8 +601,7 @@ def mk_align_valid_ineq (typ, p):
 		(kind, typ, num) = typ
 		align = typ.align ()
 		size = mk_times (mk_word32 (typ.size ()), num)
-		size_lim = ((2 ** 32) - 4) / typ.size ()
-		size_req = [mk_less_eq (num, mk_word32 (size_lim))]
+		size_req = [mk_array_size_ineq (typ, num, p)]
 	assert align in [1, 4, 8]
 	w0 = mk_word32 (0)
 	if align > 1:
@@ -1075,6 +1080,17 @@ def try_eval_expr (expr):
 expr_linear_sum = set (['Plus', 'Minus'])
 expr_linear_cast = set (['WordCast', 'WordCastSigned'])
 
+expr_linear_all = set.union (expr_linear_sum, expr_linear_cast,
+	['Times', 'ShiftLeft'])
+
+def possibly_linear (expr):
+	if expr.kind in set (['Var', 'Num', 'Symbol', 'Type', 'Token']):
+		return True
+	elif expr.is_op (expr_linear_all):
+		return all ([possibly_linear (x) for x in expr.vals])
+	else:
+		return False
+
 def lv_expr (expr, env):
 	if expr in env:
 		return env[expr]
@@ -1174,6 +1190,24 @@ def linear_series_exprs (p, loop, va):
 		frontier.extend ([n2 for n2 in p.nodes[n].get_conts ()
 			if n2 in loop_body])
 	return cache
+
+def get_loop_linear_offs (p, loop_head):
+	import search
+	va = search.get_loop_var_analysis_at(p, loop_head)
+	exprs = linear_series_exprs (p, loop_head, va)
+	def offs_fn (n, expr):
+		assert p.loop_id (n) == loop_head
+		env = exprs[n]
+		rv = lv_expr (expr, env)
+		if rv[1] == None:
+			return None
+		elif rv[1] == 'LoopConst':
+			return mk_num (0, expr.typ)
+		elif rv[1] == 'LoopLinearSeries':
+			return rv[2]
+		else:
+			assert not 'lv_expr kind understood', rv
+	return offs_fn
 
 def interesting_node_exprs (p, n, tags = None, use_pairings = True):
 	if tags == None:
@@ -1589,4 +1623,39 @@ def strengthen_hyp (expr, sign = 1):
 
 def weaken_assert (expr):
 	return strengthen_hyp (expr, -1)
+
+pred_logic_ops = set (['Not', 'And', 'Or', 'Implies'])
+
+def norm_neg (expr):
+	if not expr.is_op ('Not'):
+		return expr
+	[nexpr] = expr.vals
+	if not nexpr.is_op (pred_logic_ops):
+		return expr
+	if nexpr.is_op ('Not'):
+		[expr] = nexpr.vals
+		return norm_neg (expr)
+	[x, y] = nexpr.vals
+	if nexpr.is_op ('And'):
+		return mk_or (x, y)
+	elif nexpr.is_op ('Or'):
+		return mk_and (x, y)
+	elif nexpr.is_op ('Implies'):
+		return mk_and (x, mk_not (y))
+
+def split_conjuncts (expr):
+	expr = norm_neg (expr)
+	if expr.is_op ('And'):
+		[x, y] = expr.vals
+		return split_conjuncts (x) + split_conjuncts (y)
+	else:
+		return [expr]
+
+def split_disjuncts (expr):
+	expr = norm_neg (expr)
+	if expr.is_op ('Or'):
+		[x, y] = expr.vals
+		return split_disjuncts (x) + split_disjuncts (y)
+	else:
+		return [expr]
 

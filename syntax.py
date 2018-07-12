@@ -713,6 +713,20 @@ class Node:
 		self.visit (lambda x: (), visit)
 		return accesses
 
+	def err_cond (self):
+		if self.kind != 'Cond':
+			return None
+		if self.left != 'Err':
+			if self.right == 'Err':
+				return mk_not (self.cond)
+			else:
+				return None
+		else:
+			if self.right == 'Err':
+				return true_term
+			else:
+				return self.cond
+
 	def serialise (self, xs):
 		xs.append (self.kind)
 		xs.extend ([str (c) for c in self.get_conts ()])
@@ -1295,6 +1309,10 @@ def mk_minus (x, y):
 def mk_times (x, y):
 	assert x.typ == y.typ
 	return Expr ('Op', x.typ, name = 'Times', vals = [x, y])
+
+def mk_divide (x, y):
+	assert x.typ == y.typ
+	return Expr ('Op', x.typ, name = 'DividedBy', vals = [x, y])
 
 def mk_modulus (x, y):
 	assert x.typ == y.typ
