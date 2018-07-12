@@ -145,13 +145,15 @@ class Hyp:
 		elif kind == 'Eq':
 			self.vals = [arg1, arg2]
 			self.induct = induct
+		elif kind == 'EqIfAt':
+			self.vals = [arg1, arg2]
 		else:
 			assert not 'hyp kind understood'
 
 	def __repr__ (self):
 		if self.kind == 'PCImp':
 			vals = map (repr, self.pcs)
-		elif self.kind == 'Eq':
+		elif self.kind in ['Eq', 'EqIfAt']:
 			vals = map (repr, self.vals)
 			if self.induct:
 				vals += [repr (self.induct)]
@@ -162,8 +164,9 @@ class Hyp:
 	def hyp_tuple (self):
 		if self.kind == 'PCImp':
 			return ('PCImp', self.pcs[0], self.pcs[1])
-		elif self.kind == 'Eq':
-			return ('Eq', self.vals[0], self.vals[1], self.induct)
+		elif self.kind in ['Eq', 'EqIfAt']:
+			return (self.kind, self.vals[0],
+				self.vals[1], self.induct)
 		else:
 			assert not 'hyp kind understood'
 
@@ -180,7 +183,7 @@ class Hyp:
 		if self.kind == 'PCImp':
 			return [vis for vis in self.pcs
 				if vis[0] != 'Bool']
-		elif self.kind == 'Eq':
+		elif self.kind in ['Eq', 'EqIfAt']:
 			return [vis for (_, vis) in self.vals]
 		else:
 			assert not 'hyp kind understood'
@@ -208,9 +211,9 @@ class Hyp:
 			ss.append ('PCImp')
 			self.serialise_pc (visit1, ss)
 			self.serialise_pc (visit2, ss)
-		elif self.kind == 'Eq':
+		elif self.kind in ['Eq', 'EqIfAt']:
 			assert len (self.vals) == 2
-			ss.extend ('Eq')
+			ss.extend (self.kind)
 			for (exp, visit) in self.vals:
 				exp.serialise (ss)
 				self.serialise_visit (visit, ss)
@@ -234,7 +237,7 @@ class Hyp:
 			else:
 				pc2 = rep.get_pc (visit2, tag = tag2)
 			return mk_implies (pc1, pc2)
-		elif self.kind == 'Eq':
+		elif self.kind in ['Eq', 'EqIfAt']:
 			[(x, xvis), (y, yvis)] = self.vals
 			if self.induct:
 				v = rep.get_induct_var (self.induct)
@@ -243,9 +246,18 @@ class Hyp:
 			x_pc_env = rep.get_node_pc_env (xvis[0], tag = xvis[1])
 			y_pc_env = rep.get_node_pc_env (yvis[0], tag = yvis[1])
 			if x_pc_env == None or y_pc_env == None:
-				return syntax.false_term
+				if self.kind == 'EqIfAt':
+					return syntax.true_term
+				else:
+					return syntax.false_term
 			((_, xenv), (_, yenv)) = (x_pc_env, y_pc_env)
-			return inst_eq_with_envs ((x, xenv), (y, yenv), rep.solv)
+			eq = inst_eq_with_envs ((x, xenv), (y, yenv), rep.solv)
+			if self.kind == 'EqIfAt':
+				x_pc = rep.get_pc (xvis[0], tag = xvis[1])
+				y_pc = rep.get_pc (yvis[0], tag = yvis[1])
+				return syntax.mk_n_implies ([x_pc, y_pc], eq)
+			else:
+				return eq
 		else:
 			assert not 'hypothesis type understood'
 

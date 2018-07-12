@@ -858,3 +858,11 @@ def init_true_hyp (p, tag, expr):
 	assert expr.typ == syntax.boolT, expr
 	return rep_graph.eq_hyp ((expr, vis), (syntax.true_term, vis))
 
+def smt_print (expr):
+	env = {}
+	while True:
+		try:
+			return solver.smt_expr (expr, env, None)
+		except solver.EnvMiss, e:
+			env[(e.name, e.typ)] = e.name
+
