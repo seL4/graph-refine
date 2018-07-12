@@ -386,8 +386,7 @@ def stack_virtualise_expr (expr, sp_offs):
 	elif expr.kind == 'Op':
 		vs = [stack_virtualise_expr (v, sp_offs) for v in expr.vals]
 		return ([p for (ptrs, _) in vs for p in ptrs],
-			syntax.Expr ('Op', expr.typ, name = expr.name,
-				vals = [v for (_, v) in vs]))
+			syntax.adjust_op_vals (expr, [v for (_, v) in vs]))
 	else:
 		return ([], expr)
 

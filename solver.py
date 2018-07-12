@@ -511,7 +511,7 @@ def smt_ifthenelse (sw, x, y, solv):
 def to_smt_expr (expr, env, solv):
 	if expr.typ == builtinTs['RelWrapper']:
 		vals = [to_smt_expr (v, env, solv) for v in expr.vals]
-		return Expr ('Op', expr.typ, name = expr.name, vals = vals)
+		return syntax.adjust_op_vals (expr, vals)
 	s = smt_expr (expr, env, solv)
 	return mk_smt_expr (s, expr.typ)
 

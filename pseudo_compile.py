@@ -249,7 +249,7 @@ def compile_accs (replaces, expr):
 		return logic.mk_align_valid_ineq (('Type', typ.val), p)
 	elif expr.kind == 'Op':
 		vals = [compile_accs (replaces, v) for v in expr.vals]
-		return Expr ('Op', expr.typ, expr.name, vals = vals)
+		return syntax.adjust_op_vals (expr, vals)
 	elif expr.kind == 'Symbol':
 		return mk_word32 (symbols[expr.name][0])
 	else:

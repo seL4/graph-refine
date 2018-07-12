@@ -292,7 +292,7 @@ def recursive_term_subst (eqs, expr):
 		return eqs[expr]
 	if expr.kind == 'Op':
 		vals = [recursive_term_subst (eqs, x) for x in expr.vals]
-		return Expr ('Op', expr.typ, name = expr.name, vals = vals)
+		return syntax.adjust_op_vals (expr, vals)
 	return expr
 
 def mk_accum_rewrites (typ):
@@ -1103,8 +1103,7 @@ def lv_expr (expr, env):
 
 	lvs = [lv_expr (v, env) for v in expr.vals]
 	rs = [lv[1] for lv in lvs]
-	mk_offs = lambda vals: syntax.Expr ('Op', expr.typ, name = expr.name,
-		vals = vals)
+	mk_offs = lambda vals: syntax.adjust_op_vals (expr, vals)
 	if None in rs:
 		return (None, None, None, None)
 	if set (rs) == set (['LoopConst']):
@@ -1584,8 +1583,7 @@ def strengthen_hyp (expr, sign = 1):
 		return expr
 	if expr.name in ['And', 'Or']:
 		vals = [strengthen_hyp (v, sign) for v in expr.vals]
-		return syntax.Expr ('Op', expr.typ, name = expr.name,
-			vals = vals)
+		return syntax.adjust_op_vals (expr, vals)
 	elif expr.name == 'Implies':
 		[l, r] = expr.vals
 		l = strengthen_hyp (l, - sign)

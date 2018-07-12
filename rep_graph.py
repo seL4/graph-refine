@@ -1109,8 +1109,7 @@ last_hyp_imps = [0]
 def to_smt_expr_under_op (expr, env, solv):
 	if expr.kind == 'Op':
 		vals = [to_smt_expr (v, env, solv) for v in expr.vals]
-		return syntax.Expr ('Op', expr.typ, name = expr.name,
-			vals = vals)
+		return syntax.adjust_op_vals (expr, vals)
 	else:
 		return to_smt_expr (expr, env, solv)
 

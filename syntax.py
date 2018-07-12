@@ -1455,6 +1455,10 @@ def mk_pvalid (htd, typ, p):
 def mk_rel_wrapper (nm, vals):
 	return Expr ('Op', builtinTs['RelWrapper'], name = nm, vals = vals)
 
+def adjust_op_vals (expr, vals):
+	assert expr.kind == 'Op'
+	return Expr ('Op', expr.typ, expr.name, vals = vals)
+
 mks = (mk_var, mk_plus, mk_uminus, mk_minus, mk_times, mk_modulus, mk_bwand,
 mk_eq, mk_less_eq, mk_less, mk_implies, mk_and, mk_or, mk_not, mk_word32,
 mk_word8, mk_word32_maybe, mk_cast, mk_memacc, mk_memupd, mk_arr_index,
