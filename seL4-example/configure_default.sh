@@ -1,5 +1,13 @@
 #! /bin/bash
 
+# * Copyright 2016, NICTA
+# *
+# * This software may be distributed and modified according to the terms of
+# * the BSD 2-Clause license. Note that NO WARRANTY is provided.
+# * See "LICENSE_BSD2.txt" for details.
+# *
+# * @TAG(NICTA_BSD)
+
 # setup Isabelle
 ISABELLE=../../isabelle/bin/isabelle
 if [[ -e ~/.isabelle/etc/settings ]]
@@ -21,61 +29,8 @@ else
 fi
 $ISABELLE components -a
 
-function err {
-  echo .. failed!
-  echo Short error output:
-  echo
-  tail -n 20 $1
-  echo
-  echo "  (more error output in $1)"
-  echo Need to perform manually:
-  echo   cd $2
-  echo   $3
-  exit 1
-}
-
-# setup PolyML for HOL4
-POLY_DIR=$(readlink -f ../../polyml)
-POLY=$POLY_DIR/deploy/bin/poly
-if [[ -e $POLY ]]
-then
-  echo PolyML already built.
-else
-  echo Building PolyML in $POLY_DIR
-  POLY_SRC=$($ISABELLE env bash -c 'echo $ML_SOURCES')
-
-  if [[ -e $POLY_DIR/configure ]]
-  then
-    echo PolyML already fetched
-  elif [[ -e $POLY_DIR ]]
-  then
-    echo PolyML dir exists but no source ... continue manually.
-    exit 1
-  else
-    # track bleeding-edge polyml for now (urk!)
-    git clone https://github.com/polyml/polyml $POLY_DIR
-    # an alternative is to fetch the isabelle polyml version
-    # cp -r $POLY_SRC $POLY_DIR
-  fi
-  OUT=$(readlink -f poly_output.txt)
-  pushd $POLY_DIR
-  git status &> /dev/null
-  if [ $? -ne 0 ]; then
-    echo PolyML not checked out at $POLY_DIR !
-    exit 1
-  fi
-  echo Setting up PolyML
-  (./configure --prefix=$POLY_DIR/deploy && make && make install) &> $OUT
-  popd
-  if [[ -e $POLY ]]
-  then
-    echo Built PolyML
-  else
-    err poly_output.txt $POLY_DIR "./configure --prefix=$POLY_DIR/deploy && make && make install"
-  fi
-fi
-
 HOL4_DIR=$(readlink -f ../../HOL4)
+POLY_DIR=$HOL4_DIR/polyml
 
 function mk_build_summ {
   SUMM=$(readlink -f $HOL4_DIR/bin/$1)
@@ -87,39 +42,32 @@ function mk_build_summ {
   find $POLY_DIR/deploy -type f | xargs md5sum >> $SUMM
 }
 
-# check for an old build of HOL4 built by this script, and clean out
-if [[ -e $HOL4_DIR/bin/build_summ ]]
+# check if HOL4 is built, and if it is up to date
+if [[ ! -e $HOL4_DIR/bin/build ]]
+then
+  echo 'HOL4 not built.'
+  REBUILD='true'
+elif [[ ! -e $HOL4_DIR/sigobj/realTheory.sig ]]
+then
+  echo 'HOL4 theories not built'
+  REBUILD='true'
+elif [[ -e $HOL4_DIR/bin/build_summ ]]
 then
   mk_build_summ build_summ2
   if ( diff -q $HOL4_DIR/bin/build_summ $HOL4_DIR/bin/build_summ2 )
   then
     # curiously this is the equal case of diff
     echo HOL4 matches last build status.
+    REBUILD='false'
   else
-    echo HOL4 configuration changed from previous build, cleaning.
-    pushd $HOL4_DIR
-    git clean -fdX
-    popd
+    echo HOL4 configuration changed from previous build.
+    REBUILD='true'
   fi
 fi
 
-# setup HOL4 to use this PolyML
-if [[ -e $HOL4_DIR/bin/build ]]
+if [[ $REBUILD == 'true' ]]
 then
-  echo HOL4 already built.
-else
-  echo HOL4 not built, configuring.
-  OUT=$(readlink -f hol4_output.txt)
-  pushd $HOL4_DIR
-  $POLY < tools-poly/smart-configure.sml &> $OUT
-  popd
-  if [[ -e $HOL4_DIR/bin/build ]]
-  then
-    echo Configured HOL4.
-    mk_build_summ build_summ
-  else
-    err hol4_output.txt $HOL4_DIR "$POLY < tools-poly/smart-configure.sml"
-  fi
+  bash ../scripts/setup-HOL4.sh
 fi
 
 # setup graph-refine to use CVC4 from Isabelle

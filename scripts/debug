@@ -1,0 +1,74 @@
+# a collection of commands that are useful to copy into
+# the python interpreter to diagnose issues
+
+
+# pick out the last problem
+
+p = problem.last_problem[0]
+p.save_graph ('diagram.dot')
+import os
+os.spawnvp (os.P_WAIT, 'dot', ['dot', '-Tsvg', 'diagram.dot', '-o', 'diagram.svg'])
+
+# pick out a model for the last failure
+
+rep = rep_graph.mk_graph_slice (p)
+(fld_hyp, assum_hyps, requests) = rep_graph.last_failed_test[0]
+rep_graph.run_requests (rep, requests)
+m = {}
+assert not rep.test_hyp_whyps (fld_hyp, assum_hyps, model = m)
+sat_hyps = solver.last_satisfiable_hyps[0]
+
+# trace a model
+
+import debug
+for tag in reversed (p.pairing.tags):
+	print 'Debug walk for %s' % tag
+	debug.walk_model (rep, tag, m)
+
+debug.trace_model (rep, m)
+debug.trace_mems (rep, m)
+debug.investigate_funcalls (rep, m)
+
+# investigate a proof failure more broadly
+
+proof = search.last_proof[0]
+checks = check.proof_checks (p, proof)
+failed = [(hyps, hyp, nm) for (hyps, hyp, nm) in checks
+	if not rep.test_hyp_imp (hyps, hyp)]
+check.failed_test_sets (p, checks)
+
+# investigate a loop search failure
+
+knowledge = search.last_knowledge[0]
+(rep,(restrs, loop_elts, cand_r_loop_elts, premise), (pairs, vs), facts) = knowledge
+
+calc = search.problem_calculation(knowledge)
+
+# load and reload bits
+
+from syntax import Expr, Type
+
+import logic, stack_logic
+mods = [logic, problem, solver, rep_graph, check, search, stack_logic]
+map (reload, mods)
+
+# try to split the sole loop pair in a problem
+
+assert len (p.loop_heads ()) == 2
+[asm_head] = [sp for sp in p.loop_heads () if p.node_tags[sp][0] == 'ASM']
+rep = rep_graph.mk_graph_slice (p)
+search.find_split (rep, asm_head, (), check.init_point_hyps(p), [(0, 1)], [(0, 1)], 4)
+if search.last_failed_pairings:
+  fails = dict (search.last_failed_pairings[-1])
+
+# 'inductive' failures are near-misses in the loop process,
+# created by proof failures. investigate these failures.
+
+ind_fails = [pair for pair in fails if str (fails[pair][1]) == 'InductFailed']
+if ind_fails:
+  pair = ind_fails[0] 
+  (_, _, eqs) = fails[pair]
+  split = search.v_eqs_to_split (p, pair, eqs, (), check.init_point_hyps(p))
+  check.check_split_induct_step_group (rep, (), check.init_point_hyps(p), split)
+
+
