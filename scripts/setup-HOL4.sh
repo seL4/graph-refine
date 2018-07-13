@@ -57,7 +57,7 @@ echo output is $OUT
 pushd $HOL4_DIR
 
 echo Cleaning HOL4 build in $HOL4_DIR
-git clean -fdX -x polyml &> /dev/null
+git clean -fdX -e polyml &> /dev/null
 
 echo Building HOL4 now.
 echo '  (tracing build progress to hol4_output.txt)'
