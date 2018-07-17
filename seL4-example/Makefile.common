@@ -52,7 +52,9 @@ $(if $(wildcard ${HOL4_ROOT}/bin/Holmake ${HOL4_ROOT}/bin/build),, \
 
 SOLV=python ${GREF_ROOT}/solver.py
 
-SOLV_TEST = $(shell ${SOLV} testq | grep 'Solver self-test succ')
+SOLV_TEST_SUCC='Solver self-test succ'
+SOLV_TEST = $(shell $(if ${SKIP_SOLV_TEST}, echo ${SOLV_TEST_SUCC}, \
+    ${SOLV} testq) | grep ${SOLV_TEST_SUCC})
 $(if ${SOLV_TEST},,$(error Solver self-test failed (${SOLV} test)))
 
 # compile and decompile
