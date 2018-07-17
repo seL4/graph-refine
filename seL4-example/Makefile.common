@@ -106,9 +106,13 @@ summary.txt: kernel_all.c_pp
 	bash mk_summ . >> pre_summary.txt
 	mv pre_summary.txt summary.txt
 
-kernel.tar.gz: kernel.elf.rodata kernel.elf.txt kernel.elf.symtab \
-		kernel_all.c_pp kernel.sigs \
-		kernel.elf
+KERNEL_FILES= kernel.elf.rodata kernel.elf.txt kernel.elf.symtab \
+  kernel_all.c_pp kernel.sigs kernel.elf
+
+kernel.tar.gz: ${KERNEL_FILES}
+	tar -cvzf $@ $^
+
+target.tar.gz: ${KERNEL_FILES} target.py CFunctions.txt ASMFunctions.txt
 	tar -cvzf $@ $^
 
 tar: kernel.tar.gz
