@@ -179,7 +179,8 @@ def tryLoopBound(p_n, p, bounds,rep,restrs =None, hints =None,kind = 'Number',bi
     assert False, 'failed to find loop bound for p_n %d' % p_n
 
 
-def linear_eq_hyps_at_visit (tag, split, eqs, restrs, visit_num):
+def linear_eq_hyps_at_visit (tag, split, eqs, restrs, visit_num,
+        use_if_at = False):
     details = (split, (0, 1), eqs)
     visit = split_visit_one_visit (tag, details, restrs, visit_num)
     start = split_visit_one_visit (tag, details, restrs, vc_num (0))
@@ -197,7 +198,7 @@ def linear_eq_hyps_at_visit (tag, split, eqs, restrs, visit_num):
 
     hyps = [(Hyp ('PCImp', visit, start), '%s pc imp' % tag)]
     hyps += [(eq_hyp ((zsub (exp), start), (isub (exp), visit),
-                            (split, 0)), '%s const' % tag)
+                            (split, 0), use_if_at = use_if_at), '%s const' % tag)
                     for exp in eqs if logic.inst_eq_at_visit (exp, visit_num)]
 
     return hyps

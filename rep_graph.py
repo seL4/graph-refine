@@ -147,6 +147,7 @@ class Hyp:
 			self.induct = induct
 		elif kind == 'EqIfAt':
 			self.vals = [arg1, arg2]
+			self.induct = induct
 		else:
 			assert not 'hyp kind understood'
 
@@ -264,10 +265,18 @@ class Hyp:
 def check_vis_is_vis (((n, vc), tag)):
 	assert vc[:0] == (), vc
 
-def eq_hyp (lhs, rhs, induct = None):
+def eq_hyp (lhs, rhs, induct = None, use_if_at = False):
 	check_vis_is_vis (lhs[1])
 	check_vis_is_vis (rhs[1])
-	return Hyp ('Eq', lhs, rhs, induct = induct)
+	kind = 'Eq'
+	if use_if_at:
+		kind = 'EqIfAt'
+	return Hyp (kind, lhs, rhs, induct = induct)
+
+def true_if_at_hyp (expr, vis, induct = None):
+	check_vis_is_vis (vis)
+	return Hyp ('EqIfAt', (expr, vis), (true_term, vis),
+		induct = induct)
 
 def pc_true_hyp (vis):
 	check_vis_is_vis (vis)

@@ -1327,13 +1327,15 @@ def mk_eq (x, y):
 	assert x.typ == y.typ
 	return Expr ('Op', boolT, name = 'Equals', vals = [x, y])
 
-def mk_less_eq (x, y):
+def mk_less_eq (x, y, signed = False):
 	assert x.typ == y.typ
-	return Expr ('Op', boolT, name = 'LessEquals', vals = [x, y])
+	name = {False: 'LessEquals', True: 'SignedLessEquals'}[signed]
+	return Expr ('Op', boolT, name = name, vals = [x, y])
 
-def mk_less (x, y):
+def mk_less (x, y, signed = False):
 	assert x.typ == y.typ
-	return Expr ('Op', boolT, name = 'Less', vals = [x, y])
+	name = {False: 'Less', True: 'SignedLess'}[signed]
+	return Expr ('Op', boolT, name = name, vals = [x, y])
 
 def mk_implies (x, y):
 	assert x.typ == boolT

@@ -1192,7 +1192,7 @@ def linear_series_exprs (p, loop, va):
 
 def get_loop_linear_offs (p, loop_head):
 	import search
-	va = search.get_loop_var_analysis_at(p, loop_head)
+	va = search.get_loop_var_analysis_at (p, loop_head)
 	exprs = linear_series_exprs (p, loop_head, va)
 	def offs_fn (n, expr):
 		assert p.loop_id (n) == loop_head
@@ -1635,11 +1635,14 @@ def norm_neg (expr):
 		return norm_neg (expr)
 	[x, y] = nexpr.vals
 	if nexpr.is_op ('And'):
-		return mk_or (x, y)
+		return mk_or (norm_mk_not (x), norm_mk_not (y))
 	elif nexpr.is_op ('Or'):
-		return mk_and (x, y)
+		return mk_and (norm_mk_not (x), norm_mk_not (y))
 	elif nexpr.is_op ('Implies'):
 		return mk_and (x, mk_not (y))
+
+def norm_mk_not (expr):
+	return norm_neg (mk_not (expr))
 
 def split_conjuncts (expr):
 	expr = norm_neg (expr)
@@ -1656,4 +1659,36 @@ def split_disjuncts (expr):
 		return split_disjuncts (x) + split_disjuncts (y)
 	else:
 		return [expr]
+
+def binary_search_least (test, minimum, maximum):
+	"""find least n, minimum <= n <= maximum, for which test (n)."""
+	assert maximum >= minimum
+	if test (minimum):
+		return minimum
+	if maximum == minimum or not test (maximum):
+		return None
+	while maximum > minimum + 1:
+		cur = (minimum + maximum) / 2
+		if test (cur):
+			maximum = cur
+		else:
+			minimum = cur + 1
+	assert minimum + 1 == maximum
+	return maximum
+
+def binary_search_greatest (test, minimum, maximum):
+	"""find greatest n, minimum <= n <= maximum, for which test (n)."""
+	assert maximum >= minimum
+	if test (maximum):
+		return maximum
+	if maximum == minimum or not test (minimum):
+		return None
+	while maximum > minimum + 1:
+		cur = (minimum + maximum) / 2
+		if test (cur):
+			minimum = cur
+		else:
+			maximum = cur - 1
+	assert minimum + 1 == maximum
+	return minimum
 
