@@ -63,7 +63,7 @@ KERNEL_DEPS = $(shell find ${SOURCE_ROOT} -type f)
 
 ${CSPEC_BUILD_PATH}/kernel_all.c_pp: ${KERNEL_DEPS} ${CONFIG_DOMAIN_SCHEDULE}
 	# have the l4v build system build its kernel source
-	cd ${CSPEC_PATH} && make ${CSPEC_BUILD_PREFIX}/kernel_all.c_pp
+	cd ${CSPEC_PATH} && make c-kernel-source
 
 kernel_all.c_pp: build/.cmake_done
 	cd build && ninja kernel_all_pp_wrapper
