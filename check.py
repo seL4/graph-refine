@@ -128,7 +128,7 @@ def consider_inline1 (p, n, matched_funs, inline_tag,
 		return False
 
 def consider_inline (matched_funs, tag, force_inline, skip_underspec = False):
-        return lambda (p, n): consider_inline1 (p, n, matched_funs, tag,
+	return lambda (p, n): consider_inline1 (p, n, matched_funs, tag,
 		force_inline, skip_underspec)
 
 def inst_eqs (p, restrs, eqs, tag_map = {}):
@@ -537,6 +537,96 @@ def check_split_induct_step_group (rep, restrs, hyps, split, tags = None):
 def split_checks (p, restrs, hyps, split, tags = None):
 	return (split_init_step_checks (p, restrs, hyps, split, tags = tags)
 		+ split_induct_step_checks (p, restrs, hyps, split, tags = tags))
+
+def loop_eq_hyps_at_visit (tag, split, eqs, restrs, visit_num,
+		use_if_at = False):
+	details = (split, (0, 1), eqs)
+	visit = split_visit_one_visit (tag, details, restrs, visit_num)
+	start = split_visit_one_visit (tag, details, restrs, vc_num (0))
+
+	def mksub (v):
+		return lambda exp: logic.var_subst (exp, {('%i', word32T) : v},
+			must_subst = False)
+	zsub = mksub (mk_word32 (0))
+	if visit_num.kind == 'Number':
+		isub = mksub (mk_word32 (visit_num.n))
+	else:
+		isub = mksub (mk_plus (mk_var ('%n', word32T),
+			mk_word32 (visit_num.n)))
+
+	hyps = [(Hyp ('PCImp', visit, start), '%s pc imp' % tag)]
+	hyps += [(eq_hyp ((zsub (exp), start), (isub (exp), visit),
+			(split, 0), use_if_at = use_if_at), '%s const' % tag)
+		for exp in eqs if logic.inst_eq_at_visit (exp, visit_num)]
+
+	return hyps
+
+def single_loop_induct_base_checks (p, restrs, hyps, tag, split, n, eqs):
+	tests = []
+	details = (split, (0, 1), eqs)
+	for i in range (n + 1):
+		reach = split_visit_one_visit (tag, details, restrs, vc_num (i))
+		nhyps = [pc_true_hyp (reach)]
+		tests.extend ([(hyps + nhyps, hyp,
+			'Base check (%s, %d) at induct step for %d'
+				% (desc, i, split))
+			for (hyp, desc) in loop_eq_hyps_at_visit (tag, split,
+				eqs, restrs, vc_num (i))])
+	return tests
+
+def single_loop_induct_step_checks (p, restrs, hyps, tag, split, n,
+				eqs_assume, eqs):
+	details = (split, (0, 1), eqs_assume + eqs)
+	cont = split_visit_one_visit (tag, details, restrs, vc_offs (n))
+	hyps = ([pc_true_hyp (cont)] + hyps
+			+ [h for i in range (n)
+		for (h, _) in loop_eq_hyps_at_visit (tag, split,
+					eqs_assume + eqs, restrs, vc_offs (i))])
+
+	return [(hyps, hyp, 'Induct check (%s) at inductive step for %d'
+			% (desc, split))
+		for (hyp, desc) in loop_eq_hyps_at_visit (tag, split, eqs,
+			restrs, vc_offs (n))]
+
+def mk_loop_counter_eq_hyp (p, split, restrs, n):
+	details = (split, (0, 1), [])
+	(tag, _) = p.node_tags[split]
+	visit = split_visit_one_visit (tag, details, restrs, vc_offs (0))
+	return eq_hyp ((mk_var ('%n', word32T), visit),
+		(mk_word32 (n), visit), (split, 0))
+
+def single_loop_rev_induct_base_checks (p, restrs, hyps, tag, split,
+		n_bound, eqs_assume, pred):
+	details = (split, (0, 1), eqs_assume)
+	cont = split_visit_one_visit (tag, details, restrs, vc_offs (1))
+	n_hyp = mk_loop_counter_eq_hyp (p, split, restrs, n_bound)
+
+	split_details = (None, details, None, 1, 1)
+	non_err = split_r_err_pc_hyp (p, split_details, restrs)
+
+	hyps = (hyps + [n_hyp, pc_true_hyp (cont), non_err]
+		+ [h for (h, _) in loop_eq_hyps_at_visit (tag,
+			split, eqs_assume, restrs, vc_offs (0))])
+	goal = rep_graph.true_if_at_hyp (pred, cont)
+
+	return [(hyps, goal, 'Pred true at %d check.' % n_bound)]
+
+def single_loop_rev_induct_checks (p, restrs, hyps, tag, split,
+		eqs_assume, pred):
+	details = (split, (0, 1), eqs_assume)
+	curr = split_visit_one_visit (tag, details, restrs, vc_offs (1))
+	cont = split_visit_one_visit (tag, details, restrs, vc_offs (2))
+
+	split_details = (None, details, None, 1, 1)
+	non_err = split_r_err_pc_hyp (p, split_details, restrs)
+	true_next = rep_graph.true_if_at_hyp (pred, cont)
+
+	hyps = (hyps + [pc_true_hyp (curr), true_next, non_err]
+		+ [h for (h, _) in loop_eq_hyps_at_visit (tag, split,
+			eqs_assume, restrs, vc_offs (1), use_if_at = True)])
+	goal = rep_graph.true_if_at_hyp (pred, curr)
+
+	return [(hyps, goal, 'Pred reverse step.')]
 
 def leaf_condition_checks (p, restrs, hyps):
 	'''checks of the final refinement conditions'''

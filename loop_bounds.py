@@ -178,59 +178,7 @@ def tryLoopBound(p_n, p, bounds,rep,restrs =None, hints =None,kind = 'Number',bi
     return -1
     assert False, 'failed to find loop bound for p_n %d' % p_n
 
-
-def linear_eq_hyps_at_visit (tag, split, eqs, restrs, visit_num,
-        use_if_at = False):
-    details = (split, (0, 1), eqs)
-    visit = split_visit_one_visit (tag, details, restrs, visit_num)
-    start = split_visit_one_visit (tag, details, restrs, vc_num (0))
-    from syntax import mk_word32, mk_plus, mk_var, word32T
-
-    def mksub (v):
-            return lambda exp: logic.var_subst (exp, {('%i', word32T) : v},
-                    must_subst = False)
-    zsub = mksub (mk_word32 (0))
-    if visit_num.kind == 'Number':
-            isub = mksub (mk_word32 (visit_num.n))
-    else:
-            isub = mksub (mk_plus (mk_var ('%n', word32T),
-                    mk_word32 (visit_num.n)))
-
-    hyps = [(Hyp ('PCImp', visit, start), '%s pc imp' % tag)]
-    hyps += [(eq_hyp ((zsub (exp), start), (isub (exp), visit),
-                            (split, 0), use_if_at = use_if_at), '%s const' % tag)
-                    for exp in eqs if logic.inst_eq_at_visit (exp, visit_num)]
-
-    return hyps
-
-def linear_eq_induct_base_checks (p, restrs, hyps, tag, split, eqs):
-    tests = []
-    details = (split, (0, 1), eqs)
-    for i in [0, 1]:
-        reach = split_visit_one_visit (tag, details, restrs, vc_num (i))
-        nhyps = [pc_true_hyp (reach)]
-        tests.extend ([(hyps + nhyps, hyp,
-            'Base check (%s, %d) at induct step for %d' % (desc,
-                i, split)) for (hyp, desc) in
-            linear_eq_hyps_at_visit (tag, split, eqs,
-                restrs, vc_num (i))])
-    return tests
-
-def linear_eq_induct_step_checks (p, restrs, hyps, tag, split,
-                eqs_assume, eqs):
-    details = (split, (0, 1), eqs_assume + eqs)
-    cont = split_visit_one_visit (tag, details, restrs, vc_offs (1))
-    hyps = ([pc_true_hyp (cont)] + hyps
-            + [h for (h, _) in linear_eq_hyps_at_visit (tag, split,
-                    eqs_assume + eqs, restrs, vc_offs (0))])
-
-    return [(hyps, hyp, 'Induct check (%s) at inductive step for %d'
-            % (desc, split))
-        for (hyp, desc) in linear_eq_hyps_at_visit (tag, split, eqs,
-            restrs, vc_offs (1))]
-
 def get_linear_series_eqs (p, split, restrs, hyps, omit_standard = False):
-
     k = ('linear_series_eqs', split, restrs, tuple (hyps))
     if k in p.cached_analysis:
         if omit_standard:
@@ -245,9 +193,10 @@ def get_linear_series_eqs (p, split, restrs, hyps, omit_standard = False):
     rep = rep_graph.mk_graph_slice (p, fast = True)
 
     def do_checks (eqs_assume, eqs):
-        checks = (linear_eq_induct_step_checks (p, restrs, hyps, tag, split,
-                eqs_assume, eqs)
-            + linear_eq_induct_base_checks (p, restrs, hyps, tag, split, eqs))
+        checks = (check.single_loop_induct_step_checks (p, restrs, hyps, tag,
+                split, 1, eqs_assume, eqs)
+            + check.single_loop_induct_base_checks (p, restrs, hyps, tag,
+                split, 1, eqs))
 
         groups = check.proof_check_groups (checks)
         for group in groups:
@@ -281,14 +230,6 @@ def get_linear_series_hyps (p, split, restrs, hyps):
     hyps = [h for (h, _) in linear_eq_hyps_at_visit (tag, split, eqs,
              restrs, vc_offs (0))]
     return hyps
-
-def get_induct_eq_hyp (p, split, restrs, n):
-    details = (split, (0, 1), [])
-    (tag, _) = p.node_tags[split]
-    visit = split_visit_one_visit (tag, details, restrs, vc_offs (0))
-    from syntax import mk_var, word32T, mk_word32
-    return eq_hyp ((mk_var ('%n', word32T), visit),
-        (mk_word32 (n), visit), (split, 0))
 
 def is_zero (expr):
     return expr.kind == 'Num' and expr.val & ((1 << expr.typ.num) - 1) == 0
@@ -574,7 +515,7 @@ def search_bound (p, restrs, hyps, split):
 
     def test (n):
         assert n > 10
-        hyp = get_induct_eq_hyp (p, split, restrs, n - 2)
+        hyp = check.mk_loop_counter_eq_hyp (p, split, restrs, n - 2)
         visit = ((split, vc_offs (2)), ) + restrs
         continue_to_split_guess = rep.get_pc ((split, visit))
         return rep.test_hyp_whyps (syntax.mk_not (continue_to_split_guess),

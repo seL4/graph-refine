@@ -16,7 +16,7 @@ import rep_graph
 from syntax import (mk_and, mk_cast, mk_implies, mk_not, mk_uminus, mk_var,
 	foldr1, boolT, word32T, word8T, builtinTs, true_term, false_term,
 	mk_word32, mk_word8, mk_times, Expr, Type, mk_or, mk_eq, mk_memacc,
-	mk_num, mk_minus, mk_plus)
+	mk_num, mk_minus, mk_plus, mk_less)
 import syntax
 import logic
 
@@ -1408,6 +1408,142 @@ def get_n_offset_successes (rep, sp, step, restrs):
 			pc = rep.get_pc (n_vc)
 			succs.append (syntax.mk_implies (pc, succ))
 	return succs
+
+eq_ineq_ops = set (['Equals', 'Less', 'LessEquals',
+	'SignedLess', 'SignedLessEquals'])
+
+def split_linear_eq (cond):
+	if cond.is_op ('Not'):
+		[c] = cond.vals
+		return split_linear_eq (c)
+	elif cond.is_op (eq_ineq_ops):
+		return (cond.vals[0], cond.vals[1])
+	elif cond.is_op ('PArrayValid'):
+		[htd, typ_expr, p, num] = cond.vals
+		assert typ_expr.kind == 'Type'
+		typ = typ_expr.val
+		return split_linear_eq (logic.mk_array_size_ineq (typ, num, p))
+	else:
+		return None
+
+def possibly_linear_ineq (cond):
+	rv = split_linear_eq (cond)
+	if not rv:
+		return False
+	(lhs, rhs) = rv
+	return logic.possibly_linear (lhs) and logic.possibly_linear (rhs)
+
+def linear_const_comparison (p, n, cond):
+	"""examines a condition. if it is a linear (e.g. Less) comparison
+	between a linear series variable and a loop-constant expression,
+	return (linear side, const side), or None if not the case."""
+	rv = split_linear_eq (cond)
+	loop_head = p.loop_id (n)
+	if not rv:
+		return None
+	(lhs, rhs) = rv
+	zero = mk_num (0, lhs.typ)
+	offs = logic.get_loop_linear_offs (p, loop_head)
+	(lhs_offs, rhs_offs) = [offs (n, expr) for expr in [lhs, rhs]]
+	oset = set ([lhs_offs, rhs_offs])
+	if zero in oset and None not in oset and len (oset) > 1:
+		if lhs_offs == zero:
+			return (rhs, lhs)
+		else:
+			return (lhs, rhs)
+	return None
+
+def do_linear_rev_test (rep, restrs, hyps, split, eqs_assume, pred):
+	p = rep.p
+	(tag, _) = p.node_tags[split]
+	checks = (check.single_loop_rev_induct_checks (p, restrs, hyps, tag,
+			split, eqs_assume, pred)
+		+ check.single_loop_rev_induct_base_checks (p, restrs, hyps,
+			tag, split, (2 ** 32) - 10, eqs_assume, pred))
+
+	groups = check.proof_check_groups (checks)
+	for group in groups:
+		(res, _) = check.test_hyp_group (rep, group)
+		if not res:
+			return False
+	return True
+
+def get_extra_assn_linear_conds (expr):
+	if expr.is_op ('And'):
+		return [cond for conj in logic.split_conjuncts (expr)
+			for cond in get_extra_assn_linear_conds (conj)]
+	if not expr.is_op ('Or'):
+		return [expr]
+	arr_vs = [v for v in expr.vals if v.is_op ('PArrayValid')]
+	if not arr_vs:
+		return [expr]
+	[htd, typ_expr, p, num] = arr_vs[0].vals
+	assert typ_expr.kind == 'Type'
+	typ = typ_expr.val
+	less_eq = logic.mk_array_size_ineq (typ, num, p)
+	assn = logic.mk_align_valid_ineq (('Array', typ, num), p)
+	return get_extra_assn_linear_conds (assn) + [less_eq]
+
+def rhs_speculate_ineq (p, restrs, loop_head):
+	"""code for handling an interesting case in which the compiler
+	knows that the RHS program might fail in the future. for instance,
+	consider a loop that cannot be exited until iterator i reaches value n.
+	any error condition which implies i < b must hold of i - 1, thus
+	n <= b.
+
+	detects this case and identifies the inequality n <= b"""
+	body = p.loop_body (loop_head)
+
+	# if the loop contains function calls, skip it,
+	# otherwise we need to figure out whether they terminate
+	if [n for n in body if p.nodes[n].kind == 'Call']:
+		return None
+
+	exit_nodes = set ([n for n in body for n2 in p.nodes[n].get_conts ()
+			if n2 != 'Err' if n2 not in body])
+	assert set ([p.nodes[n].kind for n in exit_nodes]) <= set (['Cond'])
+
+	# if there are multiple exit conditions, too hard for now
+	if len (exit_nodes) > 1:
+		return None
+
+	[exit_n] = list (exit_nodes)
+	rv = linear_const_comparison (p, exit_n, p.nodes[exit_n].cond)
+	if not rv:
+		return None
+	(linear, const) = rv
+
+	err_cond_sites = [(n, p.nodes[n].err_cond ()) for n in body]
+	err_conds = set ([(n, cond) for (n, err_cond) in err_cond_sites
+		if err_cond
+		for assn in logic.split_conjuncts (mk_not (err_cond))
+		for cond in get_extra_assn_linear_conds (assn)
+		if possibly_linear_ineq (cond)])
+	if not err_conds:
+		return None
+
+	assert const.typ.kind == 'Word'
+	rep = rep_graph.mk_graph_slice (p)
+	eqs = mk_seq_eqs (p, exit_n, 1, False)
+	import loop_bounds
+	eqs += loop_bounds.get_linear_series_eqs (p, exit_n,
+                restrs, [], omit_standard = True)
+
+	large = (2 ** const.typ.num) - 3
+	const_less = lambda n: mk_less (const, mk_num (n, const.typ))
+	less_test = lambda n: do_linear_rev_test (rep, restrs, [], exit_n,
+		eqs, const_less (n))
+	const_ge = lambda n: mk_less (mk_num (n, const.typ), const)
+	ge_test = lambda n: do_linear_rev_test (rep, restrs, [], exit_n,
+		eqs, const_ge (n))
+
+	res = logic.binary_search_least (less_test, 1, large)
+	if res:
+		return (exit_n, const_less (res))
+	res = logic.binary_search_greatest (ge_test, 0, large)
+	if res:
+		return (exit_n, const_ge (res))
+	return None
 
 def check_split_induct (p, restrs, hyps, split, tags = None):
 	"""perform both the induction check and a function-call based check
