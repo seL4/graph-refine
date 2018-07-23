@@ -1104,6 +1104,11 @@ def parse_all(lines):
 	'''Toplevel parser for input information. Accepts an iterator over
 lines. See syntax.quick_reference for an explanation.'''
 
+	if hasattr (lines, 'name'):
+		trace ('Loading syntax from %s' % lines.name)
+	else:
+		trace ('Loading syntax (from anonymous source).')
+
 	structs = {}
 	functions = {}
 	const_globals = {}
@@ -1136,7 +1141,6 @@ lines. See syntax.quick_reference for an explanation.'''
 			fname = bits[1]
 			(n, inputs) = parse_list (parse_arg, bits, 2)
 			(_, outputs) = parse_list (parse_arg, bits, n)
-			trace ('Function %s' % fname)
 			current_function = Function (fname, inputs, outputs)
 			assert fname not in functions, fname
 			functions[fname] = current_function
@@ -1159,6 +1163,9 @@ lines. See syntax.quick_reference for an explanation.'''
 			name = node_name(bits[0])
 			assert name not in current_function.nodes, (name, bits)
 			current_function.nodes[name] = parse_node (bits, 1)
+
+	trace ('Loaded %d functions, %d structs, %d globals.'
+		% (len (functions), len (structs), len (const_globals)))
 
 	return (structs, functions, const_globals)
 
