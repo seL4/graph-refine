@@ -164,6 +164,9 @@ class ProofNode:
 		elif self.kind == 'Restr':
 			(self.point, self.restr_range) = args
 			assert len (subproofs) == 1
+		elif self.kind == 'SingleRevInduct':
+			(self.point, self.eqs_proof, self.rev_proof) = args
+			assert len (subproofs) == 1
 		elif self.kind == 'Split':
 			self.split = args
 			(l_details, r_details, eqs, n, loop_r_max) = args
@@ -172,7 +175,7 @@ class ProofNode:
 			(self.point, self.tag) = args
 			assert len (subproofs) == 2
 		else:
-			assert not 'proof node kind understood'
+			assert not 'proof node kind understood', kind
 
 	def __repr__ (self):
 		return 'ProofNode (%r, %r, %r)' % (self.kind,
@@ -186,6 +189,17 @@ class ProofNode:
 			tag = p.node_tags[self.point][0]
 			ss.extend (['Restr', '%d' % self.point,
 				tag, kind, '%d' % x, '%d' % y])
+		elif self.kind == 'SingleRevInduct':
+			tag = p.node_tags[self.point][0]
+			(eqs, n) = self.eqs_proof
+			ss.extend (['SingleRevInduct', '%d' % self.point,
+				tag, '%d' % n, '%d' % len (eqs)])
+			for (x, y) in eqs:
+				serialise_lambda (x, ss)
+				serialise_lambda (y, ss)
+			(pred, n_bound) = self.rev_proof
+			pred.serialise (ss)
+			ss.append ('%d' % n_bound)
 		elif self.kind == 'Split':
 			(l_details, r_details, eqs, n, loop_r_max) = self.args
 			ss.extend (['Split', '%d' % n, '%d' % loop_r_max])
@@ -267,6 +281,16 @@ def deserialise_inner (ss, i):
 		y = int (ss[i + 5])
 		(i, p1) = deserialise_inner (ss, i + 6)
 		return (i, ProofNode ('Restr', (point, (kind, (x, y))), [p1]))
+	elif ss[i] == 'SingleRevInduct':
+		point = int (ss[i + 1])
+		tag = ss[i + 2]
+		n = int (ss[i + 3])
+		(i, eqs) = syntax.parse_list (deserialise_double_lambda, ss, i + 4)
+		(i, pred) = syntax.parse_term (ss, i)
+		n_bound = int (ss[i])
+		(i, p1) = deserialise_inner (ss, i + 1)
+		return (i, ProofNode ('SingleRevInduct', (point, (eqs, n),
+			(pred, n_bound)), [p1]))
 	elif ss[i] == 'Split':
 		n = int (ss[i + 1])
 		loop_r_max = int (ss[i + 2])
@@ -301,6 +325,12 @@ def proof_subproblems (p, kind, args, restrs, hyps, path):
 		hyps = hyps + [restr_trivial_hyp (p, args[0], args[1], restrs)]
 		return [((restr,) + restrs, hyps,
 			'%s (%d limited)' % (path, args[0]))]
+	elif kind == 'SingleRevInduct':
+		(point, _, (pred, _)) = args
+		(tag, _) = p.node_tags[point]
+		vis = ((point, restrs + tuple ([(point, vc_num (0))])), tag)
+		new_hyp = rep_graph.true_if_at_hyp (pred, vis)
+		return [(restrs, hyps + [new_hyp], path)]
 	elif kind == 'Split':
 		split = args
 		return [(restrs, hyps + split_no_loop_hyps (tags, split, restrs),
@@ -575,7 +605,9 @@ def single_loop_induct_base_checks (p, restrs, hyps, tag, split, n, eqs):
 	return tests
 
 def single_loop_induct_step_checks (p, restrs, hyps, tag, split, n,
-				eqs_assume, eqs):
+				eqs, eqs_assume = None):
+	if eqs_assume == None:
+		eqs_assume = []
 	details = (split, (0, 1), eqs_assume + eqs)
 	cont = split_visit_one_visit (tag, details, restrs, vc_offs (n))
 	hyps = ([pc_true_hyp (cont)] + hyps
@@ -628,6 +660,18 @@ def single_loop_rev_induct_checks (p, restrs, hyps, tag, split,
 
 	return [(hyps, goal, 'Pred reverse step.')]
 
+def all_rev_induct_checks (p, restrs, hyps, point, (eqs, n), (pred, n_bound)):
+	(tag, _) = p.node_tags[point]
+        checks = (single_loop_induct_step_checks (p, restrs, hyps, tag,
+			point, n, eqs)
+		+ single_loop_induct_base_checks (p, restrs, hyps, tag,
+			point, n, eqs)
+		+ single_loop_rev_induct_checks (p, restrs, hyps, tag,
+			point, eqs, pred)
+		+ single_loop_rev_induct_base_checks (p, restrs, hyps,
+			tag, point, n_bound, eqs, pred))
+	return checks
+
 def leaf_condition_checks (p, restrs, hyps):
 	'''checks of the final refinement conditions'''
 	nrerr_pc_hyp = non_r_err_pc_hyp (p.pairing.tags, restrs)
@@ -656,6 +700,9 @@ def proof_checks_rec (p, restrs, hyps, proof, path):
 	if proof.kind == 'Restr':
 		checks = proof_restr_checks (proof.point, proof.restr_range,
 			p, restrs, hyps)
+	elif proof.kind == 'SingleRevInduct':
+		checks = all_rev_induct_checks (p, restrs, hyps, proof.point,
+			proof.eqs_proof, proof.rev_proof)
 	elif proof.kind == 'Split':
 		checks = split_checks (p, restrs, hyps, proof.split)
 	elif proof.kind == 'Leaf':
@@ -775,6 +822,23 @@ def check_proof_report_rec (p, restrs, hyps, proof, step_num, ctxt, inducts,
 		checks = proof_restr_checks (proof.point, proof.restr_range,
 			p, restrs, hyps)
 		cases = ['']
+	elif proof.kind == 'SingleRevInduct':
+		printout ('  Proving a predicate by future induction.')
+		(eqs, n) = proof.eqs_proof
+		point = proof.point
+		printout ('    proving these invariants by %d-induction' % n)
+		for x in eqs:
+			printout ('      %s (@ addr %s)'
+				% (pretty_lambda (x), point))
+		printout ('    then establishing this predicate')
+		(pred, n_bound) = proof.rev_proof
+		printout ('      %s (@ addr %s)'
+			% (pretty_lambda (pred), point))
+		printout ('    at large iterations (%d) and by back induction.'
+			% n_bound)
+		cases = ['']
+		checks = all_rev_induct_checks (p, restrs, hyps, point,
+			proof.eqs_proof, proof.rev_proof)
 	elif proof.kind == 'Split':
 		(l_dts, r_dts, eqs, n, lrmx) = proof.split
 		v = next_induct_var (inducts[0])

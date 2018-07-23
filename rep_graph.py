@@ -189,6 +189,12 @@ class Hyp:
 		else:
 			assert not 'hyp kind understood'
 
+	def get_vals (self):
+		if self.kind == 'PCImp':
+			return []
+		else:
+			return [val for (val, _) in self.vals]
+
 	def serialise_visit (self, (n, restrs), ss):
 		ss.append ('%s' % n)
 		ss.append ('%d' % len (restrs))

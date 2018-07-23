@@ -1484,6 +1484,30 @@ def get_extra_assn_linear_conds (expr):
 	assn = logic.mk_align_valid_ineq (('Array', typ, num), p)
 	return get_extra_assn_linear_conds (assn) + [less_eq]
 
+def get_rhs_speculate_ineq (p, restrs, loop_head):
+	assert p.loop_id (loop_head), loop_head
+	loop_head = p.loop_id (loop_head)
+	restrs = tuple ([(n, vc) for (n, vc) in restrs
+		if p.node_tags[n][0] == p.node_tags[loop_head][0]])
+	key = ('rhs_speculate_ineq', restrs, loop_head)
+	if key in p.cached_analysis:
+		return p.cached_analysis[key]
+
+	res = rhs_speculate_ineq (p, restrs, loop_head)
+	p.cached_analysis[key] = res
+	return res
+
+def get_new_rhs_speculate_ineq (p, restrs, hyps, loop_head):
+	res = get_rhs_speculate_ineq (p, restrs, loop_head)
+	if res == None:
+		return None
+	(point, _, (pred, _)) = res
+	hs = [h for h in hyps if point in [n for ((n, _), _) in h.visits ()]
+		if pred in h.get_vals ()]
+	if hs:
+		return None
+	return res
+
 def rhs_speculate_ineq (p, restrs, loop_head):
 	"""code for handling an interesting case in which the compiler
 	knows that the RHS program might fail in the future. for instance,
@@ -1539,10 +1563,10 @@ def rhs_speculate_ineq (p, restrs, loop_head):
 
 	res = logic.binary_search_least (less_test, 1, large)
 	if res:
-		return (exit_n, const_less (res))
+		return (loop_head, (eqs, 1), (const_less (res), large))
 	res = logic.binary_search_greatest (ge_test, 0, large)
 	if res:
-		return (exit_n, const_ge (res))
+		return (loop_head, (eqs, 1), (const_ge (res), large))
 	return None
 
 def check_split_induct (p, restrs, hyps, split, tags = None):
@@ -1634,6 +1658,8 @@ def fail_searcher (p, restrs, hyps):
 
 def build_proof_rec (searcher, p, restrs, hyps, name = "problem"):
 	trace ('doing build proof rec with restrs = %r, hyps = %r' % (restrs, hyps))
+	if searcher == None:
+		searcher = default_searcher
 
 	(kind, details) = searcher (p, restrs, hyps)
 	last_searcher_results.append ((p, restrs, hyps, kind, details, name))
@@ -1644,41 +1670,44 @@ def build_proof_rec (searcher, p, restrs, hyps, name = "problem"):
 			% ', '.join ([restr_point_name (p, n)
 				for n in restr_points]))
 		printout ("  (in %s)" % name)
-		return build_proof_rec_with_restrs (restr_points, restr_kind,
+		restr_hints = [(n, restr_kind, True) for n in restr_points]
+		return build_proof_rec_with_restrs (restr_hints,
 			searcher, p, restrs, hyps, name = name)
 	elif kind == 'Leaf':
 		return ProofNode ('Leaf', None, ())
-	assert kind in ['CaseSplit', 'Split'], kind
-	split = details
+	assert kind in ['CaseSplit', 'Split', 'SingleRevInduct'], kind
 	if kind == 'CaseSplit':
-		(split, hints) = details
-	[(_, hyps1, nm1), (_, hyps2, nm2)] = check.proof_subproblems (p, kind,
-		split, restrs, hyps, name)
+		(details, hints) = details
+	probs = check.proof_subproblems (p, kind, details, restrs, hyps, name)
 	if kind == 'CaseSplit':
-		printout ("Decided to case split at %s" % str (split))
+		printout ("Decided to case split at %s" % str (details))
 		printout ("  (in %s)" % name)
-		restr_points = hints
-		kinds = ['Number', 'Number']
+		restr_hints = [[(n, 'Number', False) for n in hints]
+			for cases in [0, 1]]
+	elif kind == 'SingleRevInduct':
+		printout ('Found a future induction at %s' % str (details[0]))
+		restr_hints = [[]]
 	else:
-		restr_points = check.split_heads (split)
-		kinds = ['Number', 'Offset']
+		restr_points = check.split_heads (details)
+		restr_hints = [[(n, rkind, True) for n in restr_points]
+			for rkind in ['Number', 'Offset']]
 		printout ("Discovered a loop relation for split points %s"
 			% list (restr_points))
 		printout ("  (in %s)" % name)
-	printout ('Now doing proof search in %s.' % nm1)
-	pf1 = build_proof_rec_with_restrs (restr_points, kinds[0], searcher,
-		p, restrs, hyps1, must_find = False, name = nm1)
-	printout ('Now doing proof search in %s.' % nm2)
-	pf2 = build_proof_rec_with_restrs (restr_points, kinds[1], searcher,
-		p, restrs, hyps2, must_find = False, name = nm2)
-	return ProofNode (kind, split, [pf1, pf2])
+	subpfs = []
+	for ((restrs, hyps, name), hints) in logic.azip (probs, restr_hints):
+		printout ('Now doing proof search in %s.' % name)
+		pf = build_proof_rec_with_restrs (hints, searcher,
+			p, restrs, hyps, name = name)
+		subpfs.append (pf)
+	return ProofNode (kind, details, subpfs)
 
-def build_proof_rec_with_restrs (split_points, kind, searcher, p, restrs,
-		hyps, must_find = True, name = "problem"):
-	if not split_points:
+def build_proof_rec_with_restrs (split_hints, searcher, p, restrs,
+		hyps, name = "problem"):
+	if not split_hints:
 		return build_proof_rec (searcher, p, restrs, hyps, name = name)
 
-	sp = split_points[0]
+	(sp, kind, must_find) = split_hints[0]
 	use_hyps = list (hyps)
 	if p.node_tags[sp][0] != p.pairing.tags[1]:
 		nrerr_hyp = check.non_r_err_pc_hyp (p.pairing.tags,
@@ -1694,9 +1723,8 @@ def build_proof_rec_with_restrs (split_points, kind, searcher, p, restrs,
 
 	if not lim_pair:
 		assert not must_find
-		return build_proof_rec_with_restrs (split_points[1:],
-			kind, searcher, p, restrs, hyps, must_find = must_find,
-			name = name)
+		return build_proof_rec_with_restrs (split_hints[1:],
+			searcher, p, restrs, hyps, name = name)
 
 	(min_v, max_v) = lim_pair
 	if kind == 'Number':
@@ -1705,9 +1733,8 @@ def build_proof_rec_with_restrs (split_points, kind, searcher, p, restrs,
 		vc_opts = rep_graph.vc_options ([], range (min_v, max_v))
 
 	restrs = restrs + ((sp, vc_opts), )
-	subproof = build_proof_rec_with_restrs (split_points[1:],
-		kind, searcher, p, restrs, hyps, must_find = must_find,
-		name = name)
+	subproof = build_proof_rec_with_restrs (split_hints[1:],
+		searcher, p, restrs, hyps, name = name)
 
 	return ProofNode ('Restr', (sp, (kind, (min_v, max_v))), [subproof])
 
@@ -1749,6 +1776,10 @@ def default_searcher (p, restrs, hyps):
 	r_ep = p.get_entry (r_tag)
 
 	for r_sp in r_to_split:
+		trace ('checking future issues')
+		res = get_new_rhs_speculate_ineq (p, restrs, hyps, r_sp)
+		if res:
+			return ('SingleRevInduct', res)
 		trace ('checking loop_no_match at %d' % r_sp, push = 1)
 		if loop_no_match (rep, restrs, hyps, r_sp, l_tag):
 			trace ('loop does not match!', push = -1)

@@ -194,7 +194,7 @@ def get_linear_series_eqs (p, split, restrs, hyps, omit_standard = False):
 
     def do_checks (eqs_assume, eqs):
         checks = (check.single_loop_induct_step_checks (p, restrs, hyps, tag,
-                split, 1, eqs_assume, eqs)
+                split, 1, eqs, eqs_assume = eqs_assume)
             + check.single_loop_induct_base_checks (p, restrs, hyps, tag,
                 split, 1, eqs))
 
