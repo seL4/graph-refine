@@ -388,7 +388,8 @@ def missing_symbols (functions):
 	return trouble
 
 def compile_funcs (functions):
-	assert not missing_symbols (functions)
+	m = missing_symbols (functions)
+	assert not m, missing_symbols (functions)
 	for (f, func) in functions.iteritems ():
 		substitute_simple (func)
 		check_compile (func)
