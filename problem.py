@@ -91,6 +91,7 @@ class Problem:
 		vs = syntax.get_vars (fun)
 		vs = dict ([(v, fresh_name (v, self.vs, vs[v])) for v in vs])
 		ns = fun.reachable_nodes ()
+		check_no_symbols ([fun.nodes[n] for n in ns])
 		for n in ns:
 			assert n not in node_renames
 			node_renames[n] = self.alloc_node (tag, (fun.name, n),
@@ -504,6 +505,16 @@ def deserialise (name, lines):
 		node = syntax.parse_node (bits, 1)
 		p.nodes[n] = node
 	return p
+
+# trivia
+
+def check_no_symbols (nodes):
+	import pseudo_compile
+	symbs = pseudo_compile.nodes_symbols (nodes)
+	if not symbs:
+		return
+	printout ('Aborting %s: undefined symbols %s' % (self.name, symbs))
+	raise Abort ()
 
 # printing of problem graphs
 

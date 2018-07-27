@@ -358,7 +358,10 @@ def check_compile (func):
 
 def subst_expr (expr):
 	if expr.kind == 'Symbol':
-		return mk_word32 (symbols[expr.name][0])
+		if expr.name in symbols:
+			return mk_word32 (symbols[expr.name][0])
+		else:
+			return None
 	elif expr.is_op ('PAlignValid'):
 		[typ, p] = expr.vals
 		assert typ.kind == 'Type'
@@ -374,22 +377,26 @@ def substitute_simple (func):
 		func.nodes[n] = node.subst_exprs (subst_expr,
 			ss = set (['Symbol', 'PAlignValid']))
 
-def missing_symbols (functions):
+def nodes_symbols (nodes):
 	symbols_needed = set()
 	def visitor (expr):
 		if expr.kind == 'Symbol':
 			symbols_needed.add(expr.name)
-	for func in functions.itervalues ():
-		for node in func.nodes.itervalues ():
-			node.visit (lambda l: (), visitor)
+	for node in nodes:
+		node.visit (lambda l: (), visitor)
+	return symbols_needed
+
+def missing_symbols (functions):
+	symbols_needed = nodes_symbols ([node
+		for func in functions.itervalues ()
+		for node in func.nodes.itervalues ()])
 	trouble = symbols_needed - set (symbols)
 	if trouble:
 		print ('Symbols missing for substitution: %r' % trouble)
 	return trouble
 
 def compile_funcs (functions):
-	m = missing_symbols (functions)
-	assert not m, missing_symbols (functions)
+	missing_symbols (functions)
 	for (f, func) in functions.iteritems ():
 		substitute_simple (func)
 		check_compile (func)
