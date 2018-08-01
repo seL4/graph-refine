@@ -1112,6 +1112,7 @@ lines. See syntax.quick_reference for an explanation.'''
 	structs = {}
 	functions = {}
 	const_globals = {}
+	cfg_warnings = []
 	for line in lines:
 		bits = line.split()
 		# empty lines and #-comments ignored
@@ -1156,7 +1157,7 @@ lines. See syntax.quick_reference for an explanation.'''
 				entry, [])
 			current_function.entry = name
 			# ensure that the function graph is closed
-			check_cfg (current_function)
+			check_cfg (current_function, warnings = cfg_warnings)
 			current_function = None
 		else:
 			# <node name> <node (encoded)>
@@ -1164,6 +1165,7 @@ lines. See syntax.quick_reference for an explanation.'''
 			assert name not in current_function.nodes, (name, bits)
 			current_function.nodes[name] = parse_node (bits, 1)
 
+	print_cfg_warnings (cfg_warnings)
 	trace ('Loaded %d functions, %d structs, %d globals.'
 		% (len (functions), len (structs), len (const_globals)))
 
@@ -1245,20 +1247,32 @@ def get_lval_typ(lval):
 def get_expr_typ(expr):
 	return expr.typ
 
-def check_cfg (fun):
+def check_cfg (fun, warnings = None):
 	dead_arcs = [(n, n2) for (n, node) in fun.nodes.iteritems ()
 		for n2 in node.get_conts ()
 		if n2 not in fun.nodes and n2 not in ['Ret', 'Err']]
 	for (n, n2) in dead_arcs:
-		trace ('Warning: dead arc in %s: %s -> %s'
-			% (fun.name, n, n2))
-		if fun.nodes[n].kind == 'Call':
-			trace ('  (follows call to %s)' % fun.nodes[n].fname)
-		else:
-			trace ('  (follows %s node!)' % fun.nodes[n].kind)
 		assert type (n2) != str
 		# OK if multiple dead arcs and we save over n2 twice
 		fun.nodes[n2] = Node ('Basic', 'Err', [])
+	if warnings == None:
+		print_cfg_warnings ([(fun, n, n2) for (n, n2) in dead_arcs])
+	else:
+		warnings.extend ([(fun, n, n2) for (n, n2) in dead_arcs])
+
+def print_cfg_warnings (warnings):
+	post_calls = set ([(fun.nodes[n].fname, fun.name)
+		for (fun, n, n2) in warnings
+		if fun.nodes[n].kind == 'Call'])
+	import logic
+	for (call, sites) in logic.dict_list (post_calls).iteritems ():
+		trace ('Missing nodes after calls to %s' % call)
+		trace ('  in %s' % str (sites))
+	for (fun, n, n2) in warnings:
+		if fun.nodes[n].kind != 'Call':
+			trace ('Warning: dead arc in %s: %s -> %s'
+				% (fun.name, n, n2))
+			trace ('  (follows %s node!)' % fun.nodes[n].kind)
 
 def check_funs (functions, verbose = False):
 	for (f, fun) in functions.iteritems():
