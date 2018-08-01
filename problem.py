@@ -780,7 +780,7 @@ def loop_heads_including_inner (p):
 def check_no_inner_loop (p, head):
 	subs = loop_inner_loops (p, head)
 	if subs:
-		trace ('Aborting %s, complex loop' % p.name)
+		printout ('Aborting %s, complex loop' % p.name)
 		trace ('  sub-loops %s of loop at %s' % (subs, head))
 		for (h, _) in subs:
 			trace ('    head %d tagged %s' % (h, p.node_tags[h]))
