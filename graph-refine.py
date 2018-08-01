@@ -31,9 +31,11 @@ import sys
 if __name__ == '__main__':
 	args = target_objects.load_target_args ()
 
-def toplevel_check (pair, check_loops = True, report = False, count = None):
-	printout ('Testing Function pair %s' % pair)
-	if count:
+def toplevel_check (pair, check_loops = True, report = False, count = None,
+		only_build_problem = False):
+	if not only_build_problem:
+		printout ('Testing Function pair %s' % pair)
+	if count and not only_build_problem:
 		(i, n) = count
 		printout ('  (function pairing %d of %d)' % (i + 1, n))
 	
@@ -52,6 +54,8 @@ def toplevel_check (pair, check_loops = True, report = False, count = None):
 	sys.stdout.flush ()
 	try:
 		p = check.build_problem (pair)
+		if only_build_problem:
+			return 'True'
 		if report:
 			printout (' .. built problem, finding proof')
 		if not check_loops and p.loop_data:
@@ -110,9 +114,11 @@ def toplevel_check (pair, check_loops = True, report = False, count = None):
 	return str (result)
 
 def toplevel_check_wname (pair, check_loops = True,
-		report_mode = False, count = None):
+		report_mode = False, count = None,
+		only_build_problem = False):
 	r = toplevel_check (pair, count = count, report = report_mode,
-		check_loops = check_loops)
+		check_loops = check_loops,
+		only_build_problem = only_build_problem)
 	return (pair.name, r)
 
 word_re = re.compile('\\w+')
@@ -163,10 +169,12 @@ def comb_results (r1, r2):
 	(_, r) = max ([(result_nums[r], r) for r in [r1, r2]])
 	return r
 
-def check_pairs (pairs, loops = True, report_mode = False):
+def check_pairs (pairs, loops = True, report_mode = False,
+		only_build_problem = False):
 	num_pairs = len (pairs)
 	results = [toplevel_check_wname (pair, check_loops = loops,
-			report_mode = report_mode, count = (i, num_pairs))
+			report_mode = report_mode, count = (i, num_pairs),
+			only_build_problem = only_build_problem)
 		for (i, pair) in enumerate (pairs)]
 	printout ('Result summary: %s' % results)
 	count = len ([1 for (_, r) in results if r == 'True'])
@@ -181,14 +189,15 @@ def check_pairs (pairs, loops = True, report_mode = False):
 		+ [r for (nm, r) in results])
 
 def check_all (omit_set = set (), loops = True, tags = None,
-		report_mode = False):
+		report_mode = False, only_build_problem = False):
 	pairs = list (set ([pair for f in pairings for pair in pairings[f]
 		if omit_set.isdisjoint (pair.funs.values ())
 		if not tags or tags.issubset (set (pair.tags))]))
 	omitted = list (set ([pair for f in pairings for pair in pairings[f]
 		if not omit_set.isdisjoint (pair.funs.values())]))
 	random.shuffle (pairs)
-	r = check_pairs (pairs, loops = loops, report_mode = report_mode)
+	r = check_pairs (pairs, loops = loops, report_mode = report_mode,
+		only_build_problem = only_build_problem)
 	if omitted:
 		printout ('  - %d pairings omitted: %s'
 			% (len (omitted), [pair.name for pair in omitted]))
@@ -260,6 +269,10 @@ def main (args):
 					target_objects.danger_set)
 				r = check_all (ex, loops = loops,
 					tags = tags, report_mode = report)
+			elif arg == 'all_assums':
+				r = check_all (excludes, loops = loops,
+					tags = tags, report_mode = report,
+					only_build_problem = True)
 			elif arg.startswith ('div:'):
 				[_, num, denom] = arg.split (':')
 				num = int (num)
