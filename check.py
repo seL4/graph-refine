@@ -696,7 +696,7 @@ def leaf_condition_checks (p, restrs, hyps):
 def proof_checks (p, proof):
 	return proof_checks_rec (p, (), init_point_hyps (p), proof, 'root')
 
-def proof_checks_rec (p, restrs, hyps, proof, path):
+def proof_checks_imm (p, restrs, hyps, proof, path):
 	if proof.kind == 'Restr':
 		checks = proof_restr_checks (proof.point, proof.restr_range,
 			p, restrs, hyps)
@@ -710,8 +710,11 @@ def proof_checks_rec (p, restrs, hyps, proof, path):
 	elif proof.kind == 'CaseSplit':
 		checks = []
 
-	checks = [(hs, hyp, '%s on %s' % (name, path))
+	return [(hs, hyp, '%s on %s' % (name, path))
 		for (hs, hyp, name) in checks]
+
+def proof_checks_rec (p, restrs, hyps, proof, path):
+	checks = proof_checks_imm (p, restrs, hyps, proof, path)
 
 	subproblems = proof_subproblems (p, proof.kind,
 		proof.args, restrs, hyps, path)

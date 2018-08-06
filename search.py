@@ -1453,13 +1453,13 @@ def linear_const_comparison (p, n, cond):
 			return (lhs, rhs)
 	return None
 
-def do_linear_rev_test (rep, restrs, hyps, split, eqs_assume, pred):
+def do_linear_rev_test (rep, restrs, hyps, split, eqs_assume, pred, large):
 	p = rep.p
 	(tag, _) = p.node_tags[split]
 	checks = (check.single_loop_rev_induct_checks (p, restrs, hyps, tag,
 			split, eqs_assume, pred)
 		+ check.single_loop_rev_induct_base_checks (p, restrs, hyps,
-			tag, split, (2 ** 32) - 10, eqs_assume, pred))
+			tag, split, large, eqs_assume, pred))
 
 	groups = check.proof_check_groups (checks)
 	for group in groups:
@@ -1556,10 +1556,10 @@ def rhs_speculate_ineq (p, restrs, loop_head):
 	large = (2 ** const.typ.num) - 3
 	const_less = lambda n: mk_less (const, mk_num (n, const.typ))
 	less_test = lambda n: do_linear_rev_test (rep, restrs, [], exit_n,
-		eqs, const_less (n))
+		eqs, const_less (n), large)
 	const_ge = lambda n: mk_less (mk_num (n, const.typ), const)
 	ge_test = lambda n: do_linear_rev_test (rep, restrs, [], exit_n,
-		eqs, const_ge (n))
+		eqs, const_ge (n), large)
 
 	res = logic.binary_search_least (less_test, 1, large)
 	if res:
