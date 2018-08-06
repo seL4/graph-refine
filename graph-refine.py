@@ -55,6 +55,7 @@ def toplevel_check (pair, check_loops = True, report = False, count = None,
 	try:
 		p = check.build_problem (pair)
 		if only_build_problem:
+			tracer[0] = prev_tracer
 			return 'True'
 		if report:
 			printout (' .. built problem, finding proof')
@@ -107,9 +108,10 @@ def toplevel_check (pair, check_loops = True, report = False, count = None,
 		traceback.print_exception (etype, evalue, tb,
 			file = sys.stdout)
 
-	printout ('Result %s for pair %s, time taken: %.2fs'
-		% (result, pair, end_time - start_time))
-	sys.stdout.flush ()
+	if not only_build_problem:
+		printout ('Result %s for pair %s, time taken: %.2fs'
+			% (result, pair, end_time - start_time))
+		sys.stdout.flush ()
 
 	return str (result)
 
@@ -172,11 +174,14 @@ def comb_results (r1, r2):
 def check_pairs (pairs, loops = True, report_mode = False,
 		only_build_problem = False):
 	num_pairs = len (pairs)
+	printout ('Checking %d function pair problems' % len (pairs))
 	results = [toplevel_check_wname (pair, check_loops = loops,
 			report_mode = report_mode, count = (i, num_pairs),
 			only_build_problem = only_build_problem)
 		for (i, pair) in enumerate (pairs)]
-	printout ('Result summary: %s' % results)
+	if not only_build_problem:
+		printout ('Results: %s' % results)
+	printout ('Result summary:')
 	count = len ([1 for (_, r) in results if r == 'True'])
 	printout ('  - %d proofs checked' % count)
 	count = len ([1 for (_, r) in results
