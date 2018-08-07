@@ -183,15 +183,35 @@ def check_pairs (pairs, loops = True, report_mode = False,
 		printout ('Results: %s' % results)
 	printout ('Result summary:')
 	count = len ([1 for (_, r) in results if r == 'True'])
-	printout ('  - %d proofs checked' % count)
-	count = len ([1 for (_, r) in results
-		if r in ['ProofAbort', 'None']])
-	printout ('  - %d proofs skipped' % count)
+	if only_build_problem:
+		printout ('  - %d problems build' % count)
+	else:
+		printout ('  - %d proofs checked' % count)
+	skipped = [nm for (nm, r) in results
+		if r in ['ProofAbort', 'None']]
+	printout ('  - %d proofs skipped' % len (skipped))
 	fails = [(nm, r) for (nm, r) in results
 		if r not in ['True', 'ProofAbort', 'None']]
+	print_coverage_report (set (skipped))
 	printout ('  - failures: %s' % fails)
 	return syntax.foldr1 (comb_results, ['True']
 		+ [r for (nm, r) in results])
+
+def print_coverage_report (skipped_pairs):
+	try:
+		from trace_refute import addrs_covered, largest_fun_by_addrs
+		covered = lambda f: [pair for pair in pairings[f]
+			if pair.name not in skipped_pairs]
+		covered_fs = set (filter (covered, pairings))
+		coverage = addrs_covered (covered_fs)
+		printout ('  - %.2f%% instructions covered' % (coverage * 100))
+		(l, _) = largest_fun_by_addrs (set (pairings) - covered_fs)
+		l_cov = addrs_covered ([l])
+		printout ('  - largest skipped function (%.2f%% instructions):'
+			% (l_cov * 100))
+		printout ('      %s' % l)
+	except Exception, e:
+		pass
 
 def check_all (omit_set = set (), loops = True, tags = None,
 		report_mode = False, only_build_problem = False):
@@ -274,7 +294,7 @@ def main (args):
 					target_objects.danger_set)
 				r = check_all (ex, loops = loops,
 					tags = tags, report_mode = report)
-			elif arg == 'all_assums':
+			elif arg == 'coverage':
 				r = check_all (excludes, loops = loops,
 					tags = tags, report_mode = report,
 					only_build_problem = True)

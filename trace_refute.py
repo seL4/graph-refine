@@ -70,15 +70,19 @@ def parse_ctxt_arcs (f):
 	return arcs
 
 body_addrs = {}
+fun_addrs_counts = {}
 
 def is_addr (n):
 	return n % 4 == 0
 
 def setup_body_addrs ():
 	for f in stack_logic.get_functions_with_tag ('ASM'):
+		count = 0
 		for n in functions[f].nodes:
 			if is_addr (n):
 				body_addrs[n] = f
+				count += 1
+		fun_addrs_counts[f] = count
 	# just in case there aren't any
 	body_addrs['Loaded'] = True
 
@@ -87,6 +91,18 @@ def get_body_addrs_fun (n):
 	if not body_addrs:
 		setup_body_addrs ()
 	return body_addrs.get (n)
+
+def addrs_covered (fs):
+	"""get the fraction of instructions covered by some functions"""
+	if not body_addrs:
+		setup_body_addrs ()
+	covered = sum ([fun_addrs_counts.get (f, 0) for f in fs])
+	total = len (body_addrs) - 1
+	return (covered * 1.0 / total)
+
+def largest_fun_by_addrs (fs):
+	(n, f) = max ([(fun_addrs_counts.get (f, 0), f) for f in fs])
+	return (f, n)
 
 problem_inline_scripts = {}
 
