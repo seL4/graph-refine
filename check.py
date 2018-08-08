@@ -326,11 +326,8 @@ def proof_subproblems (p, kind, args, restrs, hyps, path):
 		return [((restr,) + restrs, hyps,
 			'%s (%d limited)' % (path, args[0]))]
 	elif kind == 'SingleRevInduct':
-		(point, _, (pred, _)) = args
-		(tag, _) = p.node_tags[point]
-		vis = ((point, restrs + tuple ([(point, vc_num (0))])), tag)
-		new_hyp = rep_graph.true_if_at_hyp (pred, vis)
-		return [(restrs, hyps + [new_hyp], path)]
+		hyp = single_induct_resulting_hyp (p, restrs, args)
+		return [(restrs, hyps + [hyp], path)]
 	elif kind == 'Split':
 		split = args
 		return [(restrs, hyps + split_no_loop_hyps (tags, split, restrs),
@@ -590,6 +587,12 @@ def loop_eq_hyps_at_visit (tag, split, eqs, restrs, visit_num,
 		for exp in eqs if logic.inst_eq_at_visit (exp, visit_num)]
 
 	return hyps
+
+def single_induct_resulting_hyp (p, restrs, rev_induct_args):
+	(point, _, (pred, _)) = rev_induct_args
+	(tag, _) = p.node_tags[point]
+	vis = ((point, restrs + tuple ([(point, vc_num (0))])), tag)
+	return rep_graph.true_if_at_hyp (pred, vis)
 
 def single_loop_induct_base_checks (p, restrs, hyps, tag, split, n, eqs):
 	tests = []

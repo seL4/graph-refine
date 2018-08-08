@@ -1140,6 +1140,8 @@ def split_search (head, knowledge):
 			elif split == 'InductFailed':
 				knowledge.pairs[pair] = ('Failed',
 					'InductFailed', eqs)
+			elif split[0] == 'SingleRevInduct':
+				return split
 			else:
 				v_eq_cache.add ((pair, tuple (eqs)))
 				trace ('Found split!')
@@ -1153,29 +1155,51 @@ def split_search (head, knowledge):
 		assert eqs, pair
 		knowledge.eqs_add_model (eqs)
 
-def build_and_check_split (p, pair, eqs, restrs, hyps, tags):
+def build_and_check_split_inner (p, pair, eqs, restrs, hyps, tags):
 	split = v_eqs_to_split (p, pair, eqs, restrs, hyps, tags = tags)
 	if split == None:
 		return None
 	res = check_split_induct (p, restrs, hyps, split, tags = tags)
 	if res:
 		return split
+
+def build_and_check_split (p, pair, eqs, restrs, hyps, tags):
+	res = build_and_check_split (p, pair, eqs, restrs, hyps, tags)
+	if res != 'InductFailed':
+		return res
+
 	# induction has failed at this point, but we might be able to rescue
-	# it with some extra linear series eqs
+	# it one of two different ways.
 	((l_split, _, l_step), _) = pair
+	extra = get_new_extra_linear_seq_eqs (p, restrs, l_split, l_step)
+	if extra:
+		res = build_and_check_split (p, pair, eqs, restrs, hyps, tags)
+		# the additional linear eqs get built into the result
+		if res != 'InductFailed':
+			return res
+
+	(_, (r_split, _, _)) = pair
+	r_loop = p.loop_id (r_split)
+	spec = get_new_rhs_speculate_ineq (p, restrs, hyps, r_loop)
+	if spec:
+		hyp = check.single_induct_resulting_hyp (p, restrs, spec)
+		hyps2 = hyps + [hyp]
+		res = build_and_check_split (p, pair, eqs, restrs, hyps2, tags)
+		if res != 'InductFailed':
+			return ('SingleRevInduct', spec)
+
+def get_new_extra_linear_seq_eqs (p, restrs, l_split, l_step):
 	k = ('extra_linear_seq_eqs', l_split, l_step)
 	if k in p.cached_analysis:
-		return 'InductFailed'
+		return []
 	if not [v for (v, data) in get_loop_var_analysis_at (p, l_split)
 			if data[0] == 'LoopLinearSeries']:
-		return 'InductFailed'
+		return []
 	import loop_bounds
 	lin_series_eqs = loop_bounds.get_linear_series_eqs (p, l_split,
 		restrs, [], omit_standard = True)
 	p.cached_analysis[k] = lin_series_eqs
-	if not lin_series_eqs:
-		return 'InductFailed'
-	return build_and_check_split (p, pair, eqs, restrs, hyps, tags)
+	return lin_series_eqs
 
 def trace_search_fail (knowledge):
 	trace (('Exhausted split candidates for %s' % knowledge.name))
@@ -1638,10 +1662,22 @@ def loop_no_match_unroll (rep, restrs, hyps, split, other_tag, unroll):
 		return True
 	return False
 
-def loop_no_match (rep, restrs, hyps, split, other_tag):
+def loop_no_match (rep, restrs, hyps, split, other_tag,
+		check_speculate_ineq = False):
 	if not loop_no_match_unroll (rep, restrs, hyps, split, other_tag, 4):
 		return False
-	return loop_no_match_unroll (rep, restrs, hyps, split, other_tag, 8)
+	if not loop_no_match_unroll (rep, restrs, hyps, split, other_tag, 8):
+		return False
+	if not check_speculate_ineq:
+		return 'Restr'
+	spec = get_new_rhs_speculate_ineq (rep.p, restrs, hyps, split)
+	if not spec:
+		return 'Restr'
+	hyp = check.single_induct_resulting_hyp (rep.p, restrs, spec)
+	hyps2 = hyps + [hyp]
+	if not loop_no_match_unroll (rep, restrs, hyps2, split, other_tag, 8):
+		return 'SingleRevInduct'
+	return 'Restr'
 
 last_searcher_results = []
 
@@ -1776,14 +1812,15 @@ def default_searcher (p, restrs, hyps):
 	r_ep = p.get_entry (r_tag)
 
 	for r_sp in r_to_split:
-		trace ('checking future issues')
-		res = get_new_rhs_speculate_ineq (p, restrs, hyps, r_sp)
-		if res:
-			return ('SingleRevInduct', res)
 		trace ('checking loop_no_match at %d' % r_sp, push = 1)
-		if loop_no_match (rep, restrs, hyps, r_sp, l_tag):
-			trace ('loop does not match!', push = -1)
+		res = loop_no_match (rep, restrs, hyps, r_sp, l_tag,
+			check_speculate_ineq = True)
+		if res == 'Restr':
 			return ('Restr', ('Number', [r_sp]))
+		elif res == 'SingleRevInduct':
+			spec = get_new_rhs_speculate_ineq (p, restrs, hyps, r_sp)
+			assert spec
+			return ('SingleRevInduct', spec)
 		trace (' .. done checking loop no match', push = -1)
 
 	if l_to_split and not r_to_split:
