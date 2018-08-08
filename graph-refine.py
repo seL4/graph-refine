@@ -199,17 +199,19 @@ def check_pairs (pairs, loops = True, report_mode = False,
 
 def print_coverage_report (skipped_pairs):
 	try:
-		from trace_refute import addrs_covered, largest_fun_by_addrs
-		covered = lambda f: [pair for pair in pairings[f]
-			if pair.name not in skipped_pairs]
+		from trace_refute import addrs_covered, funs_sort_by_num_addrs
+		covered = lambda f: all ([pair.name not in skipped_pairs
+			for pair in pairings[f]])
 		covered_fs = set (filter (covered, pairings))
 		coverage = addrs_covered (covered_fs)
 		printout ('  - %.2f%% instructions covered' % (coverage * 100))
-		(l, _) = largest_fun_by_addrs (set (pairings) - covered_fs)
-		l_cov = addrs_covered ([l])
-		printout ('  - largest skipped function (%.2f%% instructions):'
-			% (l_cov * 100))
-		printout ('      %s' % l)
+		fs = funs_sort_by_num_addrs (set (pairings) - covered_fs)
+		if not fs:
+			return
+		lrg_msgs = ['%s (%.2f%%)' % (f, addrs_covered ([f]) * 100)
+			for f in reversed (fs[-3:])]
+		printout ('  - largest skipped functions:')
+		printout ('      %s' % ', '.join (lrg_msgs))
 	except Exception, e:
 		pass
 

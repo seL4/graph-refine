@@ -100,9 +100,16 @@ def addrs_covered (fs):
 	total = len (body_addrs) - 1
 	return (covered * 1.0 / total)
 
-def largest_fun_by_addrs (fs):
-	(n, f) = max ([(fun_addrs_counts.get (f, 0), f) for f in fs])
-	return (f, n)
+def funs_sort_by_num_addrs (fs):
+	"""sort a list of function names into increasing order
+	of the number of instruction addresses, skipping functions
+	with no instructions in their body."""
+	if not body_addrs:
+		setup_body_addrs ()
+	fun_addrs = [(fun_addrs_counts[f], f) for f in fs
+		if f in fun_addrs_counts]
+	fun_addrs.sort ()
+	return [f for (n, f) in fun_addrs]
 
 problem_inline_scripts = {}
 

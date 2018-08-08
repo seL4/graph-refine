@@ -33,7 +33,7 @@ def build_problem (pairing, force_inline = None, avoid_abort = False):
 
 	p.do_analysis ()
 
-	# FIXME: the inlining is heuristic and belongs in 'search'
+	# FIXME: the inlining is heuristic, and arguably belongs in 'search'
 	inline_completely_unmatched (p, skip_underspec = avoid_abort)
 	
 	# now do any C inlining
