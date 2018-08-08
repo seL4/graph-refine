@@ -8,6 +8,17 @@
 # *
 # * @TAG(Data61_BSD)
 
+function report_err {
+  echo .. failed!
+  echo Short error output:
+  echo
+  tail -n 20 $1
+  echo
+  echo "  (more error output in $1)"
+  exit 1
+}
+
+
 HOL4_DIR=$(ls -d HOL4 ../HOL4 ../../HOL4 2> /dev/null | head -n 1)
 if [[ -e $HOL4_DIR ]]
 then
@@ -37,10 +48,10 @@ then
   then
     echo Built PolyML
   else
-    echo Failed to build PolyML
-    echo see poly_output.txt
+    report_err poly_output.txt
     exit 1
   fi
+  popd
 elif [[ -e $POLY_DIR ]]
 then
   echo Missing PolyML source in $POLY_DIR
@@ -63,12 +74,10 @@ echo Building HOL4 now.
 echo '  (tracing build progress to hol4_output.txt)'
 echo '  (configuring)'
 $POLY < tools-poly/smart-configure.sml &> $OUT
-popd
 
 if [[ ! -e $HOL4_DIR/bin/build ]]
 then
-  echo Failed to configure HOL4.
-  echo see hol4_output.txt
+  report_err hol4_output.txt
   exit 1
 fi
 
@@ -79,8 +88,8 @@ if ( tail $OUT | grep 'built successfully' )
 then
   echo 'Built HOL4.'
 else
-  echo Failed to build HOL4
-  echo see hol4_output.txt
+  report_err hol4_output.txt
   exit 1
 fi
+popd
 
