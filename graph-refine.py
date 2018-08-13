@@ -356,5 +356,7 @@ def main (args):
 
 if __name__ == '__main__':
 	result = main (args)
+	if result in ['True', 'Loop', 'NoLoop', 'None']:
+		sys.exit (0)
 	sys.exit (result_nums[result])
 
