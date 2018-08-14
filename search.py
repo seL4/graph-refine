@@ -1164,7 +1164,7 @@ def build_and_check_split_inner (p, pair, eqs, restrs, hyps, tags):
 		return split
 
 def build_and_check_split (p, pair, eqs, restrs, hyps, tags):
-	res = build_and_check_split (p, pair, eqs, restrs, hyps, tags)
+	res = build_and_check_split_inner (p, pair, eqs, restrs, hyps, tags)
 	if res != 'InductFailed':
 		return res
 
@@ -1187,6 +1187,7 @@ def build_and_check_split (p, pair, eqs, restrs, hyps, tags):
 		res = build_and_check_split (p, pair, eqs, restrs, hyps2, tags)
 		if res != 'InductFailed':
 			return ('SingleRevInduct', spec)
+	return 'InductFailed'
 
 def get_new_extra_linear_seq_eqs (p, restrs, l_split, l_step):
 	k = ('extra_linear_seq_eqs', l_split, l_step)
