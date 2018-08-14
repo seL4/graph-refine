@@ -89,7 +89,7 @@ def toplevel_check (pair, check_loops = True, report = False, count = None,
 			result = 'CheckEXCEPT'
 
 	except problem.Abort:
-		result = 'ProofAbort'
+		result = 'ProblemAbort'
 	except search.NoSplit:
 		result = 'ProofNoSplit'
 	except solver.SolverFailure, e:
@@ -153,22 +153,23 @@ def problem_search (s):
 
 # somewhat arbitrary assignment of return codes to outcomes.
 # larger numbers are (roughly) worse outcomes.
-result_nums = {
-	'True' : 0,
-	'Loop' : 1,
-	'NoLoop' : 2,
-	'None' : 3,
-	'False': 4,
-	'ProofAbort' : 5,
-	'ProofNoSplit' : 6,
-	'ProofSolverFailure' : 7,
-	'ProofEXCEPT' : 8,
-	'CheckSolverFailure' : 9,
-	'CheckEXCEPT' : 10,
+# key categories are success, skipped (not in covered cases), and failure
+result_codes = {
+	'True' : (0, 'Success'),
+	'Loop' : (1, 'Skipped'),
+	'NoLoop' : (2, 'Skipped'),
+	'None' : (3, 'Skipped'),
+	'ProblemAbort' : (4, 'Skipped'),
+	'False': (5, 'Failed'),
+	'ProofNoSplit' : (6, 'Failed'),
+	'ProofSolverFailure' : (7, 'Failed'),
+	'ProofEXCEPT' : (8, 'Failed'),
+	'CheckSolverFailure' : (9, 'Failed'),
+	'CheckEXCEPT' : (10, 'Failed'),
 }
 
 def comb_results (r1, r2):
-	(_, r) = max ([(result_nums[r], r) for r in [r1, r2]])
+	(_, r) = max ([(result_codes[r], r) for r in [r1, r2]])
 	return r
 
 def check_pairs (pairs, loops = True, report_mode = False,
@@ -188,10 +189,10 @@ def check_pairs (pairs, loops = True, report_mode = False,
 	else:
 		printout ('  - %d proofs checked' % count)
 	skipped = [nm for (nm, r) in results
-		if r in ['ProofAbort', 'None']]
+		if r in ['ProblemAbort', 'None']]
 	printout ('  - %d proofs skipped' % len (skipped))
 	fails = [(nm, r) for (nm, r) in results
-		if r not in ['True', 'ProofAbort', 'None']]
+		if r not in ['True', 'ProblemAbort', 'None']]
 	print_coverage_report (set (skipped))
 	printout ('  - failures: %s' % fails)
 	return syntax.foldr1 (comb_results, ['True']
@@ -356,7 +357,9 @@ def main (args):
 
 if __name__ == '__main__':
 	result = main (args)
-	if result in ['True', 'Loop', 'NoLoop', 'None']:
+	(code, category) = result_codes[result]
+	if category == 'Failed':
+		sys.exit (code)
+	else:
 		sys.exit (0)
-	sys.exit (result_nums[result])
 
