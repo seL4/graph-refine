@@ -813,7 +813,6 @@ def pretty_lambda (t):
 
 def check_proof_report_rec (p, restrs, hyps, proof, step_num, ctxt, inducts,
 		do_check = True):
-	import sys
 	printout ('Step %d: %s' % (step_num, ctxt))
 	if proof.kind == 'Restr':
 		(kind, (x, y)) = proof.restr_range
@@ -890,11 +889,9 @@ def check_proof_report_rec (p, restrs, hyps, proof, step_num, ctxt, inducts,
 			if not res:
 				printout ('    .. failed to prove this.')
 				printout ('      (failure kind: %r)' % detail[0])
-				sys.stdout.flush ()
 				return
 
 		printout ('    .. proven.')
-		sys.stdout.flush ()
 
 	subproblems = proof_subproblems (p, proof.kind,
 		proof.args, restrs, hyps, '')

@@ -8,6 +8,8 @@
 
 # these objects are to be filled in by the target
 
+import sys
+
 class TargetDir:
 	def __init__ (self):
 		self.d = None
@@ -57,6 +59,7 @@ trace_files = []
 
 def printout (s):
 	print s
+	sys.stdout.flush ()
 	for f in trace_files:
 		f.write (s + '\n')
 		f.flush ()
@@ -80,7 +83,6 @@ def load_target (target, target_args = None):
 	if target_args != None:
 		target_args.extend (target_args)
 	package = '.'.join (__name__.split ('.')[:-1])
-	import sys
 	if package:
 		pck = sys.modules[package]
 		pck.__path__.append (target)
@@ -90,7 +92,6 @@ def load_target (target, target_args = None):
 
 def load_target_args (args = None):
 	if args == None:
-		import sys
 		args = list (sys.argv)
 	if len (args) <= 1:
 		import os.path
