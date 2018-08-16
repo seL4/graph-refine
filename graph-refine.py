@@ -16,6 +16,7 @@ import rep_graph
 import problem
 import check
 import search
+import logic
 from target_objects import pairings, functions
 from target_objects import trace, tracer, printout
 import target_objects
@@ -115,17 +116,11 @@ def toplevel_check (pair, check_loops = True, report = False, count = None,
 
 	return str (result)
 
-def toplevel_check_wname (pair, check_loops = True,
-		report_mode = False, count = None,
-		only_build_problem = False):
-	r = toplevel_check (pair, count = count, report = report_mode,
-		check_loops = check_loops,
-		only_build_problem = only_build_problem)
-	return (pair.name, r)
-
 word_re = re.compile('\\w+')
 
 def name_search (s, tags = None):
+	if s in pairings and len (pairings[s]) == 1:
+		return pairings[s][0]
 	pairs = list (set ([pair for f in pairings for pair in pairings[f]
 		if s in pair.name
 		if not tags or tags.issubset (set (pair.tags))]))
@@ -176,37 +171,39 @@ def check_pairs (pairs, loops = True, report_mode = False,
 		only_build_problem = False):
 	num_pairs = len (pairs)
 	printout ('Checking %d function pair problems' % len (pairs))
-	results = [toplevel_check_wname (pair, check_loops = loops,
-			report_mode = report_mode, count = (i, num_pairs),
-			only_build_problem = only_build_problem)
+	results = [(pair, toplevel_check (pair, check_loops = loops,
+			report = report_mode, count = (i, num_pairs),
+			only_build_problem = only_build_problem))
 		for (i, pair) in enumerate (pairs)]
+	result_dict = logic.dict_list ([(result_codes[r][1], pair)
+		for (pair, r) in results])
 	if not only_build_problem:
-		printout ('Results: %s' % results)
+		printout ('Results: %s'
+			% [(pair.name, r) for (pair, r) in results])
 	printout ('Result summary:')
-	count = len ([1 for (_, r) in results if r == 'True'])
+	success = result_dict.get ('Success', [])
 	if only_build_problem:
-		printout ('  - %d problems build' % count)
+		printout ('  - %d problems build' % len (success))
 	else:
-		printout ('  - %d proofs checked' % count)
-	skipped = [nm for (nm, r) in results
-		if r in ['ProblemAbort', 'None']]
+		printout ('  - %d proofs checked' % len (success))
+	skipped = result_dict.get ('Skipped', [])
 	printout ('  - %d proofs skipped' % len (skipped))
-	fails = [(nm, r) for (nm, r) in results
-		if r not in ['True', 'ProblemAbort', 'None']]
-	print_coverage_report (set (skipped))
+	fails = [pair.name for pair in result_dict.get ('Failed', [])]
+	print_coverage_report (set (skipped), set (success + fails))
 	printout ('  - failures: %s' % fails)
 	return syntax.foldr1 (comb_results, ['True']
-		+ [r for (nm, r) in results])
+		+ [r for (_, r) in results])
 
-def print_coverage_report (skipped_pairs):
+def print_coverage_report (skipped_pairs, covered_pairs):
 	try:
 		from trace_refute import addrs_covered, funs_sort_by_num_addrs
-		covered = lambda f: all ([pair.name not in skipped_pairs
-			for pair in pairings[f]])
-		covered_fs = set (filter (covered, pairings))
+		covered_fs = set ([f for pair in covered_pairs
+			for f in [pair.l_f, pair.r_f]])
 		coverage = addrs_covered (covered_fs)
 		printout ('  - %.2f%% instructions covered' % (coverage * 100))
-		fs = funs_sort_by_num_addrs (set (pairings) - covered_fs)
+		skipped_fs = set ([f for pair in skipped_pairs
+			for f in [pair.l_f, pair.r_f]])
+		fs = funs_sort_by_num_addrs (set (skipped_fs))
 		if not fs:
 			return
 		lrg_msgs = ['%s (%.2f%%)' % (f, addrs_covered ([f]) * 100)
