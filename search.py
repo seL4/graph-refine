@@ -1162,6 +1162,8 @@ def build_and_check_split_inner (p, pair, eqs, restrs, hyps, tags):
 	res = check_split_induct (p, restrs, hyps, split, tags = tags)
 	if res:
 		return split
+	else:
+		return 'InductFailed'
 
 def build_and_check_split (p, pair, eqs, restrs, hyps, tags):
 	res = build_and_check_split_inner (p, pair, eqs, restrs, hyps, tags)
