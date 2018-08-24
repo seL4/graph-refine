@@ -1210,38 +1210,39 @@ class Solver:
 		check = None
 		if response == 'sat':
 			last_satisfiable_hyps[0] = hyps
-		if model != None and response == 'sat':
-			m = {}
+		if k[0] != 'ModelRepair':
+			if model == None or response != 'sat':
+				output.close ()
+				return (k, hyps, response)
+		# model issues
+		m = {}
+		if model != None:
 			res = self.fetch_model_response (m, stream = output)
-			if not res:
-				# just drop this solver at this point
-				trace ('failed to extract model.')
-				return None
-			state = self.first_check_model_iteration (hyps, m)
-			i = 0
-			check = True
 		output.close ()
+		if model != None and not res:
+			# just drop this solver at this point
+			trace ('failed to extract model.')
+			return None
 		if k[0] == 'ModelRepair':
 			(_, k, i) = k
 			(state, hyps) = self.parallel_model_states[k]
-			check = True
-		if check:
-			res = self.check_model_iteration (state, (response, m))
-			if res == True:
-				model.update (m)
-				return (k, hyps, response)
-			elif res == False:
-				return None
-			else:
-				(solv, test_hyps, state) = res
-				self.parallel_model_states[k] = (state, hyps)
-				k = ('ModelRepair', k, i + 1)
-				self.add_parallel_solver (k,
-					[h for (h, _) in test_hyps],
-					use_this_solver = solv, model = model)
-				return None
-
-		return (k, hyps, response)
+		else:
+			i = 0
+			state = None
+		res = self.check_model_iteration (hyps, state, (response, m))
+		(kind, details) = res
+		if kind == 'Abort':
+			return None
+		elif kind == 'Result':
+			model.update (details)
+			return (k, hyps, 'sat')
+		elif kind == 'Continue':
+			(solv, test_hyps, state) = details
+			self.parallel_model_states[k] = (state, hyps)
+			k = ('ModelRepair', k, i + 1)
+			self.add_parallel_solver (k, test_hyps,
+				use_this_solver = solv, model = model)
+			return None
 
 	def wait_parallel_solver (self):
 		while True:
@@ -1455,91 +1456,90 @@ class Solver:
 		self.last_model_acc_hyps = (len (self.model_exprs), hyps)
 		return hyps
 
-	def check_model_iteration (self, (hyps, ex, solvs), (res, model)):
-		orig_hyps = hyps
+	def check_model_iteration (self, hyps, state, (res, model)):
+		"""process an iteration of checking a model. the solvers
+		sometimes give partially bogus models, which we need to
+		check for.
+		the state at any time is (confirmed, test, cand_model, solvs)
+		We build additional hypotheses (e.g. x = 0) from models.
+		The 'confirmed' additional hyps have been shown sat together
+		with the original hyps, and 'test' are under test this
+		iteration. If the test is true, 'cand_model' will be
+		confirmed to be a valid (possibly incomplete) model.
+		We may prune a model down to an incomplete one to try to
+		find a valid part. The 'solvs' are solvers which have yet
+		to have a model tested (as candidate) from the current
+		'confirmed' hyps."""
+		if state == None:
+			test = []
+			confirmed = hyps
+			assert res == 'sat'
+			cand_model = None
+			solvs = self.model_strategy
+		else:
+			(confirmed, test, cand_model, solvs) = state
+
+		if cand_model and res == 'sat':
+			if ('IsIncomplete', None) not in cand_model:
+				return ('Result', cand_model)
+
 		if res == 'sat':
-			# confirm experiment
-			if ex != None:
-				hyps = sorted (set (hyps + ex))
-		elif res == 'unsat' and ex == None:
+			if set (test) - set (confirmed):
+				# confirm experiment
+				confirmed = sorted (set (confirmed + test))
+				# progress was made, reenable all solvers
+				solvs = solvs + [s for s in self.model_strategy
+					if s not in solvs]
+		elif res == 'unsat' and not test:
 			printout ("WARNING: inconsistent sat/unsat.")
-			inconsistent_hyps.append ((self, hyps))
-			return False
+			inconsistent_hyps.append ((self, hyps, confirmed))
+			return ('Abort', None)
 		else:
 			# since not sat, ignore model contents
 			model = None
 
-		if not model:
-			# no way to learn anything from model, iterate
-			return self.next_check_iteration (orig_hyps, hyps, solvs)
+		# the candidate model wasn't confirmed, but might we
+		# learn more by reducing it?
+		if cand_model and res != 'sat':
+			reduced = self.reduce_model (cand_model, hyps)
+			r_hyps = get_model_hyps (reduced, self)
+			solv = (solvs + self.model_strategy)[0]
+			if set (r_hyps) - set (confirmed):
+				return ('Continue', (solv, confirmed + r_hyps,
+					(confirmed, r_hyps, None, solvs)))
 
-		trace ('doing model check')
-		force_solv = None
-		if ('IsIncomplete', None) in model:
-			force_solv = 'Fast'
-		model_hyps = ['(= %s %s)' % (flat_s_expression (x),
-				smt_expr (v, {}, self))
-			for (x, v) in model.iteritems ()
-			if x != ('IsIncomplete', None)]
-		test_hyps = [(h, None) for h in model_hyps + hyps]
-		res = self.hyps_sat_raw (test_hyps, recursion = True)
-		if res == 'sat' and ('IsIncomplete', None) not in model:
-			trace ('model checks out!')
-			return True
-		elif res == 'sat':
-			hyps = sorted (set (hyps + model_hyps))
-			trace ('partial model (%d vals) checks out, continuing'
-				% len (hyps))
-			# learned all we'll learn here, iterate
-			return self.next_check_iteration (orig_hyps, hyps, solvs)
+		# ignore the candidate model now, and try to continue with
+		# the most recently returned model. that expires the solver
+		# that produced this model from solvs
+		solvs = solvs[1:]
+		if not model and not solvs:
+			# out of options
+			return ('Abort', None)
+		solv = (solvs + self.model_strategy)[0]
 
-		trace ('got %r, reducing model to continue' % res)
-		model = self.reduce_model (model, orig_hyps)
-		model_hyps2 = ['(= %s %s)' % (flat_s_expression (x),
-				smt_expr (v, {}, self))
-			for (x, v) in model.iteritems ()]
-		model_hyps2 = list (set (model_hyps2) - set (hyps))
-		if model_hyps2:
-			# push this as an experiment
-			solv = self.model_strategy[0]
-			test_hyps = [(h, None) for h in hyps + model_hyps2]
-			return (solv, test_hyps, (hyps, model_hyps2, solvs))
-
-		# failed to learn anything here, iterate
-		return self.next_check_iteration (orig_hyps, hyps, solvs)
-
-	def next_check_iteration (self, hyps, new_hyps, solvs):
-		new_hyps = sorted (set (new_hyps + [h for (h, _)
-			in self.force_model_accuracy_hyps ()]))
-		(solvs_remaining, progress) = solvs
-		progress = progress or new_hyps != hyps
-		if not solvs_remaining and progress:
-			solvs_remaining = list (self.model_strategy)
-			progress = False
-		if not solvs_remaining:
-			# nothing left to do
-			return False
-		solv = solvs_remaining.pop (0)
-		return (solv, [(h, None) for h in new_hyps],
-			(new_hyps, None, (solvs_remaining, progress)))
-
-	def first_check_model_iteration (self, hyps, model):
-		return (hyps, None, ([], True))
+		if model:
+			test_hyps = get_model_hyps (model, self)
+		else:
+			model = None
+			test_hyps = []
+		return ('Continue', (solv, confirmed + test_hyps,
+			(confirmed, test_hyps, model, solvs)))
 
 	def check_model (self, hyps, model):
 		orig_model = model
-		state = self.first_check_model_iteration (hyps, model)
+		state = None
 		arg = ('sat', dict (model))
 		while True:
-			res = self.check_model_iteration (state, arg)
-			if res == True:
-				(_, model) = arg
-				orig_model.clear ()
-				orig_model.update (model)
-				return True
-			elif res == False:
+			res = self.check_model_iteration (hyps, state, arg)
+			(kind, details) = res
+			if kind == 'Abort':
 				return False
-			(solv, test_hyps, state) = res
+			elif kind == 'Result':
+				orig_model.clear ()
+				orig_model.update (details)
+				return True
+			assert kind == 'Continue'
+			(solv, test_hyps, state) = details
 			m = {}
 			res = self.hyps_sat_raw (test_hyps, model = m,
 				force_solv = solv, recursion = True)
@@ -2081,6 +2081,11 @@ def make_model (sexp, m, abbrvs = [], mem_defs = {}):
 	last_10_models.append (m_pre)
 	last_10_models[:-10] = []
 	return True
+
+def get_model_hyps (model, solv):
+	return ['(= %s %s)' % (flat_s_expression (x), smt_expr (v, {}, solv))
+		for (x, v) in model.iteritems ()
+		if x != ('IsIncomplete', None)]
 
 def add_key_model_vs (sexpr, m, solv, vs):
 	if sexpr[0] == '=>':
