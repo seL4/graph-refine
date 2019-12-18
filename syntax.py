@@ -1276,26 +1276,30 @@ def print_cfg_warnings (warnings):
 
 def check_funs (functions, verbose = False):
 	for (f, fun) in functions.iteritems():
-		if not fun:
-			continue
-		if verbose:
-			trace ('Checking %s' % f)
-		check_cfg (fun)
-		get_vars(fun)
-		for (n, node) in fun.nodes.iteritems():
-			if node.kind == 'Call':
-				c = functions[node.fname]
-				assert map(get_expr_typ, node.args) == \
-					map (get_lval_typ, c.inputs), (
-						 node.fname, node.args, c.inputs)
-				assert map (get_lval_typ, node.rets) == \
-					map (get_lval_typ, c.outputs), (
-						 node.fname, node.rets, c.outputs)
-			elif node.kind == 'Basic':
-				for (lv, v) in node.upds:
-					assert get_lval_typ(lv) == get_expr_typ(v)
-			elif node.kind == 'Cond':
-				assert get_expr_typ(node.cond) == boolT
+		try:
+			if not fun:
+				continue
+			if verbose:
+				trace ('Checking %s' % f)
+			check_cfg (fun)
+			get_vars(fun)
+			for (n, node) in fun.nodes.iteritems():
+				if node.kind == 'Call':
+					c = functions[node.fname]
+					assert map(get_expr_typ, node.args) == \
+						map (get_lval_typ, c.inputs), (
+							 node.fname, node.args, c.inputs)
+					assert map (get_lval_typ, node.rets) == \
+						map (get_lval_typ, c.outputs), (
+							 node.fname, node.rets, c.outputs)
+				elif node.kind == 'Basic':
+					for (lv, v) in node.upds:
+						assert get_lval_typ(lv) == get_expr_typ(v)
+				elif node.kind == 'Cond':
+					assert get_expr_typ(node.cond) == boolT
+		except Exception, e:
+			print "check_funs: failed for " + f
+			raise e
 
 def get_extensions (v):
 	extensions = set ()
