@@ -487,7 +487,7 @@ def adjust_ret_ptr (ptr):
 	produce meaningful offsets against the pointers actually used in the
 	program."""
 
-	return logic.var_subst (ptr, {('r0_input', syntax.word32T):
+	return logic.var_subst (ptr, {('ret_addr_input', syntax.word32T):
 		syntax.mk_var ('r0', syntax.word32T)}, must_subst = False)
 
 def get_loop_virtual_stack_analysis (p, tag):
@@ -1007,7 +1007,7 @@ def get_asm_calling_convention_inner (num_c_args, num_c_rets, const_mem):
 	r0 = arg_regs[0]
 	sp = mk_var ('r13', word32T)
 	st = mk_var ('stack', builtinTs['Mem'])
-	r0_input = mk_var ('r0_input', word32T)
+	r0_input = mk_var ('ret_addr_input', word32T)
 
 	mem = mk_var ('mem', builtinTs['Mem'])
 	dom = mk_var ('dom', builtinTs['Dom'])

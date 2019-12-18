@@ -25,7 +25,7 @@ syntax.parse_and_install_all (f, 'C')
 f.close ()
 
 f = open ('%s/ASMFunctions.txt' % target_dir)
-(astructs, afunctions, aconst_globals) = syntax.parse_and_install_all (f, 'ASM',skip_functions= ['fastpath_call', 'fastpath_reply_recv','c_handle_syscall'])
+(astructs, afunctions, aconst_globals) = syntax.parse_and_install_all (f, 'ASM',skip_functions= ['fastpath_call', 'fastpath_reply_recv','c_handle_syscall','arm_swi_syscall'])
 f.close ()
 assert not astructs
 assert not aconst_globals
@@ -34,7 +34,7 @@ assert logic.aligned_address_sanity (afunctions, symbols, 4)
 
 f = open ('%s/kernel.elf.rodata' % target_dir)
 objdump.install_rodata (f, [('Section', '.rodata'), ('Symbol', 'kernel_devices'),
-	('Symbol', 'avail_p_regs'), ('Symbol', 'dev_p_regs')])
+	('Symbol', 'avail_p_regs')])
 f.close ()
 
 print 'Pseudo-Compiling.'

@@ -133,7 +133,7 @@ def mk_eqs_arm_none_eabi_gnu (var_c_args, var_c_rets, c_imem, c_omem,
 	r0 = arg_regs[0]
 	sp = mk_var ('r13', word32T)
 	st = mk_var ('stack', builtinTs['Mem'])
-	r0_input = mk_var ('r0_input', word32T)
+	r0_input = mk_var ('ret_addr_input', word32T)
 	sregs = mk_stack_sequence (sp, 4, st, word32T, len (var_c_args) + 1)
 
 	ret = mk_var ('ret', word32T)
