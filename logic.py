@@ -34,7 +34,7 @@ def cast_pair (((a, a_addr), (c, c_addr))):
 		c = mk_if (c, mk_word32 (1), mk_word32 (0))
 	return ((a, a_addr), (mk_cast (c, a.typ), c_addr))
 
-ghost_assertion_type = syntax.Type ('WordArray', 64, 32)
+ghost_assertion_type = syntax.Type ('WordArray', 50, 32)
 
 def split_scalar_globals (vs):
 	for i in range (len (vs)):
