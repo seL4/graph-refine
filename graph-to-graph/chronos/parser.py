@@ -62,19 +62,19 @@ valid_other_instructions = (
 
 valid_conditions = (
     '', 'ne', 'eq',
-    'cs', 'hs',
-    'cc', 'lo',
-    'mi', 'pl', 'vs', 'vc', 'hi', 'ls', 'ge', 'lt', 'gt', 'le',
+        'cs', 'hs',
+        'cc', 'lo',
+        'mi', 'pl', 'vs', 'vc', 'hi', 'ls', 'ge', 'lt', 'gt', 'le',
 )
 
 valid_instruction_re = re.compile(
     r'''^(?:
-            (?P<instruction1>%(arith_instructions)s)
-            (?P<setcc>s?)
-            (?P<cond1>%(conditions)s) |
-            (?P<instruction2>%(other_instructions)s)
-            (?P<cond2>%(conditions)s)
-        )$''' % {
+			(?P<instruction1>%(arith_instructions)s)
+			(?P<setcc>s?)
+			(?P<cond1>%(conditions)s) |
+			(?P<instruction2>%(other_instructions)s)
+			(?P<cond2>%(conditions)s)
+		)$''' % {
         'arith_instructions': '|'.join(valid_arith_instructions),
         'other_instructions': '|'.join(valid_other_instructions),
         'conditions': '|'.join(valid_conditions)
@@ -103,42 +103,42 @@ aliases = {
 any_register = r'%s' % ('|'.join(list(all_registers) + aliases.keys()))
 ldrstr_args_re = re.compile(
     r'''(?:(?:%(any_register)s),\s*)?
-        (?P<target_reg>%(any_register)s),\s*
-        \[
-        (?P<base_addr_reg>%(any_register)s)\s*
-        (?:,\s*
-            (?:
-                \#(?P<incr_val>-?[0-9]+) |
-                (?P<incr_reg>%(any_register)s)\s*
-                (?:,\s*
-                    (?P<shift_method>lsl|lsr|asr|ror|rrx)\s+
-                    \#(?P<shift_amount>[0-9]+)
-                )?
-            )
-        )?
-    \]
-    (?:
-        (?P<writeback> !) |
-        ,\s* (?P<writeback_incr_reg>%(any_register)s) |
-        ,\s* \#(?P<writeback_incr_amount>-?[0-9]+)
-    )?\s*(;.*)?
-    $''' % {'any_register' : any_register},
+		(?P<target_reg>%(any_register)s),\s*
+		\[
+		(?P<base_addr_reg>%(any_register)s)\s*
+		(?:,\s*
+			(?:
+				\#(?P<incr_val>-?[0-9]+) |
+				(?P<incr_reg>%(any_register)s)\s*
+				(?:,\s*
+					(?P<shift_method>lsl|lsr|asr|ror|rrx)\s+
+					\#(?P<shift_amount>[0-9]+)
+				)?
+			)
+		)?
+	\]
+	(?:
+		(?P<writeback> !) |
+		,\s* (?P<writeback_incr_reg>%(any_register)s) |
+		,\s* \#(?P<writeback_incr_amount>-?[0-9]+)
+	)?\s*(;.*)?
+	$''' % {'any_register' : any_register},
     re.X)
 
 operand2 = r'''(?:
-            \#(?P<op2_val>-?[0-9]+) |
-            (?:
-                (?P<op2_reg>%(any_register)s
-                )
-                (?:,\s*
-                    (?P<shift_method>lsl|lsr|asr|ror|rrx)\s+
-                    (?:
-                        \#(?P<shift_amount>[0-9]+) |
-                        (?P<shift_by_reg>%(any_register)s)
-                    )
-                )?
-            )
-        )'''
+			\#(?P<op2_val>-?[0-9]+) |
+			(?:
+				(?P<op2_reg>%(any_register)s
+				)
+				(?:,\s*
+					(?P<shift_method>lsl|lsr|asr|ror|rrx)\s+
+					(?:
+						\#(?P<shift_amount>[0-9]+) |
+						(?P<shift_by_reg>%(any_register)s)
+					)
+				)?
+			)
+		)'''
 
 onereg_and_operand2_re = re.compile(
     (r'''(?P<target_reg>%(any_register)s),\s*''' + operand2 + '(\s*;.*)?$') % {
@@ -147,7 +147,7 @@ onereg_and_operand2_re = re.compile(
 
 tworegs_and_operand2_re = re.compile(
     (r'''(?P<target_reg>%(any_register)s),\s*
-        (?P<source_reg>%(any_register)s),\s*''' + operand2 + '(\s*;.*)?$') % {
+		(?P<source_reg>%(any_register)s),\s*''' + operand2 + '(\s*;.*)?$') % {
         'any_register' : any_register},
     re.X)
 
@@ -560,13 +560,17 @@ mnemonic_to_class_map = dict([(m, c)
                               for m in ms])
 
 def decode_instruction(addr, value, decoding):
+    print(decoding)
     decoding = decoding.strip()
     bits = decoding.split(None, 1)
     if len(bits) == 1:
         instruction, args = bits[0], []
     else:
         instruction, args = bits
-
+    print(decoding)
+    print(instruction)
+    print(args)
+    print(value)
     g = valid_instruction_re.match(instruction)
     if g is None:
         raise FatalError("Unknown instruction %s at address %#x" % (instruction, addr))
