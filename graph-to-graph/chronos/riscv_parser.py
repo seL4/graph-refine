@@ -27,9 +27,10 @@ rd_imm = (
     'jal',      # rd = pc + 4; pc = pc + offset; but use the absolute offset
 )
 
-zero_oprands = (
+zero_oprand = (
     'fence.i',
     'wfi',
+    'nop'
 )
 
 imm_only = (
@@ -86,7 +87,7 @@ rs1_rs2_imm = (
 )
 
 # ops using rd = rs1 op rs2
-rd_rs1_rs2 = (
+rd_rs1_rs2 = [
     'add',
     'addw',
     'sub',
@@ -116,7 +117,7 @@ rd_rs1_rs2 = (
     'remuw',
     'sltz',    # sltz rd, rs1 == slt rd, rs1, x0
     'sgtz',    # sgtz rd, rs2 == slt rd, x0, rs2
-)
+]
 
 csr = (
     'csrrw',
@@ -130,21 +131,6 @@ csr = (
     'csrs',
     'csrc',
 )
-
-valid_other_instructions = (
-    '(?:ldm|stm|srs|rfe|dmb)(?P<dirflags>[di][ba])?',
-)
-
-valid_instruction_re = re.compile(
-    r'''^(?:
-			(?P<instruction1>%(arith_instructions)s)
-			(?P<setcc>s?)
-			(?P<instruction2>%(other_instructions)s)
-		)$''' % {
-        'arith_instructions': '|'.join(valid_arith_instructions),
-        'other_instructions': '|'.join(valid_other_instructions),
-    }, re.X)
-
 
 all_registers = (
     'x0', 'x1',
@@ -365,7 +351,7 @@ class RdImm(RVInstruction):
         if args.get('shift_method') != None:
             self.shift_mode = args['shift_method']
 
-class ZeroOprands(RVInstruction):
+class ZeroOprand(RVInstruction):
     def decode(self):
         g = tworegs_and_operand2_re.match(self.args)
         assert g is not None, "Failed to match op2: %s" % self.args
@@ -387,9 +373,7 @@ class ZeroOprands(RVInstruction):
         if args.get('shift_method') != None:
             self.shift_mode = args['shift_method']
 
-class ImmOnly(ArithmeticInstruction):
-    '''rrx - two arguments only.'''
-
+class ImmOnly(RVInstruction):
     def decode(self):
         g = onereg_and_operand2_re.match(self.args)
         assert g is not None, "Failed to match op2: %s" % self.args
@@ -481,7 +465,7 @@ class CSR(RVInstruction):
     def decode(self):
         pass
 
-class UnhandledInstruction(NopInstruction):
+class UnhandledInstruction(RVInstruction):
     # Treat unhandled instructions like a nop.
     def decode(self):
         NopInstruction.decode(self)
@@ -494,37 +478,40 @@ def decode_instruction(addr, value, decoding):
         instruction, args = bits[0], []
     else:
         instruction, args = bits
-    print(instruction)
 
-    g = valid_instruction_re.match(instruction)
-    if g is None:
-        raise FatalError("Unknown instruction %s at address %#x" % (instruction, addr))
+    # original
+    oi = instruction
+    print instruction
 
-    # Extract relevant data from re match groups.
-    instruction = g.group('instruction1')
-    if instruction is None:
-        instruction = g.group('instruction2')
+    if oi in rd_imm:
+        cls = RdImm
+    elif oi in zero_oprand:
+        cls = ZeroOprand
+    elif oi in imm_only:
+        cls = ImmOnly
+    elif oi in rd_rs1:
+        cls = RdRs1
+    elif oi in rd_rs2:
+        cls = RdRs2
+    elif oi in rd_rs1_imm:
+        cls = RdRs1Imm
+    elif oi in rs1_rs2_imm:
+        cls = Rs1Rs2Imm
+    elif oi in rd_rs1_rs2:
+        cls = RdRs1Rs2
+    elif oi in csr:
+        cls = CSR
+    else:
+        print "unsopported instructions %s" % oi
+        assert False
 
-    condition = g.group('cond1')
-    if condition is None:
-        condition = g.group('cond2')
 
-    dirflags = g.group('dirflags')
-    cpsflags = g.group('cpsflags')
-    setcc = g.group('setcc') == 's'
+    print '%s %s' % (instruction, cls)
+    inst = cls(addr, value, decoding, instruction,args)
 
-    cls = mnemonic_to_class_map.get(instruction, UnhandledInstruction)
-    #print '%s: %s \n    instruction %s \n   condition %s\n    dirflags %s\n     cpsflags %s\n    setcc %s\n      args %s\n' % (addr,decoding, instruction,condition,dirflags,cpsflags,setcc,args)
-
-    inst = cls(addr, value, decoding,
-               instruction, condition, dirflags, cpsflags, setcc, args)
     inst.decode()
 
     mnemonic = inst.mnemonic
-    condition = inst.condition
-    dirflags = inst.dirflags
-    cpsflags = inst.cpsflags
-    setcc = inst.setcc
     output_registers = inst.output_registers
     input_registers = inst.input_registers
     return inst
