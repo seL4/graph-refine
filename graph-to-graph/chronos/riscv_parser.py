@@ -38,10 +38,11 @@ imm_only = (
 # rd = rs1 some are pseudo instructions, but that does not matter
 rd_rs1 = (
     'mv',
+    'sfence.mva',
 )
 
-# rd = op r2
-rd_r2 = (
+# rd = op rs2
+rd_rs2 = (
     'neg',
     'negw',
 )
@@ -117,6 +118,19 @@ rd_rs1_rs2 = (
     'sgtz',    # sgtz rd, rs2 == slt rd, x0, rs2
 )
 
+csr = (
+    'csrrw',
+    'csrrs',
+    'csrrc',
+    'csrrwi',
+    'csrrsi',
+    'csrrci',
+    'csrr',
+    'csrw',
+    'csrs',
+    'csrc',
+)
+
 valid_other_instructions = (
     '(?:ldm|stm|srs|rfe|dmb)(?P<dirflags>[di][ba])?',
 )
@@ -133,13 +147,24 @@ valid_instruction_re = re.compile(
 
 
 all_registers = (
-    'x0', 'x1',  'x2',  'x3',  'x4',  'x5',  'x6',  'x7',
-    'x8', 'x9', 'x10', 'x11', 'x12',  'x13',  'x14', 'x15',
-    'x16', 'x17', 'x18', 'x19', 'x20', 'x21', 'x22', 'x23',
-    'x24', 'x25', 'x26', 'x27', 'x28', 'x29', 'x30', 'x31',
+    'x0', 'x1',
+    'x2', 'x3',
+    'x4', 'x5',
+    'x6', 'x7',
+    'x8', 'x9',
+    'x10','x11',
+    'x12','x13',
+    'x14','x15',
+    'x16','x17',
+    'x18','x19',
+    'x20','x21',
+    'x22','x23',
+    'x24','x25',
+    'x26','x27',
+    'x28','x29',
+    'x30','x31',
     'pc'
 )
-
 
 aliases = {
     'zero': 'x0',
@@ -248,6 +273,11 @@ class RVInstruction:
     def __init__(self, addr, value, disassembly,
                  mnemonic, args):
 
+        self.rd = ''
+        self.rs1 = ''
+        self.rs2 = ''
+        self.imm = ''
+
         self.addr = addr
         self.value = value
         self.disassembly = disassembly
@@ -264,7 +294,7 @@ class RVInstruction:
         raise NotImplementedError
 
 
-class LoadStoreInstruction(RVInstruction):
+class RdImm(RVInstruction):
     def decode(self):
         #print 'args %s' % self.args
         g = ldrstr_args_re.match(self.args)
@@ -335,7 +365,7 @@ class LoadStoreInstruction(RVInstruction):
         if args.get('shift_method') != None:
             self.shift_mode = args['shift_method']
 
-class ArithmeticInstruction(RVInstruction):
+class ZeroOprands(RVInstruction):
     def decode(self):
         g = tworegs_and_operand2_re.match(self.args)
         assert g is not None, "Failed to match op2: %s" % self.args
@@ -357,7 +387,7 @@ class ArithmeticInstruction(RVInstruction):
         if args.get('shift_method') != None:
             self.shift_mode = args['shift_method']
 
-class RotateRighteXtendInstruction(ArithmeticInstruction):
+class ImmOnly(ArithmeticInstruction):
     '''rrx - two arguments only.'''
 
     def decode(self):
@@ -381,7 +411,7 @@ class RotateRighteXtendInstruction(ArithmeticInstruction):
             self.shift_mode = args['shift_method']
 
 
-class MoveInstruction(RVInstruction):
+class RdRs1(RVInstruction):
     def decode(self):
         g = onereg_and_operand2_re.match(self.args)
         assert g is not None
@@ -394,7 +424,7 @@ class MoveInstruction(RVInstruction):
         if args['op2_val'] is not None:
             self.input_registers.append('#' + args['op2_val'])
 
-class HalfMoveInstruction(RVInstruction):
+class RdRs2(RVInstruction):
     '''ARM halfmove instruction (movt/movw).'''
     def decode(self):
         assert self.mnemonic in ('movt', 'movw')
@@ -412,7 +442,7 @@ class HalfMoveInstruction(RVInstruction):
 
         imm = int(imm[1:])
 
-class CompareInstruction(RVInstruction):
+class RdRs1Imm(RVInstruction):
     def decode(self):
         g = onereg_and_operand2_re.match(self.args)
         assert g is not None
@@ -434,27 +464,21 @@ class CompareInstruction(RVInstruction):
         if args.get('shift_method') != None:
             self.shift_mode = args['shift_method']
 
-class BranchInstruction(RVInstruction):
+class Rs1Rs2Imm(RVInstruction):
     '''Nothing we(felix) need from this, just a dummy'''
     def decode(self):
         return
 
 
-class IndirectBranchInstruction(RVInstruction):
+class RdRs1Rs2(RVInstruction):
     def decode(self):
         reg = self.args
         self.input_registers.append(reg)
         self.output_registers.append('pc')
 
-class ReturnFromExceptionInstruction(RVInstruction):
+class CSR(RVInstruction):
     '''Implement rfe.'''
     def decode(self):
-        pass
-
-class NopInstruction(RVInstruction):
-    '''Implement the ARM nop instruction.'''
-    def decode(self):
-        # We do nothing!
         pass
 
 class UnhandledInstruction(NopInstruction):
@@ -462,85 +486,6 @@ class UnhandledInstruction(NopInstruction):
     def decode(self):
         NopInstruction.decode(self)
         print 'Unhandled instruction "%s" at %#x' % (self.mnemonic, self.addr)
-
-class CSRInstruction(RVInstruction):
-    '''Provide a dummy implementation of the ARM mrc instruction.'''
-    def decode(self):
-        # Effectively a nop.
-        cp, op2, reg, cp0, cp1, op1 = [x.strip() for x in self.args.split(',')]
-        self.reg = reg
-
-        self.output_registers.append(reg)
-
-class BitFieldExtractInstruction(RVInstruction):
-    '''Implement ARM's ubfx/sbfx instruction.'''
-
-    def decode(self):
-        assert self.mnemonic in ('ubfx', 'sbfx')
-        sign_extend = (self.mnemonic[0] == 's')
-
-        dst_reg, src_reg, start_bit, bit_length = [x.strip() for x in self.args.split(',')]
-        assert start_bit[0] == '#'
-        assert bit_length[0] == '#'
-        start_bit = int(start_bit[1:])
-        bit_length = int(bit_length[1:])
-
-        # Record input and output registers.
-        self.output_registers.append(dst_reg)
-        self.input_registers.append(src_reg)
-
-class SignExtendInstruction(RVInstruction):
-    '''Implement ARM's [us]xt[bh] instruction.'''
-    def decode(self):
-        assert self.mnemonic in ('uxtb', 'sxtb', 'uxth', 'sxth')
-        #src_size = (self.mnemonic[-1]) # b or h
-        #sign_extend = (self.mnemonic[0] == 's')
-
-        dst_reg, src_reg = [x.strip() for x in self.args.split(',')]
-
-        # Record input and output registers.
-        self.output_registers.append(dst_reg)
-        self.input_registers.append(src_reg)
-
-mnemonic_groups_to_class_map = {
-    ('ldr', 'str',
-     'ldrb', 'ldrsb', 'strb',
-     'ldrh', 'ldrsh', 'strh',
-     'ldrex', 'strex',
-     'ldrbt', 'strbt'): LoadStoreInstruction,
-
-    ('add', 'adc', 'sub', 'sbc', 'rsb', 'rsc',
-     'and', 'orr', 'bic', 'eor',
-     'lsl', 'lsr', 'asr', 'ror',
-     'mul'): ArithmeticInstruction,
-
-    ('mov', 'mvn'): MoveInstruction,
-    ('movt', 'movw'): HalfMoveInstruction,
-    ('nop',): NopInstruction,
-
-    ('cmp', 'cmn', 'tst', 'teq'): CompareInstruction,
-    ('b', 'bl'): BranchInstruction,
-    ('bx', 'blx'): IndirectBranchInstruction,
-    ('rfe',): ReturnFromExceptionInstruction,
-
-    ('ubfx', 'sbfx'): BitFieldExtractInstruction,
-    ('uxtb', 'sxtb', 'uxth', 'sxth'): SignExtendInstruction,
-
-
-    # Instructions that we can just treat as nops for now (FIXME)
-    ('cps', 'mcrr', 'isb', 'dsb'): NopInstruction,
-
-    # Don't bother simulating VFP
-    ('vmrs', 'vmsr', 'vstmia', 'vldmia'): NopInstruction,
-
-    # FIXME
-    ('wfi'): NopInstruction,
-}
-
-# Convert above into mnemonic -> class map.
-mnemonic_to_class_map = dict([(m, c)
-                              for ms, c in mnemonic_groups_to_class_map.iteritems()
-                              for m in ms])
 
 def decode_instruction(addr, value, decoding):
     decoding = decoding.strip()
