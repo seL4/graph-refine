@@ -203,66 +203,23 @@ csrs = (
 
 any_register = r'%s' % ('|'.join(list(all_registers) + aliases.keys()))
 
-ldrstr_args_re = re.compile(
-    r'''(?:(?:%(any_register)s),\s*)?
-		(?P<target_reg>%(any_register)s),\s*
-		\[
-		(?P<base_addr_reg>%(any_register)s)\s*
-		(?:,\s*
-			(?:
-				\#(?P<incr_val>-?[0-9]+) |
-				(?P<incr_reg>%(any_register)s)\s*
-				(?:,\s*
-					(?P<shift_method>lsl|lsr|asr|ror|rrx)\s+
-					\#(?P<shift_amount>[0-9]+)
-				)?
-			)
-		)?
-	\]
-	(?:
-		(?P<writeback> !) |
-		,\s* (?P<writeback_incr_reg>%(any_register)s) |
-		,\s* \#(?P<writeback_incr_amount>-?[0-9]+)
-	)?\s*(;.*)?
-	$''' % {'any_register' : any_register},
-    re.X)
-
-operand2 = r'''(?:
-			\#(?P<op2_val>-?[0-9]+) |
-			(?:
-				(?P<op2_reg>%(any_register)s
-				)
-				(?:,\s*
-					(?P<shift_method>lsl|lsr|asr|ror|rrx)\s+
-					(?:
-						\#(?P<shift_amount>[0-9]+) |
-						(?P<shift_by_reg>%(any_register)s)
-					)
-				)?
-			)
-		)'''
-
-onereg_and_operand2_re = re.compile(
-    (r'''(?P<target_reg>%(any_register)s),\s*''' + operand2 + '(\s*;.*)?$') % {
-        'any_register' : any_register},
-    re.X)
-
-tworegs_and_operand2_re = re.compile(
-    (r'''(?P<target_reg>%(any_register)s),\s*
-		(?P<source_reg>%(any_register)s),\s*''' + operand2 + '(\s*;.*)?$') % {
-        'any_register' : any_register},
-    re.X)
-
-
+def to_int(imm):
+    try:
+        if imm[0] == '0' && imm[1] == 'x':
+            return int(imm, base = 16)
+        else:
+            return int(imm)
+    except:
+        print 'fail to convert %s' % imm
+        raise
 
 class RVInstruction:
-    def __init__(self, addr, value, disassembly,
-                 mnemonic, args):
-
+    def __init__(self, addr, value, disassembly, mnemonic, args):
         self.rd = ''
         self.rs1 = ''
         self.rs2 = ''
         self.imm = ''
+        self.imm_val = 0
 
         self.addr = addr
         self.value = value
@@ -282,134 +239,29 @@ class RVInstruction:
 
 class RdImm(RVInstruction):
     def decode(self):
-        #print 'args %s' % self.args
-        g = ldrstr_args_re.match(self.args)
-        assert g is not None
-        args = g.groupdict()
+        print 'args %s' % self.args
+        fields = self.args.split(',')
+        assert len(fields) == 2
 
-        tmp_mnemonic = self.mnemonic
-        sign_extend = False
-        if tmp_mnemonic[-2:] == 'ex':
-            tmp_mnemonic = tmp_mnemonic[:3] + tmp_mnemonic[5:]
+        self.rd = fields[0].strip()
+        self.imm = fields[1].strip()
+        self.imm_val = to_int(self.imm)
+        self.output_registers.append(self.rd)
 
-        if self.mnemonic[-1] == 't':
-            self.mnemonic = self.mnemonic[:-1]
-
-        if len(tmp_mnemonic) == 5:
-            assert tmp_mnemonic[-2] == 's'
-            sign_extend = True
-            # Fudge the mnemonic to something else.
-            tmp_mnemonic = tmp_mnemonic[:3] + tmp_mnemonic[-1:]
-
-        if len(tmp_mnemonic) == 4:
-            suffix = tmp_mnemonic[-1]
-            assert suffix in ('b', 'h')
-            if suffix == 'b':
-                access_size = 1
-            elif suffix == 'h':
-                access_size = 2
-        else:
-            assert len(tmp_mnemonic) == 3
-            access_size = 4
-
-        if tmp_mnemonic.startswith('ldr'):
-            load = True
-        else:
-            assert tmp_mnemonic.startswith('str')
-            load = False
-
-        # Special handling for switch statements.
-        #  if tmp_mnemonic == 'ldr' and args['target_reg'] == 'pc' and \
-        #        self.condition == 'ls':
-        #    decode_as_switch = True
-        #else:
-        #    decode_as_switch = False
-
-        # Record input and output registers.
-        # if load:
-        self.output_registers.append(args['target_reg'])
-        #self.input_registers.append('memory')
-        # else:
-        #    self.input_registers.append(args['target_reg'])
-        #self.output_registers.append('memory')
-        self.input_registers.append(args['base_addr_reg'])
-        if args['incr_reg']:
-            self.input_registers.append(args['incr_reg'])
-        if args['incr_val']:
-            self.input_registers.append('#' + args['incr_val'])
-        if args['writeback_incr_reg']:
-            self.input_registers.append(args['writeback_incr_reg'])
-        #if args['writeback'] or \
-        #        args['writeback_incr_reg'] or args['writeback_incr_amount']:
-            #self.output_registers.append(args['base_addr_reg'])
-        if args['writeback_incr_amount']:
-            self.input_registers.append('#' + args['writeback_incr_amount'])
-        if args.get('shift_by_reg') != None:
-            self.shift_reg = args['shift_by_reg']
-        if args.get('shift_amount') != None:
-            self.shift_val = args['shift_amount']
-        if args.get('shift_method') != None:
-            self.shift_mode = args['shift_method']
 
 class ZeroOprand(RVInstruction):
     def decode(self):
-        g = tworegs_and_operand2_re.match(self.args)
-        assert g is not None, "Failed to match op2: %s" % self.args
-
-        args = g.groupdict()
-
-        # Record input and output registers.
-        self.output_registers.append(args['target_reg'])
-        self.input_registers.append(args['source_reg'])
-        if args['op2_reg'] is not None:
-            self.input_registers.append(args['op2_reg'])
-        if args['op2_val'] is not None:
-            self.input_registers.append('#' + args['op2_val'])
-
-        if args.get('shift_by_reg') != None:
-            self.shift_reg = args['shift_by_reg']
-        if args.get('shift_amount') != None:
-            self.shift_val = args['shift_amount']
-        if args.get('shift_method') != None:
-            self.shift_mode = args['shift_method']
+        pass
 
 class ImmOnly(RVInstruction):
     def decode(self):
-        g = onereg_and_operand2_re.match(self.args)
-        assert g is not None, "Failed to match op2: %s" % self.args
-
-        args = g.groupdict()
-
-        # Record input and output registers.
-        self.output_registers.append(args['target_reg'])
-        if args['op2_reg'] is not None:
-            self.input_registers.append(args['op2_reg'])
-        if args['op2_val'] is not None:
-            self.input_registers.append('#' + args['op2_val'])
-
-        if args.get('shift_by_reg') != None:
-            self.shift_reg = args['shift_by_reg']
-        if args.get('shift_amount') != None:
-            self.shift_val = args['shift_amount']
-        if args.get('shift_method') != None:
-            self.shift_mode = args['shift_method']
-
+        self.imm = self.args.strip()
+        self.imm_val = to_int(self.imm)
 
 class RdRs1(RVInstruction):
     def decode(self):
-        g = onereg_and_operand2_re.match(self.args)
-        assert g is not None
-        args = g.groupdict()
-
-        # Record input and output registers.
-        self.output_registers.append(args['target_reg'])
-        if args['op2_reg'] is not None:
-            self.input_registers.append(args['op2_reg'])
-        if args['op2_val'] is not None:
-            self.input_registers.append('#' + args['op2_val'])
 
 class RdRs2(RVInstruction):
-    '''ARM halfmove instruction (movt/movw).'''
     def decode(self):
         assert self.mnemonic in ('movt', 'movw')
         top_half = self.mnemonic[-1] == 't'
@@ -504,7 +356,6 @@ def decode_instruction(addr, value, decoding):
     else:
         print "unsopported instructions %s" % oi
         assert False
-
 
     print '%s %s' % (instruction, cls)
     inst = cls(addr, value, decoding, instruction,args)
