@@ -205,13 +205,16 @@ any_register = r'%s' % ('|'.join(list(all_registers) + aliases.keys()))
 
 def to_int(imm):
     try:
-        if imm[0] == '0' && imm[1] == 'x':
+        if imm[0] == '0' and imm[1] == 'x':
             return int(imm, base = 16)
         else:
             return int(imm)
     except:
         print 'fail to convert %s' % imm
         raise
+
+def valid_gp_reg(reg):
+    return reg in all_registers or reg in list(aliases.keys())
 
 class RVInstruction:
     def __init__(self, addr, value, disassembly, mnemonic, args):
@@ -244,6 +247,7 @@ class RdImm(RVInstruction):
         assert len(fields) == 2
 
         self.rd = fields[0].strip()
+        assert valid_gp_reg(self.rd)
         self.imm = fields[1].strip()
         self.imm_val = to_int(self.imm)
         self.output_registers.append(self.rd)
@@ -260,45 +264,52 @@ class ImmOnly(RVInstruction):
 
 class RdRs1(RVInstruction):
     def decode(self):
+        fs = self.args.split(',')
+        assert len(fs) == 2
+        self.rd = fs[0].strip()
+        self.rs1 = fs[1].strip()
+        assert valid_gp_reg(self.rd) and valid_gp_reg(self.rs1)
+        self.output_registers.append(self.rd)
+        self.input_registers.append(self.rs1)
 
 class RdRs2(RVInstruction):
     def decode(self):
-        assert self.mnemonic in ('movt', 'movw')
-        top_half = self.mnemonic[-1] == 't'
-
-        dst_reg, imm = [x.strip() for x in self.args.split(',')]
-        assert imm[0] == '#'
-
-        # Record input and output registers.
-        self.output_registers.append(dst_reg)
-        self.input_registers.append(imm)
-        if top_half:
-            # We preserve the lower 16 bits of this.
-            self.input_registers.append(dst_reg)
-
-        imm = int(imm[1:])
+        fs = self.args.split(',')
+        assert len(fs) == 2
+        self.rd = fs[0].strip()
+        self.rs2 = fs[1].strip()
+        assert valid_gp_reg(self.rd) and valid_gp_reg(self.rs2)
+        self.output_registers.append(self.rd)
+        self.input_registers.append(self.rs2)
 
 class RdRs1Imm(RVInstruction):
     def decode(self):
-        g = onereg_and_operand2_re.match(self.args)
-        assert g is not None
-        args = g.groupdict()
+        fs = self.args.split(',')
+        l = len(fs)
+        assert l == 2 or l == 3
 
-        # Record input and output registers.
-        self.output_registers.append('cc')
-        # "target_reg" is a misnomer here.
-        self.input_registers.append(args['target_reg'])
-        if args['op2_reg'] is not None:
-            self.input_registers.append(args['op2_reg'])
-        if args['op2_val'] is not None:
-            self.input_registers.append('#' + args['op2_val'])
+        '''
+		if length is 2 we have the form:
+			ld a1,64(a4)
+		if the length is 3, the form:
+			addi s0,sp,640
+		'''
+        if l == 2:
+            rs.rd = fs[0].strip()
+            fs[1] = fs[1].strip()
+            left = fs[1].find('(')
+            right = fs[1].find(')')
+            assert left != -1 and right != -1
+            self.imm = fs[1][0:left]
+            self.imm_val = to_int(imm)
+            self.rs1 = fs[1][left + 1 : right]
+            assert valid_gp_reg((self.rs1))
 
-        if args.get('shift_by_reg') != None:
-            self.shift_reg = args['shift_by_reg']
-        if args.get('shift_amount') != None:
-            self.shift_val = args['shift_amount']
-        if args.get('shift_method') != None:
-            self.shift_mode = args['shift_method']
+        if l == 3:
+            self.rd = fs[0].strip()
+            self.rs1 = fs[1].strip()
+            self.imm = fs[2].strip()
+            self.imm_val = to_int(self.imm)
 
 class Rs1Rs2Imm(RVInstruction):
     '''Nothing we(felix) need from this, just a dummy'''
