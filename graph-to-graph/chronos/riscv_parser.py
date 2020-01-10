@@ -48,6 +48,17 @@ rd_rs2 = (
     'negw',
 )
 
+rs1_imm = {
+    'beqz',
+    'bltz',
+    'bgez',
+}
+
+rs2_imm = {
+    'blez',
+    'bgtz',
+}
+
 # rd =  some op using rs1 and imm
 rd_rs1_imm = (
     'lb',
@@ -84,6 +95,10 @@ rs1_rs2_imm = (
     'st',
     'beq',  # fi rs1 == rs2 pc = pc + imm
     'bne',
+    'blt',
+    'bltu',
+    'bge',
+    'bgeu',
 )
 
 # ops using rd = rs1 op rs2
@@ -203,9 +218,19 @@ csrs = (
 
 any_register = r'%s' % ('|'.join(list(all_registers) + aliases.keys()))
 
+def is_hex(imm):
+    if imm[0] == '0' and imm[1] == 'x':
+        return True
+    for c in imm:
+        if c in ['a', 'A', 'b', 'B', 'c', 'C', 'd', 'D', 'e', 'E', 'f', 'F']:
+            return True
+
+    return False
+
+
 def to_int(imm):
     try:
-        if imm[0] == '0' and imm[1] == 'x':
+        if is_hex(imm):
             return int(imm, base = 16)
         else:
             return int(imm)
@@ -295,14 +320,15 @@ class RdRs1Imm(RVInstruction):
 			addi s0,sp,640
 		'''
         if l == 2:
-            rs.rd = fs[0].strip()
+            self.rd = fs[0].strip()
             fs[1] = fs[1].strip()
             left = fs[1].find('(')
             right = fs[1].find(')')
             assert left != -1 and right != -1
             self.imm = fs[1][0:left]
-            self.imm_val = to_int(imm)
+            self.imm_val = to_int(self.imm)
             self.rs1 = fs[1][left + 1 : right]
+            self.output_registers.append(self.rd)
             assert valid_gp_reg((self.rs1))
 
         if l == 3:
@@ -310,21 +336,69 @@ class RdRs1Imm(RVInstruction):
             self.rs1 = fs[1].strip()
             self.imm = fs[2].strip()
             self.imm_val = to_int(self.imm)
+            self.input_registers.append(self.rs1)
+            self.output_registers.append(self.rd)
+
+class Rs1Imm(RVInstruction):
+    def decode(self):
+        fs = self.args.split(',')
+        assert len(fs) == 2
+        self.rs1 = fs[0].strip()
+        self.imm = fs[1].strip()
+        self.imm_val = to_int(self.imm)
+        self.input_registers.append(self.rs1)
+        assert valid_gp_reg(self.rs1)
+
+class Rs2Imm(RVInstruction):
+    def decode(self):
+        fs = self.args.split(',')
+        assert len(fs) == 2
+        self.rs2 = fs[0].strip()
+        self.imm = fs[1].strip()
+        self.imm_val = to_int(self.imm)
+        self.input_registers.append(self.rs2)
+        assert valid_gp_reg(self.rs2)
 
 class Rs1Rs2Imm(RVInstruction):
-    '''Nothing we(felix) need from this, just a dummy'''
     def decode(self):
-        return
+        fs = self.args.split(',')
+        l = len(fs)
+        assert l == 2 or l == 3
 
+        if l == 2:
+            self.rs2 = fs[0]
+            fs[1] = fs[1].strip()
+            left = fs[1].find('(')
+            right = fs[1].find(')')
+            assert left != -1 and right != -1
+            self.imm = fs[1][0:left]
+            self.imm_val = to_int(self.imm)
+            self.rs1 = fs[1][left + 1 : right]
+
+        if l == 3:
+            self.rs1 = fs[0].strip()
+            self.rs2 = fs[1].strip()
+            self.imm = fs[2].strip()
+            self.imm_val = to_int(self.imm)
+
+        assert valid_gp_reg(self.rs1) and valid_gp_reg(self.rs2)
 
 class RdRs1Rs2(RVInstruction):
     def decode(self):
-        reg = self.args
-        self.input_registers.append(reg)
-        self.output_registers.append('pc')
+        fs = self.args.split(',')
+        assert len(fs) == 3
+        self.rd = fs[0].strip()
+        self.rs1 = fs[1].strip()
+        self.rs2 = fs[2].strip()
+        assert valid_gp_reg(self.rd)
+        assert valid_gp_reg(self.rs1)
+        assert valid_gp_reg(self.rs2)
+        self.input_registers.append(self.rs1)
+        self.input_registers.append(self.rs2)
+        self.output_registers.append(self.rd)
+
 
 class CSR(RVInstruction):
-    '''Implement rfe.'''
     def decode(self):
         pass
 
@@ -334,6 +408,7 @@ class UnhandledInstruction(RVInstruction):
         NopInstruction.decode(self)
         print 'Unhandled instruction "%s" at %#x' % (self.mnemonic, self.addr)
 
+
 def decode_instruction(addr, value, decoding):
     decoding = decoding.strip()
     bits = decoding.split(None, 1)
@@ -342,7 +417,6 @@ def decode_instruction(addr, value, decoding):
     else:
         instruction, args = bits
 
-    # original
     oi = instruction
     print instruction
 
@@ -356,6 +430,10 @@ def decode_instruction(addr, value, decoding):
         cls = RdRs1
     elif oi in rd_rs2:
         cls = RdRs2
+    elif oi in rs1_imm:
+        cls = Rs1Imm
+    elif oi in rs2_imm:
+        cls = Rs2Imm
     elif oi in rd_rs1_imm:
         cls = RdRs1Imm
     elif oi in rs1_rs2_imm:
