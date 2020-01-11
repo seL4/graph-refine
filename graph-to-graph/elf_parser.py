@@ -7,6 +7,8 @@
 from elf_file import *
 import re
 
+elf_arch = 'armv7'
+
 def parseSymTab():
     ef = elfFile()
     #parse the symbol table
@@ -105,8 +107,10 @@ def isDirectBranch(addr):
   match = re.search(r'[a-f0-9]+:\s*[a-f0-9]+\s+(b|bx)\s+.*',inst)
   return match is not None
 
-def parseElf(dir_name):
+def parseElf(dir_name, arch='armv7'):
     ef = elfFile(dir_name)
+    global elf_arch
+    elf_arch = arch
     parseTxt()
     parseSymTab()
     return ef

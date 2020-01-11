@@ -142,7 +142,7 @@ def init(dir_name, arch='armv7'):
         print s
 
     target_objects.tracer[0] = silent_tracer
-    elf_parser.parseElf(dir_name)
+    elf_parser.parseElf(dir_name, arch)
     asm_fs = elfFile().asm_fs
     tran_call_graph = call_graph_utils.transitiveCallGraph(asm_fs,dir_name,dummy_funs)
 
