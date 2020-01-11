@@ -249,6 +249,9 @@ class RVInstruction:
         self.imm = ''
         self.imm_val = 0
 
+        self.rd_csr = ''
+        self.rs_csr = ''
+
         self.addr = addr
         self.value = value
         self.disassembly = disassembly
@@ -400,7 +403,51 @@ class RdRs1Rs2(RVInstruction):
 
 class CSR(RVInstruction):
     def decode(self):
-        pass
+        fs = self.args.split(',')
+        if self.mnemonic in ['csrrw', 'csrrs', 'csrrc']:
+            self.rd = fs[0].strip()
+            self.rd_csr = self.rs_csr = fs[1].strip()
+            self.rs1 = fs[2].strip()
+            pass
+        if self.mnemonic in ['csrwi']:
+            self.rd_csr = fs[0].strip()
+            self.imm = fs[1].strip()
+            self.imm_val = to_int(self.imm)
+            self.output_registers.append(self.rd_csr)
+            assert self.rd_csr in csrs
+        if self.mnemonic in ['csrrsi', 'csrrci']:
+            self.rd = fs[0].strip()
+            self.rs_csr = self.rd_csr = fs[1].strip()
+            self.imm = fs[2].strip()
+            self.imm_val = to_int(self.imm)
+            self.output_registers.append(self.rd)
+            self.output_registers.append(self.rd_csr)
+            self.input_registers.append(self.rs_csr)
+            assert valid_gp_reg(self.rd)
+            assert self.rd_csr in csrs
+        if self.mnemonic in ['csrr']:
+            self.rd = fs[0].strip()
+            self.rd_csr = fs[1].strip()
+            assert valid_gp_reg(self.rd)
+            assert self.rd_csr in csrs
+        if self.mnemonic in ['csrw', 'csrc', 'csrs']:
+            self.rd = fs[0].strip()
+            self.rd_csr = self.rs_csr = fs[1].strip()
+            self.rs1 = fs[2].strip()
+            assert valid_gp_reg(self.rd)
+            assert valid_gp_reg(self.rs1)
+            assert self.rd_csr in csrs
+            assert self.rs_csr in csrs
+            self.output_registers.append(self.rd)
+            self.output_registers.append(self.rd_csr)
+            self.input_registers.append(self.rs1)
+            self.input_registers.append(self.rs_csr)
+        if self.mnemonic in ['csrwi', 'csrsi', 'csrci']:
+            self.rd_csr = fs[0].strip()
+            self.imm = fs[1].strip()
+            self.imm_value = to_int(self.imm)
+            assert self.rd_csr in csrs
+            self.output_registers.append(self.rd_csr)
 
 class UnhandledInstruction(RVInstruction):
     # Treat unhandled instructions like a nop.
