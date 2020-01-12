@@ -216,7 +216,18 @@ class ChronosEmitter:
 
 
     def emitRVImm(self, s, inst, value, txt):
-        pass
+        s += ' ' + inst.mnemonic + ' '
+        for r in inst.input_registers:
+            s += 'input ' + r + ' '
+        if inst.has_imm:
+            s += 'input #' + inst.imm + ' '
+        for r in inst.output_registers:
+            s += 'output ' + r + ' '
+
+        s += '%s ' % hexSansX(value)
+        s += '"%s"' % txt
+        s += '\n'
+        self.emitString(s)
 
     def emitImm(self, addr, nodes, is_startbb, loop_count):
         '''
@@ -290,6 +301,7 @@ class ChronosEmitter:
             self.emitArmImm(s, i, value, txt)
         elif self.arch == 'rv64':
             i = riscv_parser.decode_instruction(addr, value, txt)
+            self.emitRVImm(s, i, value, txt)
         else:
             print 'unsupported arch %s ' % self.arch
             return
