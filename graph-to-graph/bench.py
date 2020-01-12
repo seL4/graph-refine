@@ -153,8 +153,8 @@ def init(dir_name, arch='armv7'):
 
 def bench(dir_name, entry_point_function, gen_heads,load_counts, interactive, parse_only=False, conflict_file=None, arch='armv7'):
     global bench_arch
-    asm_fs = init(dir_name)
     bench_arch = arch
+    asm_fs = init(dir_name, bench_arch)
     functions = target_objects.functions
     if parse_only or interactive:
         t = entry_point_function
