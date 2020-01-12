@@ -1,6 +1,5 @@
 import re
 
-pass
 '''
 Generate input file for RISCV Chronos
 
@@ -23,6 +22,7 @@ the possible modifiers that can apply to it.
 # set rd = imm
 rd_imm = (
     'lui',
+    'li',
     'addpc',
     'jal',      # rd = pc + 4; pc = pc + offset; but use the absolute offset
 )
@@ -30,7 +30,8 @@ rd_imm = (
 zero_oprand = (
     'fence.i',
     'wfi',
-    'nop'
+    'nop',
+    'ret',  # ret == jalr x0, 0(x1)
 )
 
 imm_only = (
@@ -84,7 +85,6 @@ rd_rs1_imm = (
     'sext.w',   # sext.w rd, rs1 == addiw rd, rs1, #0
     'seqz',     # seqz rd, rs1 == sltiu rd, rs1, #1
     'jalr',     # rd = pc + 4; pc = (rs1 + imm) * 2
-    'ret',      # ret == jalr x0, 0(x1)
 )
 
 # ops using rs1, rs2, and imm
@@ -219,7 +219,7 @@ csrs = (
 any_register = r'%s' % ('|'.join(list(all_registers) + aliases.keys()))
 
 def is_hex(imm):
-    if imm[0] == '0' and imm[1] == 'x':
+    if len(imm) >= 2 and imm[0] == '0' and imm[1] == 'x':
         return True
     for c in imm:
         if c in ['a', 'A', 'b', 'B', 'c', 'C', 'd', 'D', 'e', 'E', 'f', 'F']:
@@ -229,12 +229,15 @@ def is_hex(imm):
 
 
 def to_int(imm):
+    fs = imm.split()
+    imm = fs[0]
     try:
         if is_hex(imm):
             return int(imm, base = 16)
         else:
             return int(imm)
-    except:
+    except Exception as e:
+        print e
         print 'fail to convert %s' % imm
         raise
 
@@ -248,7 +251,7 @@ class RVInstruction:
         self.rs2 = ''
         self.imm = ''
         self.imm_val = 0
-
+        self.has_imm = False
         self.rd_csr = ''
         self.rs_csr = ''
 
@@ -256,11 +259,11 @@ class RVInstruction:
         self.value = value
         self.disassembly = disassembly
 
-        # Populate member fields with data.
         self.mnemonic = mnemonic
         self.args = args
         self.is_loop_cond = False
-
+        print "%s %s %s" % (addr, mnemonic, args)
+        print type(args)
         self.output_registers = []
         self.input_registers = []
 
@@ -273,22 +276,24 @@ class RdImm(RVInstruction):
         print 'args %s' % self.args
         fields = self.args.split(',')
         assert len(fields) == 2
-
         self.rd = fields[0].strip()
         assert valid_gp_reg(self.rd)
-        self.imm = fields[1].strip()
+        self.imm = fields[1].strip().split()[0]
         self.imm_val = to_int(self.imm)
         self.output_registers.append(self.rd)
+        self.has_imm = True
 
 
 class ZeroOprand(RVInstruction):
     def decode(self):
-        pass
+        if self.mnemonic == 'ret':
+            self.input_registers.append('x1')
 
 class ImmOnly(RVInstruction):
     def decode(self):
-        self.imm = self.args.strip()
+        self.imm = self.args.strip().split()[0]
         self.imm_val = to_int(self.imm)
+        self.has_imm = True
 
 class RdRs1(RVInstruction):
     def decode(self):
@@ -314,6 +319,7 @@ class RdRs1Imm(RVInstruction):
     def decode(self):
         fs = self.args.split(',')
         l = len(fs)
+        self.has_imm = True
         assert l == 2 or l == 3
 
         '''
@@ -322,6 +328,7 @@ class RdRs1Imm(RVInstruction):
 		if the length is 3, the form:
 			addi s0,sp,640
 		'''
+
         if l == 2:
             self.rd = fs[0].strip()
             fs[1] = fs[1].strip()
@@ -350,6 +357,7 @@ class Rs1Imm(RVInstruction):
         self.imm = fs[1].strip()
         self.imm_val = to_int(self.imm)
         self.input_registers.append(self.rs1)
+        self.has_imm = True
         assert valid_gp_reg(self.rs1)
 
 class Rs2Imm(RVInstruction):
@@ -360,12 +368,14 @@ class Rs2Imm(RVInstruction):
         self.imm = fs[1].strip()
         self.imm_val = to_int(self.imm)
         self.input_registers.append(self.rs2)
+        self.has_imm = True
         assert valid_gp_reg(self.rs2)
 
 class Rs1Rs2Imm(RVInstruction):
     def decode(self):
         fs = self.args.split(',')
         l = len(fs)
+        self.has_imm = True
         assert l == 2 or l == 3
 
         if l == 2:
@@ -377,12 +387,16 @@ class Rs1Rs2Imm(RVInstruction):
             self.imm = fs[1][0:left]
             self.imm_val = to_int(self.imm)
             self.rs1 = fs[1][left + 1 : right]
+            self.input_registers.append(self.rs1)
+            self.input_registers.append(self.rs2)
 
         if l == 3:
             self.rs1 = fs[0].strip()
             self.rs2 = fs[1].strip()
-            self.imm = fs[2].strip()
+            self.imm = fs[2].strip().split()[0]
             self.imm_val = to_int(self.imm)
+            self.input_registers.append(self.rs1)
+            self.input_registers.append(self.rs2)
 
         assert valid_gp_reg(self.rs1) and valid_gp_reg(self.rs2)
 
@@ -450,7 +464,6 @@ class CSR(RVInstruction):
             self.output_registers.append(self.rd_csr)
 
 class UnhandledInstruction(RVInstruction):
-    # Treat unhandled instructions like a nop.
     def decode(self):
         NopInstruction.decode(self)
         print 'Unhandled instruction "%s" at %#x' % (self.mnemonic, self.addr)
@@ -458,6 +471,7 @@ class UnhandledInstruction(RVInstruction):
 
 def decode_instruction(addr, value, decoding):
     decoding = decoding.strip()
+    print decoding
     bits = decoding.split(None, 1)
     if len(bits) == 1:
         instruction, args = bits[0], []
