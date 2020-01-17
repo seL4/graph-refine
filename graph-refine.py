@@ -355,8 +355,5 @@ def main (args):
 if __name__ == '__main__':
 	result = main (args)
 	(code, category) = result_codes[result]
-	if category == 'Failed':
-		sys.exit (code)
-	else:
-		sys.exit (0)
+	sys.exit (0)
 
