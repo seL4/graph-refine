@@ -25,6 +25,7 @@ rd_imm = (
     'li',
     'addpc',
     'jal',      # rd = pc + 4; pc = pc + offset; but use the absolute offset
+    'auipc',
 )
 
 zero_oprand = (
@@ -53,6 +54,7 @@ rs1_imm = {
     'beqz',
     'bltz',
     'bgez',
+    'bnez',
 }
 
 rs2_imm = {
@@ -92,6 +94,7 @@ rs1_rs2_imm = (
     'sb',   # u8[rs1 + imm] = rs2
     'sh',
     'sw',
+    'sd',
     'st',
     'beq',  # fi rs1 == rs2 pc = pc + imm
     'bne',
@@ -334,10 +337,17 @@ class RdRs1Imm(RVInstruction):
             fs[1] = fs[1].strip()
             left = fs[1].find('(')
             right = fs[1].find(')')
-            assert left != -1 and right != -1
-            self.imm = fs[1][0:left]
-            self.imm_val = to_int(self.imm)
-            self.rs1 = fs[1][left + 1 : right]
+
+            if self.mnemonic == 'sext.w':
+                self.imm = '0'
+                self.imm_val = 0
+                self.rs1 = fs[1]
+            else:
+                assert left != -1 and right != -1
+                self.imm = fs[1][0:left]
+                self.imm_val = to_int(self.imm)
+                self.rs1 = fs[1][left + 1 : right]
+
             self.output_registers.append(self.rd)
             assert valid_gp_reg((self.rs1))
 
