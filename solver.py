@@ -173,7 +173,7 @@ def load_solver_set ():
 (fast_solver, slow_solver, strategy, model_strategy) = load_solver_set ()
 
 from syntax import (Expr, fresh_name, builtinTs, true_term, false_term,
-                    foldr1, mk_or, boolT, word32T, word8T, mk_implies, Type, get_global_wrapper)
+                    foldr1, mk_or, boolT, word64T, word32T, word8T, mk_implies, Type, get_global_wrapper)
 from target_objects import structs, rodata, sections, trace, printout
 from logic import mk_align_valid_ineq, pvalid_assertion1, pvalid_assertion2
 
@@ -391,6 +391,10 @@ def smt_expr (expr, env, solv):
         (x, y) = [smt_expr (e, env, solv) for e in expr.vals]
         sexp = '(word32-eq %s %s)' % (x, y)
         return sexp
+    elif expr.is_op('Equals') and expr.vals[0].typ == word64T:
+        (x, y) = [smt_expr(e, env, solv) for e in expr.vals]
+        sexp = '(word64-eq %s %s)' % (x, y)
+        return sexp
     elif expr.is_op ('StackEqualsImplies'):
         [sp1, st1, sp2, st2] = [smt_expr (e, env, solv)
                                 for e in expr.vals]
@@ -445,7 +449,11 @@ def smt_expr (expr, env, solv):
 
 def smt_expr_memacc (m, p, typ, solv):
     if m[0] == 'SplitMem':
-        p = solv.cache_large_expr (p, 'memacc_pointer', syntax.word32T)
+        if syntax.is_64bit:
+            wordT = syntax.word64T
+        else:
+            wordT = syntax.word32T
+        p = solv.cache_large_expr (p, 'memacc_pointer', wordT)
         (_, split, top, bot) = m
         top_acc = smt_expr_memacc (top, p, typ, solv)
         bot_acc = smt_expr_memacc (bot, p, typ, solv)
@@ -454,13 +462,18 @@ def smt_expr_memacc (m, p, typ, solv):
         sexp = '(load-word%d %s %s)' % (typ.num, m, p)
     else:
         assert not 'word load type supported', typ
-    solv.note_model_expr (p, syntax.word32T)
+    solv.note_model_expr (p, wordT)
     solv.note_model_expr (sexp, typ)
     return sexp
 
 def smt_expr_memupd (m, p, v, typ, solv):
+    if syntax.is_64bit:
+        wordT = syntax.word64T
+    else:
+        wordT = syntax.word32T
+
     if m[0] == 'SplitMem':
-        p = solv.cache_large_expr (p, 'memupd_pointer', syntax.word32T)
+        p = solv.cache_large_expr (p, 'memupd_pointer', wordT)
         v = solv.cache_large_expr (v, 'memupd_val', typ)
         (_, split, top, bot) = m
         memT = syntax.builtinTs['Mem']
@@ -472,16 +485,17 @@ def smt_expr_memupd (m, p, v, typ, solv):
         bot = '(ite (bvule %s %s) %s %s)' % (split, p, bot, bot_upd)
         return ('SplitMem', split, top, bot)
     elif typ.num == 8:
-        p = solv.cache_large_expr (p, 'memupd_pointer', syntax.word32T)
+        p = solv.cache_large_expr (p, 'memupd_pointer', wordT)
         p_align = '(bvand %s #xfffffffd)' % p
-        solv.note_model_expr (p_align, syntax.word32T)
+        solv.note_model_expr (p_align, wordT)
         solv.note_model_expr ('(load-word32 %s %s)' % (m, p_align),
                               syntax.word32T)
         return '(store-word8 %s %s %s)' % (m, p, v)
     elif typ.num in [32, 64]:
         solv.note_model_expr ('(load-word%d %s %s)' % (typ.num, m, p),
                               typ)
-        solv.note_model_expr (p, syntax.word32T)
+        #solv.note_model_expr (p, syntax.word32T)
+        solv.note_model_expr(p, wordT)
         return '(store-word%d %s %s %s)' % (typ.num, m, p, v)
     else:
         assert not 'MemUpdate word width supported', typ
@@ -489,7 +503,10 @@ def smt_expr_memupd (m, p, v, typ, solv):
 def smt_ifthenelse (sw, x, y, solv):
     if x[0] != 'SplitMem' and y[0] != 'SplitMem':
         return '(ite %s %s %s)' % (sw, x, y)
-    zero = '#x00000000'
+    if syntax.is_64bit:
+        zero = '#x0000000000000000'
+    else:
+        zero = '#x00000000'
     if x[0] != 'SplitMem':
         (x_split, x_top, x_bot) = (zero, x, x)
     else:
@@ -641,10 +658,122 @@ mem_word32_preamble = [
     '''(declare-fun unspecified-precond () Bool)'''
 ]
 
+'''
+For RV64, memory addresses are 64-bit, but loads and stores can be
+performed in bytes, half-words, words, and double-words. Therefore,
+we model the memory as byte-addressable. This requires shifting and adding
+when we need to read and write half-words, words, and double words.
+'''
+
+mem_word64_preamble = [
+    '''
+(define-fun load-word8 ((m {MemSort}) (p (_ BitVec 64)))
+	(_ BitVec 8)
+	(select m p)
+)
+''',
+
+    '''
+(define-fun load-word16 ((m {MemSort}) (p (_ BitVec 64)))
+	(_ BitVec 16)
+	(concat (select m (bvadd p #x0000000000000001))
+	        (select m p)
+	)
+)
+''',
+
+    '''
+(define-fun load-word32 ((m {MemSort}) (p (_ BitVec 64)))
+	(_ BitVec 32)
+	(concat (select m (bvadd p #x0000000000000003))
+		(concat (select m (bvadd p #x0000000000000002))
+			(concat (select m (bvadd p #x0000000000000001))
+					(select m p)
+			)
+		)
+	)
+)
+''',
+
+    '''
+(define-fun load-word64 ((m {MemSort}) (p (_ BitVec 64)))
+	(_ BitVec 64)
+	(concat (load-word32 m p)
+			(load-word32 m (bvadd p #x0000000000000004))
+	)
+)
+'''
+    ,
+
+    '''
+(define-fun store-word8 ((m {MemSort}) (p (_ BitVec 64)) (v (_ BitVec 8)))
+	{MemSort}
+	(store m p v)
+)
+'''
+    ,
+
+    '''
+(define-fun store-word16 ((m {MemSort}) (p (_ BitVec 64)) (v (_ BitVec 16)))
+	{MemSort}
+	(store-word8
+		(store-word8 m p ((_ extract 7 0) v))
+		(bvadd p #x0000000000000001)
+		((_ extract 15 8) v)
+	)
+)
+'''
+    ,
+
+
+    '''
+(define-fun store-word32 ((m {MemSort}) (p (_ BitVec 64)) (v (_ BitVec 32)))
+	{MemSort}
+	(store-word16
+		(store-word16 m p ((_ extract 15 0) v))
+		(bvadd p #x0000000000000002)
+		((_ extract 31 16) v)
+	)
+)
+''',
+
+    '''
+(define-fun store-word64 ((m {MemSort}) (p (_ BitVec 64)) (v (_ BitVec 64)))
+	{MemSort}
+	(store-word32
+		(store-word32 m p ((_ extract 31 0) v))
+		(bvadd p #x0000000000000004)
+		((_ extract 63 32) v)
+	)
+)
+''',
+
+
+    '''(define-fun mem-dom ((p (_ BitVec 64)) (d {MemDomSort})) Bool
+(not (= (select d p) #b0)))''',
+
+    '''(define-fun mem-eq ((x {MemSort}) (y {MemSort})) Bool (= x y))''',
+
+    '''(define-fun word32-eq ((x (_ BitVec 32)) (y (_ BitVec 32)))
+    Bool (= x y))''',
+
+    '''(define-fun word64-eq ((x (_ BitVec 64)) (y (_ BitVec 64)))
+    Bool (= x y))''',
+
+    '''(define-fun word2-xor-scramble ((a (_ BitVec 2)) (x (_ BitVec 2))
+   (b (_ BitVec 2)) (c (_ BitVec 2)) (y (_ BitVec 2)) (d (_ BitVec 2))) Bool
+(bvult (bvadd (bvxor a x) b) (bvadd (bvxor c y) d)))''',
+
+    '''(declare-fun unspecified-precond () Bool)'''
+]
+
+
 word32_smt_convs = {'MemSort': '(Array (_ BitVec 30) (_ BitVec 32))',
                     'MemDomSort': '(Array (_ BitVec 32) (_ BitVec 1))'}
 word8_smt_convs = {'MemSort': '(Array (_ BitVec 32) (_ BitVec 8))',
                    'MemDomSort': '(Array (_ BitVec 32) (_ BitVec 1))'}
+word64_smt_convs = {'MemSort': '(Array (_ BitVec 64) (_ BitVec 8))',
+                    'MemDomSort': '(Array (_ BitVec 64) (_ BitVec 1))'}
 
 def preexec (timeout):
     def ret ():
@@ -751,7 +880,11 @@ class Solver:
         if solver_impl.mem_mode == '8':
             preamble.extend (mem_word8_preamble)
         else:
-            preamble.extend (mem_word32_preamble)
+            if syntax.is_64bit:
+                preamble.extend(mem_word64_preamble)
+                print preamble
+            else:
+                preamble.extend (mem_word32_preamble)
         return preamble
 
     def startup_solver (self, use_this_solver = None):
@@ -807,7 +940,11 @@ class Solver:
         if self.online_solver == None:
             self.startup_solver ()
 
-        msg = msg.format (** word32_smt_convs)
+        if syntax.is_64bit:
+            msg = msg.format(** word64_smt_convs)
+        else:
+            msg = msg.format (** word32_smt_convs)
+
         try:
             self.write (msg)
             response = self.online_solver.stdout.readline().strip()
@@ -1083,7 +1220,10 @@ class Solver:
         if solver.mem_mode == '8':
             smt_convs = word8_smt_convs
         else:
-            smt_convs = word32_smt_convs
+            if syntax.is_64bit:
+                smt_convs = word64_smt_convs
+            else:
+                smt_convs = word32_smt_convs
         for msg in self.preamble (solver):
             msg = msg.format (** smt_convs)
             f.write (msg + '\n')
@@ -1768,14 +1908,19 @@ class Solver:
         if k in self.stack_eqs:
             return self.stack_eqs[k]
 
-        addr = self.add_var ('stack-eq-witness', word32T)
+        if syntax.is_64bit:
+            wordT = word64T
+        else:
+            wordT = word32T
+
+        addr = self.add_var ('stack-eq-witness', wordT)
         self.assert_fact_smt ('(= (bvand %s #x00000003) #x00000000)'
                               % addr)
         sp_smt = smt_expr (sp, env, self)
         self.assert_fact_smt ('(bvule %s %s)' % (sp_smt, addr))
-        ptr = mk_smt_expr (addr, word32T)
-        eq = syntax.mk_eq (syntax.mk_memacc (s1, ptr, word32T),
-                           syntax.mk_memacc (s2, ptr, word32T))
+        ptr = mk_smt_expr (addr, wordT)
+        eq = syntax.mk_eq (syntax.mk_memacc (s1, ptr, wordT),
+                           syntax.mk_memacc (s2, ptr, wordT))
         stack_eq = self.add_def ('stack-eq', eq, env)
         self.stack_eqs[k] = stack_eq
         return stack_eq
