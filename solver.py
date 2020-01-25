@@ -146,6 +146,8 @@ def parse_config_change (config, solver):
         if lhs == 'mem_mode':
             assert rhs in ['8', '32']
             solver.mem_mode = rhs
+            # hack set the mem_mode to 64
+            solver.mem_mode = '64'
         else:
             assert not 'config understood', assign
 
@@ -448,11 +450,12 @@ def smt_expr (expr, env, solv):
         assert not 'handled expr', expr
 
 def smt_expr_memacc (m, p, typ, solv):
+    if syntax.is_64bit:
+        wordT = syntax.word64T
+    else:
+        wordT = syntax.word32T
+
     if m[0] == 'SplitMem':
-        if syntax.is_64bit:
-            wordT = syntax.word64T
-        else:
-            wordT = syntax.word32T
         p = solv.cache_large_expr (p, 'memacc_pointer', wordT)
         (_, split, top, bot) = m
         top_acc = smt_expr_memacc (top, p, typ, solv)
@@ -486,7 +489,9 @@ def smt_expr_memupd (m, p, v, typ, solv):
         return ('SplitMem', split, top, bot)
     elif typ.num == 8:
         p = solv.cache_large_expr (p, 'memupd_pointer', wordT)
-        p_align = '(bvand %s #xfffffffd)' % p
+        # Note hack for RV64
+        #p_align = '(bvand %s #xfffffffd)' % p
+        p_align = '(bvand %s #xfffffffffffffffd)' % p
         solv.note_model_expr (p_align, wordT)
         solv.note_model_expr ('(load-word32 %s %s)' % (m, p_align),
                               syntax.word32T)

@@ -251,6 +251,11 @@ and FloatingPointCast (FP to FP) represent the variants of to_fp in the SMTLIB2
 standard.
 """
 
+arch = 'armv7'
+
+is_64bit = False  # type: bool
+
+
 class Type:
     def __init__ (self, kind, name, el_typ=None):
         self.kind = kind
@@ -331,7 +336,10 @@ class Type:
             assert sz % 8 == 0, self
             return sz / 8
         elif self.kind == 'Ptr':
-            return 4
+            if is_64bit:
+                return 8
+            else:
+                return 4
         else:
             assert not 'type has size'
 
@@ -343,7 +351,10 @@ class Type:
         elif self.kind in ('Word', 'FloatingPoint'):
             return self.size ()
         elif self.kind == 'Ptr':
-            return 4
+            if is_64bit:
+                return 8
+            else:
+                return 4
         else:
             assert not 'type has alignment'
 
@@ -880,7 +891,7 @@ builtinTs = mk_builtinTs ()
 boolT = builtinTs['Bool']
 word32T = Type ('Word', '32')
 word64T = Type ('Word', '64')
-word16T = Type ('Word', 16)
+word16T = Type ('Word', '16')
 word8T = Type ('Word', '8')
 
 phantom_types = set ([builtinTs[t] for t
@@ -888,7 +899,10 @@ phantom_types = set ([builtinTs[t] for t
 
 def concrete_type (typ):
     if typ.kind == 'Ptr':
-        return word32T
+        if is_64bit:
+            return word64T
+        else:
+            return word32T
     else:
         return typ
 
@@ -933,7 +947,10 @@ def parse_typ(bits, n, symbolic_types = False):
         if symbolic_types:
             return (n, Type ('Ptr', '', typ))
         else:
-            return (n, word32T)
+            if is_64bit:
+                return (n, word64T)
+            else:
+                return (n, word32T)
     else:
         assert not 'type encoded', (n, bits[n:], bits)
 
@@ -1089,6 +1106,13 @@ def parse_node (bits, n):
     else:
         assert bits[n] == 'Call'
         cont = node_name(bits[n + 1])
+        # hack for Call RV64, not sure Ret is used
+        # instead of the address of next instruction
+        # after the call is used in the decompiled file
+        if arch == 'rv64' and cont == 'Ret':
+            cont = parse_int(bits[n + 13])
+
+        print 'call %s' % cont
         name = bits[n + 2]
         (n, args) = parse_list (parse_expr, bits, n + 3)
         (n, saves) = parse_list (parse_lval, bits, n)
@@ -1195,7 +1219,11 @@ def visit_rval (vs):
             vs[v] = expr.typ
         if expr.is_op ('MemAcc'):
             [m, p] = expr.vals
-            assert p.typ == word32T, expr
+            print arch
+            if is_64bit:
+                assert p.typ == word64T, expr
+            else:
+                assert p.typ == word32T, expr
         if expr.is_op ('PGlobalValid'):
             [htd, typ_expr, p] = expr.vals
             typ = typ_expr.val
@@ -1419,6 +1447,9 @@ def mk_num (x, typ):
 def mk_word32 (x):
     return mk_num (x, word32T)
 
+def mk_word64(x):
+    return mk_num(x, word64T)
+
 def mk_word8 (x):
     return mk_num (x, word8T)
 
@@ -1440,12 +1471,25 @@ def mk_cast (x, typ):
 
 def mk_memacc(m, p, typ):
     assert m.typ == builtinTs['Mem']
-    assert p.typ == word32T
+    if is_64bit:
+        print p
+        print '\n'
+        print p.typ
+        print '\n'
+        print typ
+        print '\n'
+        print type(typ)
+        assert p.typ == word64T or p.typ == word32T
+    else:
+        assert p.typ == word32T
     return Expr ('Op', typ, name = 'MemAcc', vals = [m, p])
 
 def mk_memupd(m, p, v):
     assert m.typ == builtinTs['Mem']
-    assert p.typ == word32T
+    if is_64bit:
+        assert p.typ == word64T
+    else:
+        assert p.typ == word32T
     return Expr ('Op', m.typ, name = 'MemUpdate', vals = [m, p, v])
 
 def mk_arr_index (arr, i):
@@ -1569,4 +1613,11 @@ def fresh_node (ns, hint = 1):
     while n in ns:
         n += 16
     return n
+
+def set_arch(a = 'armv7'):
+    global arch
+    global is_64bit
+    arch = a
+    if arch == 'rv64':
+        is_64bit = True
 

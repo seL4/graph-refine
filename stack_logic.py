@@ -185,7 +185,16 @@ def get_ptr_offsets (p, n_ptrs, bases, hyps = [], cache = None,
     for (n, ptr, k) in bases:
         n_vc = default_n_vc (p, n)
         (_, env) = rep.get_node_pc_env (n_vc)
+        print 'ptr\n'
+        print ptr
+        print '\n'
+        print 'env\n'
+        print env
+
+        print '\n'
+        print rep.solv
         smt = solver.smt_expr (ptr, env, rep.solv)
+
         smt_bases.append ((smt, k))
         ptr_typ = ptr.typ
 
@@ -261,7 +270,16 @@ def get_extra_sp_defs (rep, tag):
     """add extra defs/equalities about stack pointer for the
     purposes of stack depth analysis."""
     # FIXME how to parametrise this?
-    sp = mk_var ('r13', syntax.word32T)
+    if syntax.arch == 'armv7':
+        sp = mk_var ('r13', syntax.word32T)
+    elif syntax.arch == 'rv64':
+        sp = mk_var('r2', syntax.word64T)
+        print sp
+    else:
+        print 'unsupported arch %s' % syntax.arch
+        assert False
+
+
     defs = {}
 
     fcalls = [n_vc for n_vc in rep.funcs
@@ -286,7 +304,15 @@ def get_stack_sp (p, tag):
     renames = p.entry_exit_renames (tags = [tag])
     r = renames[tag + '_IN']
 
-    sp = syntax.rename_expr (mk_var ('r13', syntax.word32T), r)
+    if syntax.arch == 'armv7':
+        sp = syntax.rename_expr (mk_var ('r13', syntax.word32T), r)
+    elif syntax.arch == 'rv64':
+        sp = syntax.rename_expr(mk_var('r2', syntax.word64T), r)
+        print sp
+    else:
+        print "Unsupported arch %s" % syntax.arch
+        assert False
+
     stack = syntax.rename_expr (mk_var ('stack',
                                         syntax.builtinTs['Mem']), r)
     return (stack, sp)
@@ -987,6 +1013,10 @@ def get_asm_calling_convention (fname):
 
     num_args = len (var_c_args)
     num_rets = len (var_c_rets)
+    print num_args
+    print num_rets
+
+    assert False
     const_mem = not (c_omem)
 
     cc = get_asm_calling_convention_inner (num_args, num_rets, const_mem)
@@ -999,13 +1029,25 @@ def get_asm_calling_convention_inner (num_c_args, num_c_rets, const_mem):
         return asm_cc_cache[key]
 
     from logic import mk_var_list, mk_stack_sequence
-    from syntax import mk_var, word32T, builtinTs
+    from syntax import mk_var, word32T, word64T, builtinTs
 
-    arg_regs = mk_var_list (['r0', 'r1', 'r2', 'r3'], word32T)
-    r0 = arg_regs[0]
-    sp = mk_var ('r13', word32T)
-    st = mk_var ('stack', builtinTs['Mem'])
-    r0_input = mk_var ('ret_addr_input', word32T)
+    if syntax.arch == 'armv7':
+        arg_regs = mk_var_list (['r0', 'r1', 'r2', 'r3'], word32T)
+        r0 = arg_regs[0]
+        sp = mk_var ('r13', word32T)
+        st = mk_var ('stack', builtinTs['Mem'])
+        r0_input = mk_var ('ret_addr_input', word32T)
+    elif syntax.arch == 'rv64':
+        arg_regs = mk_var_list(['r10', 'r11', 'r12', 'r13', 'r14',
+                                'r15', 'r16', 'r17'], word64T)
+
+        r0 = arg_regs[0]
+        r1 = arg_regs[1]
+        sp = mk_var('r2', word64T)
+        st = mk_var('stack', builtinTs['Mem'])
+    else:
+        print 'Unsupported arch %s' % syntax.arch
+        assert False
 
     mem = mk_var ('mem', builtinTs['Mem'])
     dom = mk_var ('dom', builtinTs['Dom'])
@@ -1025,9 +1067,16 @@ def get_asm_calling_convention_inner (num_c_args, num_c_rets, const_mem):
     else:
         rets = [r0]
 
-    callee_saved_vars = ([mk_var (v, word32T)
-                          for v in 'r4 r5 r6 r7 r8 r9 r10 r11 r13'.split ()]
-                         + [dom, dom_stack])
+    if syntax.arch == 'armv7':
+        callee_saved_vars = ([mk_var (v, word32T)
+                              for v in 'r4 r5 r6 r7 r8 r9 r10 r11 r13'.split ()]
+                             + [dom, dom_stack])
+    elif syntax.arch == 'rv64':
+        callee_saved_vars = ([mk_var(v, word64T)
+                              for v in 'r18 r19 r20 r21 r22 r23 r24 r25 r26 r27'.split()]
+                             + [dom, dom_stack])
+    else:
+        assert False
 
     if const_mem:
         callee_saved_vars += [mem]
@@ -1207,6 +1256,8 @@ def compute_stack_bounds (quiet = False):
 
 def read_fn_hash (fname):
     try:
+        assert fname != None
+        print fname
         f = open (fname)
         s = f.readline ()
         bits = s.split ()
@@ -1219,6 +1270,14 @@ def read_fn_hash (fname):
         return None
     except IOError, e:
         return None
+
+def add_pairings(pairing_tups):
+    pre_pairings.clear()
+    for (asm_f, c_f) in pairing_tups:
+        pair = {'ASM': asm_f, 'C': c_f}
+        pre_pairings[c_f] = pair
+        pre_pairings[asm_f] = pair
+
 
 def mk_stack_pairings (pairing_tups, stack_bounds_fname = None,
                        quiet = True):
@@ -1272,15 +1331,30 @@ def asm_stack_rep_hook (p, (nm, typ), kind, n):
 
     return ('SplitMem', sp)
 
-reg_aliases = {'r11': ['fp'], 'r14': ['lr'], 'r13': ['sp']}
+reg_aliases_armv7 = {'r11': ['fp'], 'r14': ['lr'], 'r13': ['sp']}
+reg_aliases_rv64 = {
+    'r1': ['ra'],
+    'r2': ['sp'],
+    'r8': ['fp'],
+}
 
 def inst_const_rets (node):
     assert "instruction'" in node.fname
+    if syntax.arch == 'armv7':
+        reg_aliases = reg_aliases_armv7
+    elif syntax.arch == 'rv64':
+        reg_aliases = reg_aliases_rv64
+    else:
+        print 'Unsupported arch %s' % syntax.arch
+        assert False
+
     bits = set ([s.lower () for s in node.fname.split ('_')])
     fun = functions[node.fname]
     def is_const (nm, typ):
         if typ in [builtinTs['Mem'], builtinTs['Dom']]:
             return True
+        print typ
+        assert False
         if typ != word32T:
             return False
         return not (nm in bits or [al for al in reg_aliases.get (nm, [])

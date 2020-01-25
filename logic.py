@@ -32,7 +32,8 @@ def cast_pair (((a, a_addr), (c, c_addr))):
         c = mk_if (c, mk_word32 (1), mk_word32 (0))
     return ((a, a_addr), (mk_cast (c, a.typ), c_addr))
 
-ghost_assertion_type = syntax.Type ('WordArray', 50, 32)
+ghost_assertion_armv7_type = syntax.Type ('WordArray', 50, 32)
+ghost_assertion_rv64_type = syntax.Type('WordArray', 50, 64)
 
 def split_scalar_globals (vs):
     for i in range (len (vs)):
@@ -42,7 +43,20 @@ def split_scalar_globals (vs):
         i = len (vs)
     scalars = vs[:i]
     global_vars = vs[i:]
+    if syntax.arch == 'armv7':
+        ghost_assertion_type = ghost_assertion_armv7_type
+    elif syntax.arch == 'rv64':
+        ghost_assertion_type = ghost_assertion_rv64_type
+    else:
+        assert False
+
     for v in global_vars:
+
+        print 'v:'
+        print v
+        print '\n'
+        print v.typ
+        print 'done \n'
         if v.typ not in [builtinTs['Mem'], builtinTs['Dom'],
                          builtinTs['HTD'], builtinTs['PMS'],
                          ghost_assertion_type]:
@@ -187,12 +201,22 @@ def mk_eqs_arm_none_eabi_gnu (var_c_args, var_c_rets, c_imem, c_omem,
     return (arg_eqs + mem_ieqs + preconds,
             ret_eqs + mem_oeqs + asm_invs)
 
+def mk_eqs_riscv64_unknown_linux_gnu(var_c_args, var_c_rets, c_imem, c_omem,
+                                     min_stack_size):
+    assert False
+    pass
+
 known_CPUs = {
-    'arm-none-eabi-gnu': mk_eqs_arm_none_eabi_gnu
+    'arm-none-eabi-gnu': mk_eqs_arm_none_eabi_gnu,
+    'riscv64-unknown-linux-gnu': mk_eqs_riscv64_unknown_linux_gnu,
 }
 
 def mk_fun_eqs_CPU (cpu_f, c_f, cpu_name, funcall_depth = 1):
     cpu = known_CPUs[cpu_name]
+    print cpu_name
+    print '\n'
+    print cpu
+    assert False
     (var_c_args, c_imem, glob_c_args) = split_scalar_pairs (c_f.inputs)
     (var_c_rets, c_omem, glob_c_rets) = split_scalar_pairs (c_f.outputs)
 
