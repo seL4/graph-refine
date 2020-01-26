@@ -1346,6 +1346,9 @@ def mk_token (nm):
     return Expr ('Token', builtinTs['Token'], name = nm)
 
 def mk_plus (x, y):
+    if x.typ != y.typ:
+        print x.typ
+        print y.typ
     assert x.typ == y.typ
     return Expr ('Op', x.typ, name = 'Plus', vals = [x, y])
 
@@ -1354,6 +1357,9 @@ def mk_uminus (x):
     return mk_minus (zero, x)
 
 def mk_minus (x, y):
+    if x.typ != y.typ:
+        print x.typ
+        print y.typ
     assert x.typ == y.typ
     return Expr ('Op', x.typ, name = 'Minus', vals = [x, y])
 
@@ -1379,6 +1385,9 @@ def mk_eq (x, y):
     return Expr ('Op', boolT, name = 'Equals', vals = [x, y])
 
 def mk_less_eq (x, y, signed = False):
+    if x.typ != y.typ:
+        print x.typ
+        print y.typ
     assert x.typ == y.typ
     name = {False: 'LessEquals', True: 'SignedLessEquals'}[signed]
     return Expr ('Op', boolT, name = name, vals = [x, y])
@@ -1529,7 +1538,7 @@ def adjust_op_vals (expr, vals):
     return Expr ('Op', expr.typ, expr.name, vals = vals)
 
 mks = (mk_var, mk_plus, mk_uminus, mk_minus, mk_times, mk_modulus, mk_bwand,
-       mk_eq, mk_less_eq, mk_less, mk_implies, mk_and, mk_or, mk_not, mk_word32,
+       mk_eq, mk_less_eq, mk_less, mk_implies, mk_and, mk_or, mk_not, mk_word64, mk_word32,
        mk_word8, mk_word32_maybe, mk_cast, mk_memacc, mk_memupd, mk_arr_index,
        mk_arroffs, mk_if, mk_meta_typ, mk_pvalid)
 

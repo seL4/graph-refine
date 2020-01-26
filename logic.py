@@ -5,12 +5,12 @@
 #
 
 import syntax
-from syntax import word32T, word8T, boolT, builtinTs, Expr, Node
+from syntax import word64T, word32T, word8T, boolT, builtinTs, Expr, Node
 from syntax import true_term, false_term, mk_num
 from syntax import foldr1
 
 (mk_var, mk_plus, mk_uminus, mk_minus, mk_times, mk_modulus, mk_bwand, mk_eq,
- mk_less_eq, mk_less, mk_implies, mk_and, mk_or, mk_not, mk_word32, mk_word8,
+ mk_less_eq, mk_less, mk_implies, mk_and, mk_or, mk_not, mk_word64, mk_word32, mk_word8,
  mk_word32_maybe, mk_cast, mk_memacc, mk_memupd, mk_arr_index, mk_arroffs,
  mk_if, mk_meta_typ, mk_pvalid) = syntax.mks
 
@@ -203,7 +203,86 @@ def mk_eqs_arm_none_eabi_gnu (var_c_args, var_c_rets, c_imem, c_omem,
 
 def mk_eqs_riscv64_unknown_linux_gnu(var_c_args, var_c_rets, c_imem, c_omem,
                                      min_stack_size):
-    assert False
+
+    print var_c_args
+    print '\n'
+    print var_c_rets
+    print'\n'
+    print c_imem
+    print '\n'
+    print c_omem
+
+    arg_regs = mk_var_list(['r10, r11, r12, r13, r14, r15, r16, r17'], word64T)
+    print arg_regs
+    r0 = arg_regs[0]
+    sp = mk_var('r2', word64T)
+    st = mk_var('stack', builtinTs['Mem'])
+    r0_input = mk_var('r0_input', word64T)
+    sregs = mk_stack_sequence(sp, 8, st, word64T, len(var_c_args) + 1)
+    ret = mk_var('ret', word64T)
+
+    preconds = [
+        mk_aligned(sp, 3),
+        mk_eq(ret, mk_var('r1', word64T)),
+        mk_aligned(ret, 3),
+        #	mk_eq(r0_input, r0),
+        mk_less_eq(min_stack_size, sp)
+    ]
+
+    post_eqs = [
+        (x, x) for x in mk_var_list(
+            ['r18', 'r19', 'r20', 'r21', 'r22', 'r23',
+             'r24', 'r25', 'r26', 'r27', 'r28'],
+            word64T)
+    ]
+
+    arg_seq = [(r, None) for r in arg_regs] + sregs
+
+    if len (var_c_rets) > 1:
+        # the 'return-too-much' issue.
+        # instead r0 is a save-returns-here pointer
+        arg_seq.pop (0)
+        preconds += [mk_aligned (r0, 2), mk_less_eq (sp, r0)]
+        save_seq = mk_stack_sequence (r0_input, 4, st, word32T,
+                                      len (var_c_rets))
+        save_addrs = [addr for (_, addr) in save_seq]
+        post_eqs += [(r0_input, r0_input)]
+        out_eqs = zip (var_c_rets, [x for (x, _) in save_seq])
+        out_eqs = [(c, mk_cast (a, c.typ)) for (c, a) in out_eqs]
+        init_save_seq = mk_stack_sequence (r0, 4, st, word32T,
+                                           len (var_c_rets))
+        (_, last_arg_addr) = arg_seq[len (var_c_args) - 1]
+        preconds += [mk_less_eq (sp, addr)
+                     for (_, addr) in init_save_seq[-1:]]
+        if last_arg_addr:
+            preconds += [mk_less (last_arg_addr, addr)
+                         for (_, addr) in init_save_seq[:1]]
+    else:
+        out_eqs = zip (var_c_rets, [r0])
+        save_addrs = []
+    arg_seq_addrs = [addr for ((_, addr), _) in zip (arg_seq, var_c_args)
+                     if addr != None]
+    swrap = mk_stack_wrapper (sp, st, arg_seq_addrs)
+    swrap2 = mk_stack_wrapper (sp, st, save_addrs)
+    post_eqs += [(swrap, swrap2)]
+
+    mem = mk_var ('mem', builtinTs['Mem'])
+    (mem_ieqs, mem_oeqs) = mk_mem_eqs ([mem], c_imem, [mem], c_omem,
+                                       ['ASM', 'C'])
+
+    addr = None
+    arg_eqs = [cast_pair (((a_x, 'ASM_IN'), (c_x, 'C_IN')))
+               for (c_x, (a_x, addr)) in zip (var_c_args, arg_seq)]
+    if addr:
+        preconds += [mk_less_eq (sp, addr)]
+    ret_eqs = [cast_pair (((a_x, 'ASM_OUT'), (c_x, 'C_OUT')))
+               for (c_x, a_x) in out_eqs]
+    preconds = [((a_x, 'ASM_IN'), (true_term, 'ASM_IN')) for a_x in preconds]
+    asm_invs = [((vin, 'ASM_IN'), (vout, 'ASM_OUT')) for (vin, vout) in post_eqs]
+
+    return (arg_eqs + mem_ieqs + preconds,
+            ret_eqs + mem_oeqs + asm_invs)
+
     pass
 
 known_CPUs = {
@@ -1531,12 +1610,14 @@ def mk_mem_wrapper (m):
     return syntax.mk_rel_wrapper ('MemWrapper', [m])
 
 def tm_with_word32_list (xs):
+    assert False
     if xs:
         return foldr1 (mk_plus, map (mk_word32, xs))
     else:
         return mk_uminus (mk_word32 (0))
 
 def word32_list_from_tm (t):
+    assert False
     xs = []
     while t.is_op ('Plus'):
         [x, t] = t.vals
@@ -1546,13 +1627,26 @@ def word32_list_from_tm (t):
         xs.append (t.val)
     return xs
 
+def tm_with_word_list(xs):
+    if syntax.is_64bit:
+        mk_word = syntax.mk_word64
+    else:
+        mk_word = syntax.mk_word32
+
+    if xs:
+        return foldr1(mk_plus, map(mk_word, xs))
+    else:
+        return mk_uminus(mk_word(0))
+
 def mk_eq_selective_wrapper (v, (xs, ys)):
+    #assert False
     # this is a huge hack, but we need to put these lists somewhere
-    xs = tm_with_word32_list (xs)
-    ys = tm_with_word32_list (ys)
+    xs = tm_with_word_list (xs)
+    ys = tm_with_word_list (ys)
     return syntax.mk_rel_wrapper ('EqSelectiveWrapper', [v, xs, ys])
 
 def apply_rel_wrapper (lhs, rhs):
+    assert False
     assert lhs.typ == syntax.builtinTs['RelWrapper']
     assert rhs.typ == syntax.builtinTs['RelWrapper']
     assert lhs.kind == 'Op'
@@ -1587,6 +1681,7 @@ def apply_rel_wrapper (lhs, rhs):
         assert not 'rel wrapper opname understood'
 
 def inst_eq_at_visit (exp, vis):
+    assert False
     if not exp.is_op ('EqSelectiveWrapper'):
         return True
     [_, xs, ys] = exp.vals

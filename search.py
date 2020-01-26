@@ -12,7 +12,7 @@ from rep_graph import (mk_graph_slice, vc_num, vc_offs, vc_upto,
                        vc_double_range, VisitCount, vc_offset_upto)
 import rep_graph
 from syntax import (mk_and, mk_cast, mk_implies, mk_not, mk_uminus, mk_var,
-                    foldr1, boolT, word32T, word8T, builtinTs, true_term, false_term,
+                    foldr1, boolT, word64T, word32T, word8T, builtinTs, true_term, false_term,
                     mk_word32, mk_word8, mk_times, Expr, Type, mk_or, mk_eq, mk_memacc,
                     mk_num, mk_minus, mk_plus, mk_less)
 import syntax
@@ -32,11 +32,15 @@ def get_loop_var_analysis_at (p, n):
     if k in p.cached_analysis:
         return p.cached_analysis[k]
     for hook in target_objects.hooks ('loop_var_analysis'):
+        print 'hook\n'
+        print hook
         res = hook (p, n)
         if res != None:
             p.cached_analysis[k] = res
             return res
     var_deps = p.compute_var_dependencies ()
+    print 'vardeps\n'
+    print var_deps
     res = p.get_loop_var_analysis (var_deps, n)
     p.cached_analysis[k] = res
     return res

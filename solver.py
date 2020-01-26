@@ -754,20 +754,39 @@ mem_word64_preamble = [
 ''',
 
 
-    '''(define-fun mem-dom ((p (_ BitVec 64)) (d {MemDomSort})) Bool
-(not (= (select d p) #b0)))''',
+    '''
+(define-fun mem-dom ((p (_ BitVec 64)) (d {MemDomSort}))
+	Bool
+	(not (= (select d p) #b0)))
+''',
 
-    '''(define-fun mem-eq ((x {MemSort}) (y {MemSort})) Bool (= x y))''',
+    '''
+(define-fun mem-eq ((x {MemSort}) (y {MemSort}))
+	Bool
+	(= x y))
+''',
 
-    '''(define-fun word32-eq ((x (_ BitVec 32)) (y (_ BitVec 32)))
-    Bool (= x y))''',
 
-    '''(define-fun word64-eq ((x (_ BitVec 64)) (y (_ BitVec 64)))
-    Bool (= x y))''',
+    '''
+(define-fun word32-eq ((x (_ BitVec 32)) (y (_ BitVec 32)))
+	Bool
+	(= x y))
+''',
 
-    '''(define-fun word2-xor-scramble ((a (_ BitVec 2)) (x (_ BitVec 2))
-   (b (_ BitVec 2)) (c (_ BitVec 2)) (y (_ BitVec 2)) (d (_ BitVec 2))) Bool
-(bvult (bvadd (bvxor a x) b) (bvadd (bvxor c y) d)))''',
+
+    '''
+(define-fun word64-eq ((x (_ BitVec 64)) (y (_ BitVec 64)))
+    Bool
+    (= x y))
+''',
+
+
+    '''
+(define-fun word2-xor-scramble ((a (_ BitVec 2)) (x (_ BitVec 2))
+	(b (_ BitVec 2)) (c (_ BitVec 2)) (y (_ BitVec 2)) (d (_ BitVec 2)))
+	Bool
+	(bvult (bvadd (bvxor a x) b) (bvadd (bvxor c y) d)))
+''',
 
     '''(declare-fun unspecified-precond () Bool)'''
 ]
@@ -1058,7 +1077,10 @@ class Solver:
                 val = mk_smt_expr (smt, typ)
                 return self.add_def (name + '_' + nm, val, {},
                                      ignore_external_names = ignore_external_names)
-            split = add ('split', syntax.word32T, split)
+            if syntax.is_64bit:
+                split = add('split', syntax.word64T, split)
+            else:
+                split = add ('split', syntax.word32T, split)
             top = add ('top', val.typ, top)
             bot = add ('bot', val.typ, bot)
             return ('SplitMem', split, top, bot)
