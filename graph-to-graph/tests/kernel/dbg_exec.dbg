@@ -1,0 +1,160 @@
+
+Start reg. expansion
+
+Sym.exec of loop L0, [0,3]
+Reinit c0.1[  ][  ]
+Reinit c0.2[  ][  ]
+Reinit c0.3[  ][  ]
+Merge incoming of c0.0, e:0 sa:0x10104 lpHeader 1
+Start next L0 iter at lpHeader c0.0
+Reinit c0.1[  ][  ]
+Reinit c0.2[  ][  ]
+Reinit c0.3[  ][  ]
+Analyze block (0,0)
+ CopyMem: SRC [  ] ->DST [  ]
+Finish block (0,0)
+Sym.exec of loop L1, [2,1]
+ CopyMem: SRC [  ] ->DST [  ]
+Merge incoming of c0.2, e:2 sa:0x10134 lpHeader 1
+Start next L1 iter at lpHeader c0.2
+Analyze block (0,2)
+ CopyMem: SRC [  ] ->DST [  ]
+Finish block (0,2)
+Merge incoming of c0.2, e:3 sa:0x10134 lpHeader 1
+Start next L1 iter at lpHeader c0.2
+Finish sym.exec of loop l1
+Merge incoming of c0.3, e:4 sa:0x10144 lpHeader 0
+src c0.2 L:1, dst: c0.3 L:0
+Merge mem.list:
+Src: [  ]
+Dst: [  ]
+MERGED c:0 [  ]
+Merge register list
+ $2 c0.3 {_} <= rS: c0.2 {7fffbfe0} => $2 = {7fffbfe0}
+ $8 c0.3 {_} <= rS: c0.2 {7fffc000} => $8 = {7fffc000}
+ $14 c0.3 {_} <= rS: c0.2 {0} => $14 = {0}
+ $15 c0.3 {_} <= rS: c0.2 {9} => $15 = {9}
+Join in-status of c0.3
+Analyze block (0,3)
+ CopyMem: SRC [  ] ->DST [  ]
+Finish block (0,3)
+Merge incoming of c0.0, e:4 sa:0x10104 lpHeader 1
+Start next L0 iter at lpHeader c0.0
+End of p: 0
+End reg. expansion
+Loop 1 head (0:2) tail (0:1)
+ BIV list of L1 
+Start reg. expansion
+
+Sym.exec of loop L0, [0,3]
+Reinit c0.1[  ][  ]
+Reinit c0.2[  ][  ]
+Reinit c0.3[  ][  ]
+Merge incoming of c0.0, e:0 sa:0x10104 lpHeader 1
+Start next L0 iter at lpHeader c0.0
+Reinit c0.1[  ][  ]
+Reinit c0.2[  ][  ]
+Reinit c0.3[  ][  ]
+Analyze block (0,0)
+ CopyMem: SRC [  ] ->DST [  ]
+Finish block (0,0)
+Sym.exec of loop L1, [2,1]
+ CopyMem: SRC [  (10110 {7fffbfec} {0}) (10114 {7fffbfe8} {0}) ] ->DST [  (10110 {7fffbfec} {0}) (10114 {7fffbfe8} {0}) ]
+Merge incoming of c0.2, e:2 sa:0x10134 lpHeader 1
+Start next L1 iter at lpHeader c0.2
+Analyze block (0,2)
+ CopyMem: SRC [  (10110 {7fffbfec} {0}) (10114 {7fffbfe8} {0}) ] ->DST [  (10110 {7fffbfec} {0}) (10114 {7fffbfe8} {0}) ]
+Finish block (0,2)
+Merge incoming of c0.2, e:3 sa:0x10134 lpHeader 1
+Start next L1 iter at lpHeader c0.2
+Finish sym.exec of loop l1
+Merge incoming of c0.3, e:4 sa:0x10144 lpHeader 0
+src c0.2 L:1, dst: c0.3 L:0
+Merge mem.list:
+Src: [  (10110 {7fffbfec} {0}) (10114 {7fffbfe8} {0}) ]
+Dst: [  ]
+MERGED c:0 [  (10114 {7fffbfe8} {0}) (10110 {7fffbfec} {0}) ]
+Merge register list
+ $2 c0.3 {_} <= rS: c0.2 {7fffbfe0} => $2 = {7fffbfe0}
+ $8 c0.3 {_} <= rS: c0.2 {7fffc000} => $8 = {7fffc000}
+ $14 c0.3 {_} <= rS: c0.2 {0} => $14 = {0}
+ $15 c0.3 {_} <= rS: c0.2 {9} => $15 = {9}
+Join in-status of c0.3
+Analyze block (0,3)
+ CopyMem: SRC [  (10114 {7fffbfe8} {0}) (10110 {7fffbfec} {0}) ] ->DST [  (10114 {7fffbfe8} {0}) (10110 {7fffbfec} {0}) ]
+Finish block (0,3)
+Merge incoming of c0.0, e:4 sa:0x10104 lpHeader 1
+Start next L0 iter at lpHeader c0.0
+End of p: 0
+End reg. expansion
+Read sym.exec result
+ CopyMem: SRC [  ] ->DST [  ]
+AddrExpr: {7fffbff8}
+Expand reg: {7fffbff8}
+Cur expr: " 0 "
+Expanded expr: " 7fffbff8 "
+
+DataRef: 0x10108 41
+" 7fffbff8 "
+AddrExpr: {7fffbfec}
+Expand reg: {7fffbfec}
+Cur expr: " 0 "
+Expanded expr: " 7fffbfec "
+
+DataRef: 0x10110 17
+" 7fffbfec "
+AddrExpr: {7fffbfe8}
+Expand reg: {7fffbfe8}
+Cur expr: " 0 "
+Expanded expr: " 7fffbfe8 "
+
+DataRef: 0x10114 17
+" 7fffbfe8 "
+ CopyMem: SRC [  ] ->DST [  ]
+AddrExpr: {_}
+Expand reg: {_}
+Cur expr: " 0 "
+Warning: unknown parameter in addrExpr
+Expanded expr: "1:{_}+ 0 "
+
+DataRef: 0x1011c 12
+"1:{_}+ 0 "
+AddrExpr: {_}
+Expand reg: {_}
+Cur expr: " 0 "
+Warning: unknown parameter in addrExpr
+Expanded expr: "1:{_}+ 0 "
+
+DataRef: 0x10124 17
+"1:{_}+ 0 "
+AddrExpr: {ffe7}
+Expand reg: {ffe7}
+Cur expr: " 0 "
+Expanded expr: " ffe7 "
+
+DataRef: 0x10128 12
+" ffe7 "
+AddrExpr: {_}
+Expand reg: {_}
+Cur expr: " 0 "
+Warning: unknown parameter in addrExpr
+Expanded expr: "1:{_}+ 0 "
+
+DataRef: 0x10130 17
+"1:{_}+ 0 "
+ CopyMem: SRC [  (10110 {7fffbfec} {0}) (10114 {7fffbfe8} {0}) ] ->DST [  (10110 {7fffbfec} {0}) (10114 {7fffbfe8} {0}) ]
+AddrExpr: {ffe7}
+Expand reg: {ffe7}
+Cur expr: " 0 "
+Expanded expr: " ffe7 "
+
+DataRef: 0x10134 12
+" ffe7 "
+ CopyMem: SRC [  (10114 {7fffbfe8} {0}) (10110 {7fffbfec} {0}) ] ->DST [  (10114 {7fffbfe8} {0}) (10110 {7fffbfec} {0}) ]
+AddrExpr: {10017}
+Expand reg: {10017}
+Cur expr: " 0 "
+Expanded expr: " 10017 "
+
+DataRef: 0x1014c 40
+" 10017 "

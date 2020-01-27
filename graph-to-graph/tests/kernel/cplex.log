@@ -1,0 +1,583 @@
+
+Log started (V12.8.0.0) Mon Jan 20 15:10:33 2020
+
+Warning, line 35: Name 'Sta' does not exist.
+Found incumbent of value 36.000000 after 0.00 sec. (0.00 ticks)
+Tried aggregator 1 time.
+MIP Presolve eliminated 3 rows and 2 columns.
+All rows and columns eliminated.
+Presolve time = 0.00 sec. (0.00 ticks)
+
+Root node processing (before b&c):
+  Real time             =    0.01 sec. (0.00 ticks)
+Parallel b&c, 8 threads:
+  Real time             =    0.00 sec. (0.00 ticks)
+  Sync time (average)   =    0.00 sec.
+  Wait time (average)   =    0.00 sec.
+                          ------------
+Total (root+branch&cut) =    0.01 sec. (0.00 ticks)
+
+Solution pool: 1 solution saved.
+
+MIP - Integer optimal solution:  Objective =  3.6000000000e+01
+Solution time =    0.01 sec.  Iterations = 0  Nodes = 0
+Deterministic time = 0.00 ticks  (0.39 ticks/sec)
+
+
+Log started (V12.8.0.0) Mon Jan 20 15:11:15 2020
+
+Warning, line 35: Name 'Sta' does not exist.
+Found incumbent of value 36.000000 after 0.00 sec. (0.00 ticks)
+Tried aggregator 1 time.
+MIP Presolve eliminated 3 rows and 2 columns.
+All rows and columns eliminated.
+Presolve time = 0.00 sec. (0.00 ticks)
+
+Root node processing (before b&c):
+  Real time             =    0.00 sec. (0.00 ticks)
+Parallel b&c, 8 threads:
+  Real time             =    0.00 sec. (0.00 ticks)
+  Sync time (average)   =    0.00 sec.
+  Wait time (average)   =    0.00 sec.
+                          ------------
+Total (root+branch&cut) =    0.00 sec. (0.00 ticks)
+
+Solution pool: 1 solution saved.
+
+MIP - Integer optimal solution:  Objective =  3.6000000000e+01
+Solution time =    0.01 sec.  Iterations = 0  Nodes = 0
+Deterministic time = 0.00 ticks  (0.50 ticks/sec)
+
+
+Log started (V12.8.0.0) Mon Jan 20 15:13:15 2020
+
+Warning, line 35: Name 'Sta' does not exist.
+Warning, line 37: Name 'b0.d0' does not exist.
+Warning, line 38: Name 'b0.d1' does not exist.
+Warning, line 39: Name 'b0.d2' does not exist.
+Warning, line 40: Name 'b0.d3' does not exist.
+Warning, line 41: Name 'b0.d4' does not exist.
+Found incumbent of value 340.000000 after 0.00 sec. (0.00 ticks)
+Tried aggregator 1 time.
+MIP Presolve eliminated 3 rows and 2 columns.
+All rows and columns eliminated.
+Presolve time = 0.00 sec. (0.00 ticks)
+
+Root node processing (before b&c):
+  Real time             =    0.00 sec. (0.00 ticks)
+Parallel b&c, 8 threads:
+  Real time             =    0.00 sec. (0.00 ticks)
+  Sync time (average)   =    0.00 sec.
+  Wait time (average)   =    0.00 sec.
+                          ------------
+Total (root+branch&cut) =    0.00 sec. (0.00 ticks)
+
+Solution pool: 1 solution saved.
+
+MIP - Integer optimal solution:  Objective =  3.4000000000e+02
+Solution time =    0.00 sec.  Iterations = 0  Nodes = 0
+Deterministic time = 0.00 ticks  (3.39 ticks/sec)
+
+
+Log started (V12.8.0.0) Mon Jan 20 19:07:21 2020
+
+Warning, line 48: Name 'Sta' does not exist.
+Tried aggregator 2 times.
+MIP Presolve eliminated 8 rows and 4 columns.
+Aggregator did 6 substitutions.
+Reduced MIP has 2 rows, 3 columns, and 5 nonzeros.
+Reduced MIP has 1 binaries, 2 generals, 0 SOSs, and 0 indicators.
+Presolve time = 0.00 sec. (0.02 ticks)
+Found incumbent of value 53.000000 after 0.05 sec. (0.03 ticks)
+Probing fixed 0 vars, tightened 1 bounds.
+Probing time = 0.00 sec. (0.00 ticks)
+Tried aggregator 1 time.
+Reduced MIP has 2 rows, 3 columns, and 5 nonzeros.
+Reduced MIP has 1 binaries, 2 generals, 0 SOSs, and 0 indicators.
+Presolve time = 0.00 sec. (0.00 ticks)
+Probing time = 0.00 sec. (0.00 ticks)
+MIP emphasis: balance optimality and feasibility.
+MIP search method: dynamic search.
+Parallel mode: deterministic, using up to 8 threads.
+Root relaxation solution time = 0.01 sec. (0.00 ticks)
+
+        Nodes                                         Cuts/
+   Node  Left     Objective  IInf  Best Integer    Best Bound    ItCnt     Gap
+
+*     0+    0                           53.0000   1.39586e+10              --- 
+
+Root node processing (before b&c):
+  Real time             =    0.07 sec. (0.04 ticks)
+Parallel b&c, 8 threads:
+  Real time             =    0.00 sec. (0.00 ticks)
+  Sync time (average)   =    0.00 sec.
+  Wait time (average)   =    0.00 sec.
+                          ------------
+Total (root+branch&cut) =    0.07 sec. (0.04 ticks)
+
+Solution pool: 1 solution saved.
+
+MIP - Integer optimal solution:  Objective =  1.3958643752e+10
+Solution time =    0.07 sec.  Iterations = 0  Nodes = 0
+Deterministic time = 0.04 ticks  (0.57 ticks/sec)
+
+
+Log started (V12.8.0.0) Mon Jan 20 21:52:22 2020
+
+Warning, line 48: Name 'Sta' does not exist.
+Tried aggregator 3 times.
+MIP Presolve eliminated 9 rows and 6 columns.
+Aggregator did 7 substitutions.
+All rows and columns eliminated.
+Presolve time = 0.00 sec. (0.03 ticks)
+
+Root node processing (before b&c):
+  Real time             =    0.00 sec. (0.03 ticks)
+Parallel b&c, 8 threads:
+  Real time             =    0.00 sec. (0.00 ticks)
+  Sync time (average)   =    0.00 sec.
+  Wait time (average)   =    0.00 sec.
+                          ------------
+Total (root+branch&cut) =    0.00 sec. (0.03 ticks)
+
+Solution pool: 1 solution saved.
+
+MIP - Integer optimal solution:  Objective =  1.7000000000e+02
+Solution time =    0.00 sec.  Iterations = 0  Nodes = 0
+Deterministic time = 0.03 ticks  (15.59 ticks/sec)
+
+
+Log started (V12.8.0.0) Wed Jan 22 12:40:30 2020
+
+Warning, line 35: Name 'Sta' does not exist.
+Found incumbent of value 114.000000 after 0.00 sec. (0.00 ticks)
+Tried aggregator 1 time.
+MIP Presolve eliminated 3 rows and 2 columns.
+All rows and columns eliminated.
+Presolve time = 0.00 sec. (0.00 ticks)
+
+Root node processing (before b&c):
+  Real time             =    0.00 sec. (0.00 ticks)
+Parallel b&c, 8 threads:
+  Real time             =    0.00 sec. (0.00 ticks)
+  Sync time (average)   =    0.00 sec.
+  Wait time (average)   =    0.00 sec.
+                          ------------
+Total (root+branch&cut) =    0.00 sec. (0.00 ticks)
+
+Solution pool: 1 solution saved.
+
+MIP - Integer optimal solution:  Objective =  1.1400000000e+02
+Solution time =    0.00 sec.  Iterations = 0  Nodes = 0
+Deterministic time = 0.00 ticks  (4.09 ticks/sec)
+
+
+Log started (V12.8.0.0) Wed Jan 22 12:43:49 2020
+
+Warning, line 72: Name 'Sta' does not exist.
+Warning, line 85: Name 'b0.d0' does not exist.
+Warning, line 86: Name 'b0.d1' does not exist.
+Warning, line 87: Name 'b0.d2' does not exist.
+Warning, line 88: Name 'b0.d3' does not exist.
+Warning, line 89: Name 'b1.d0' does not exist.
+Warning, line 90: Name 'b2.d0' does not exist.
+Warning, line 91: Name 'b2.d1' does not exist.
+Warning, line 92: Name 'b2.d2' does not exist.
+Warning, line 93: Name 'b2.d3' does not exist.
+Warning, line 94: Name 'b2.d4' does not exist.
+Warning, line 95: Name 'b3.d0' does not exist.
+Warning, line 96: Name 'b4.d0' does not exist.
+Warning, line 97: Name 'b4.d1' does not exist.
+Warning, line 98: Name 'b5.d0' does not exist.
+Warning, line 99: Name 'b5.d1' does not exist.
+Warning, line 100: Name 'b5.d2' does not exist.
+Warning, line 101: Name 'b5.d3' does not exist.
+Warning, line 102: Name 'b5.d4' does not exist.
+Tried aggregator 2 times.
+MIP Presolve eliminated 14 rows and 4 columns.
+Aggregator did 24 substitutions.
+Reduced MIP has 2 rows, 3 columns, and 5 nonzeros.
+Reduced MIP has 1 binaries, 2 generals, 0 SOSs, and 0 indicators.
+Presolve time = 0.00 sec. (0.06 ticks)
+Found incumbent of value 404.000000 after 0.00 sec. (0.06 ticks)
+Probing fixed 0 vars, tightened 1 bounds.
+Probing time = 0.00 sec. (0.00 ticks)
+Tried aggregator 1 time.
+Reduced MIP has 2 rows, 3 columns, and 5 nonzeros.
+Reduced MIP has 1 binaries, 2 generals, 0 SOSs, and 0 indicators.
+Presolve time = 0.00 sec. (0.00 ticks)
+Probing time = 0.00 sec. (0.00 ticks)
+MIP emphasis: balance optimality and feasibility.
+MIP search method: dynamic search.
+Parallel mode: deterministic, using up to 8 threads.
+Root relaxation solution time = 0.00 sec. (0.00 ticks)
+
+        Nodes                                         Cuts/
+   Node  Left     Objective  IInf  Best Integer    Best Bound    ItCnt     Gap
+
+*     0+    0                          404.0000   5.45461e+11              --- 
+
+Root node processing (before b&c):
+  Real time             =    0.00 sec. (0.08 ticks)
+Parallel b&c, 8 threads:
+  Real time             =    0.00 sec. (0.00 ticks)
+  Sync time (average)   =    0.00 sec.
+  Wait time (average)   =    0.00 sec.
+                          ------------
+Total (root+branch&cut) =    0.00 sec. (0.08 ticks)
+
+Solution pool: 1 solution saved.
+
+MIP - Integer optimal solution:  Objective =  5.4546084670e+11
+Solution time =    0.00 sec.  Iterations = 0  Nodes = 0
+Deterministic time = 0.08 ticks  (29.59 ticks/sec)
+
+
+Log started (V12.8.0.0) Wed Jan 22 14:00:41 2020
+
+Warning, line 56: Name 'Sta' does not exist.
+Warning, line 65: Name 'b0.d0' does not exist.
+Warning, line 66: Name 'b0.d1' does not exist.
+Warning, line 67: Name 'b0.d2' does not exist.
+Warning, line 68: Name 'b1.d0' does not exist.
+Warning, line 69: Name 'b1.d1' does not exist.
+Warning, line 70: Name 'b1.d2' does not exist.
+Warning, line 71: Name 'b1.d3' does not exist.
+Warning, line 72: Name 'b2.d0' does not exist.
+Warning, line 73: Name 'b3.d0' does not exist.
+Tried aggregator 2 times.
+MIP Presolve eliminated 10 rows and 4 columns.
+Aggregator did 12 substitutions.
+Reduced MIP has 2 rows, 3 columns, and 5 nonzeros.
+Reduced MIP has 1 binaries, 2 generals, 0 SOSs, and 0 indicators.
+Presolve time = 0.00 sec. (0.03 ticks)
+Found incumbent of value 357.000000 after 0.00 sec. (0.04 ticks)
+Probing fixed 0 vars, tightened 1 bounds.
+Probing time = 0.00 sec. (0.00 ticks)
+Tried aggregator 1 time.
+Reduced MIP has 2 rows, 3 columns, and 5 nonzeros.
+Reduced MIP has 1 binaries, 2 generals, 0 SOSs, and 0 indicators.
+Presolve time = 0.00 sec. (0.00 ticks)
+Probing time = 0.00 sec. (0.00 ticks)
+MIP emphasis: balance optimality and feasibility.
+MIP search method: dynamic search.
+Parallel mode: deterministic, using up to 8 threads.
+Root relaxation solution time = 0.00 sec. (0.00 ticks)
+
+Root node processing (before b&c):
+  Real time             =    0.00 sec. (0.05 ticks)
+Parallel b&c, 8 threads:
+  Real time             =    0.00 sec. (0.00 ticks)
+  Sync time (average)   =    0.00 sec.
+  Wait time (average)   =    0.00 sec.
+                          ------------
+Total (root+branch&cut) =    0.00 sec. (0.05 ticks)
+
+Solution pool: 1 solution saved.
+
+MIP - Integer optimal solution:  Objective =  2.5984552159e+11
+Solution time =    0.00 sec.  Iterations = 0  Nodes = 0
+Deterministic time = 0.05 ticks  (15.71 ticks/sec)
+
+
+Log started (V12.8.0.0) Wed Jan 22 14:50:56 2020
+
+Warning, line 56: Name 'Sta' does not exist.
+Warning, line 65: Name 'b0.d0' does not exist.
+Warning, line 66: Name 'b0.d1' does not exist.
+Warning, line 67: Name 'b0.d2' does not exist.
+Warning, line 68: Name 'b1.d0' does not exist.
+Warning, line 69: Name 'b1.d1' does not exist.
+Warning, line 70: Name 'b1.d2' does not exist.
+Warning, line 71: Name 'b1.d3' does not exist.
+Warning, line 72: Name 'b2.d0' does not exist.
+Warning, line 73: Name 'b3.d0' does not exist.
+Tried aggregator 2 times.
+MIP Presolve eliminated 10 rows and 4 columns.
+Aggregator did 12 substitutions.
+Reduced MIP has 2 rows, 3 columns, and 5 nonzeros.
+Reduced MIP has 1 binaries, 2 generals, 0 SOSs, and 0 indicators.
+Presolve time = 0.00 sec. (0.03 ticks)
+Found incumbent of value 357.000000 after 0.00 sec. (0.04 ticks)
+Probing fixed 0 vars, tightened 1 bounds.
+Probing time = 0.00 sec. (0.00 ticks)
+Tried aggregator 1 time.
+Reduced MIP has 2 rows, 3 columns, and 5 nonzeros.
+Reduced MIP has 1 binaries, 2 generals, 0 SOSs, and 0 indicators.
+Presolve time = 0.00 sec. (0.00 ticks)
+Probing time = 0.00 sec. (0.00 ticks)
+MIP emphasis: balance optimality and feasibility.
+MIP search method: dynamic search.
+Parallel mode: deterministic, using up to 8 threads.
+Root relaxation solution time = 0.00 sec. (0.00 ticks)
+
+        Nodes                                         Cuts/
+   Node  Left     Objective  IInf  Best Integer    Best Bound    ItCnt     Gap
+
+*     0+    0                          357.0000   2.59846e+11              --- 
+
+Root node processing (before b&c):
+  Real time             =    0.00 sec. (0.05 ticks)
+Parallel b&c, 8 threads:
+  Real time             =    0.00 sec. (0.00 ticks)
+  Sync time (average)   =    0.00 sec.
+  Wait time (average)   =    0.00 sec.
+                          ------------
+Total (root+branch&cut) =    0.00 sec. (0.05 ticks)
+
+Solution pool: 1 solution saved.
+
+MIP - Integer optimal solution:  Objective =  2.5984552159e+11
+Solution time =    0.00 sec.  Iterations = 0  Nodes = 0
+Deterministic time = 0.05 ticks  (18.82 ticks/sec)
+
+
+Log started (V12.8.0.0) Wed Jan 22 14:51:22 2020
+
+Warning, line 56: Name 'Sta' does not exist.
+Warning, line 65: Name 'b0.d0' does not exist.
+Warning, line 66: Name 'b0.d1' does not exist.
+Warning, line 67: Name 'b0.d2' does not exist.
+Warning, line 68: Name 'b1.d0' does not exist.
+Warning, line 69: Name 'b1.d1' does not exist.
+Warning, line 70: Name 'b1.d2' does not exist.
+Warning, line 71: Name 'b1.d3' does not exist.
+Warning, line 72: Name 'b2.d0' does not exist.
+Warning, line 73: Name 'b3.d0' does not exist.
+Tried aggregator 2 times.
+MIP Presolve eliminated 10 rows and 4 columns.
+Aggregator did 12 substitutions.
+Reduced MIP has 2 rows, 3 columns, and 5 nonzeros.
+Reduced MIP has 1 binaries, 2 generals, 0 SOSs, and 0 indicators.
+Presolve time = 0.00 sec. (0.03 ticks)
+Found incumbent of value 357.000000 after 0.00 sec. (0.04 ticks)
+Probing fixed 0 vars, tightened 1 bounds.
+Probing time = 0.00 sec. (0.00 ticks)
+Tried aggregator 1 time.
+Reduced MIP has 2 rows, 3 columns, and 5 nonzeros.
+Reduced MIP has 1 binaries, 2 generals, 0 SOSs, and 0 indicators.
+Presolve time = 0.00 sec. (0.00 ticks)
+Probing time = 0.00 sec. (0.00 ticks)
+MIP emphasis: balance optimality and feasibility.
+MIP search method: dynamic search.
+Parallel mode: deterministic, using up to 8 threads.
+Root relaxation solution time = 0.00 sec. (0.00 ticks)
+
+Root node processing (before b&c):
+  Real time             =    0.00 sec. (0.05 ticks)
+Parallel b&c, 8 threads:
+  Real time             =    0.00 sec. (0.00 ticks)
+  Sync time (average)   =    0.00 sec.
+  Wait time (average)   =    0.00 sec.
+                          ------------
+Total (root+branch&cut) =    0.00 sec. (0.05 ticks)
+
+Solution pool: 1 solution saved.
+
+MIP - Integer optimal solution:  Objective =  2.5984552159e+11
+Solution time =    0.00 sec.  Iterations = 0  Nodes = 0
+Deterministic time = 0.05 ticks  (11.70 ticks/sec)
+
+
+Log started (V12.8.0.0) Wed Jan 22 15:00:54 2020
+
+Warning, line 56: Name 'Sta' does not exist.
+Warning, line 65: Name 'b0.d0' does not exist.
+Warning, line 66: Name 'b0.d1' does not exist.
+Warning, line 67: Name 'b0.d2' does not exist.
+Warning, line 68: Name 'b1.d0' does not exist.
+Warning, line 69: Name 'b1.d1' does not exist.
+Warning, line 70: Name 'b1.d2' does not exist.
+Warning, line 71: Name 'b1.d3' does not exist.
+Warning, line 72: Name 'b2.d0' does not exist.
+Warning, line 73: Name 'b3.d0' does not exist.
+Tried aggregator 2 times.
+MIP Presolve eliminated 10 rows and 4 columns.
+Aggregator did 12 substitutions.
+Reduced MIP has 2 rows, 3 columns, and 5 nonzeros.
+Reduced MIP has 1 binaries, 2 generals, 0 SOSs, and 0 indicators.
+Presolve time = 0.00 sec. (0.03 ticks)
+Found incumbent of value 357.000000 after 0.00 sec. (0.04 ticks)
+Probing fixed 0 vars, tightened 1 bounds.
+Probing time = 0.00 sec. (0.00 ticks)
+Tried aggregator 1 time.
+Reduced MIP has 2 rows, 3 columns, and 5 nonzeros.
+Reduced MIP has 1 binaries, 2 generals, 0 SOSs, and 0 indicators.
+Presolve time = 0.00 sec. (0.00 ticks)
+Probing time = 0.00 sec. (0.00 ticks)
+MIP emphasis: balance optimality and feasibility.
+MIP search method: dynamic search.
+Parallel mode: deterministic, using up to 8 threads.
+Root relaxation solution time = 0.00 sec. (0.00 ticks)
+
+        Nodes                                         Cuts/
+   Node  Left     Objective  IInf  Best Integer    Best Bound    ItCnt     Gap
+
+*     0+    0                          357.0000   2.59846e+11              --- 
+
+Root node processing (before b&c):
+  Real time             =    0.00 sec. (0.05 ticks)
+Parallel b&c, 8 threads:
+  Real time             =    0.00 sec. (0.00 ticks)
+  Sync time (average)   =    0.00 sec.
+  Wait time (average)   =    0.00 sec.
+                          ------------
+Total (root+branch&cut) =    0.00 sec. (0.05 ticks)
+
+Solution pool: 1 solution saved.
+
+MIP - Integer optimal solution:  Objective =  2.5984552159e+11
+Solution time =    0.00 sec.  Iterations = 0  Nodes = 0
+Deterministic time = 0.05 ticks  (18.23 ticks/sec)
+
+
+Log started (V12.8.0.0) Wed Jan 22 17:16:51 2020
+
+Warning, line 56: Name 'Sta' does not exist.
+Warning, line 65: Name 'b0.d0' does not exist.
+Warning, line 66: Name 'b0.d1' does not exist.
+Warning, line 67: Name 'b0.d2' does not exist.
+Warning, line 68: Name 'b1.d0' does not exist.
+Warning, line 69: Name 'b1.d1' does not exist.
+Warning, line 70: Name 'b1.d2' does not exist.
+Warning, line 71: Name 'b1.d3' does not exist.
+Warning, line 72: Name 'b2.d0' does not exist.
+Warning, line 73: Name 'b3.d0' does not exist.
+Tried aggregator 2 times.
+MIP Presolve eliminated 10 rows and 4 columns.
+Aggregator did 12 substitutions.
+Reduced MIP has 2 rows, 3 columns, and 5 nonzeros.
+Reduced MIP has 1 binaries, 2 generals, 0 SOSs, and 0 indicators.
+Presolve time = 0.00 sec. (0.03 ticks)
+Found incumbent of value 357.000000 after 0.00 sec. (0.04 ticks)
+Probing fixed 0 vars, tightened 1 bounds.
+Probing time = 0.00 sec. (0.00 ticks)
+Tried aggregator 1 time.
+Reduced MIP has 2 rows, 3 columns, and 5 nonzeros.
+Reduced MIP has 1 binaries, 2 generals, 0 SOSs, and 0 indicators.
+Presolve time = 0.00 sec. (0.00 ticks)
+Probing time = 0.00 sec. (0.00 ticks)
+MIP emphasis: balance optimality and feasibility.
+MIP search method: dynamic search.
+Parallel mode: deterministic, using up to 8 threads.
+Root relaxation solution time = 0.00 sec. (0.00 ticks)
+
+        Nodes                                         Cuts/
+   Node  Left     Objective  IInf  Best Integer    Best Bound    ItCnt     Gap
+
+*     0+    0                          357.0000   2.59846e+11              --- 
+
+Root node processing (before b&c):
+  Real time             =    0.00 sec. (0.05 ticks)
+Parallel b&c, 8 threads:
+  Real time             =    0.00 sec. (0.00 ticks)
+  Sync time (average)   =    0.00 sec.
+  Wait time (average)   =    0.00 sec.
+                          ------------
+Total (root+branch&cut) =    0.00 sec. (0.05 ticks)
+
+Solution pool: 1 solution saved.
+
+MIP - Integer optimal solution:  Objective =  2.5984552159e+11
+Solution time =    0.01 sec.  Iterations = 0  Nodes = 0
+Deterministic time = 0.05 ticks  (9.77 ticks/sec)
+
+
+Log started (V12.8.0.0) Wed Jan 22 20:24:24 2020
+
+Warning, line 56: Name 'Sta' does not exist.
+Warning, line 65: Name 'b0.d0' does not exist.
+Warning, line 66: Name 'b0.d1' does not exist.
+Warning, line 67: Name 'b0.d2' does not exist.
+Warning, line 68: Name 'b1.d0' does not exist.
+Warning, line 69: Name 'b1.d1' does not exist.
+Warning, line 70: Name 'b1.d2' does not exist.
+Warning, line 71: Name 'b1.d3' does not exist.
+Warning, line 72: Name 'b2.d0' does not exist.
+Warning, line 73: Name 'b3.d0' does not exist.
+Tried aggregator 2 times.
+MIP Presolve eliminated 10 rows and 4 columns.
+Aggregator did 12 substitutions.
+Reduced MIP has 2 rows, 3 columns, and 5 nonzeros.
+Reduced MIP has 1 binaries, 2 generals, 0 SOSs, and 0 indicators.
+Presolve time = 0.00 sec. (0.03 ticks)
+Found incumbent of value 357.000000 after 0.00 sec. (0.04 ticks)
+Probing fixed 0 vars, tightened 1 bounds.
+Probing time = 0.00 sec. (0.00 ticks)
+Tried aggregator 1 time.
+Reduced MIP has 2 rows, 3 columns, and 5 nonzeros.
+Reduced MIP has 1 binaries, 2 generals, 0 SOSs, and 0 indicators.
+Presolve time = 0.00 sec. (0.00 ticks)
+Probing time = 0.00 sec. (0.00 ticks)
+MIP emphasis: balance optimality and feasibility.
+MIP search method: dynamic search.
+Parallel mode: deterministic, using up to 8 threads.
+Root relaxation solution time = 0.00 sec. (0.00 ticks)
+
+        Nodes                                         Cuts/
+   Node  Left     Objective  IInf  Best Integer    Best Bound    ItCnt     Gap
+
+*     0+    0                          357.0000   2.59846e+11              --- 
+
+Root node processing (before b&c):
+  Real time             =    0.00 sec. (0.05 ticks)
+Parallel b&c, 8 threads:
+  Real time             =    0.00 sec. (0.00 ticks)
+  Sync time (average)   =    0.00 sec.
+  Wait time (average)   =    0.00 sec.
+                          ------------
+Total (root+branch&cut) =    0.00 sec. (0.05 ticks)
+
+Solution pool: 1 solution saved.
+
+MIP - Integer optimal solution:  Objective =  2.5984552159e+11
+Solution time =    0.00 sec.  Iterations = 0  Nodes = 0
+Deterministic time = 0.05 ticks  (12.23 ticks/sec)
+
+
+Log started (V12.8.0.0) Wed Jan 22 20:31:36 2020
+
+Warning, line 56: Name 'Sta' does not exist.
+Warning, line 65: Name 'b0.d0' does not exist.
+Warning, line 66: Name 'b0.d1' does not exist.
+Warning, line 67: Name 'b0.d2' does not exist.
+Warning, line 68: Name 'b1.d0' does not exist.
+Warning, line 69: Name 'b1.d1' does not exist.
+Warning, line 70: Name 'b1.d2' does not exist.
+Warning, line 71: Name 'b1.d3' does not exist.
+Warning, line 72: Name 'b2.d0' does not exist.
+Warning, line 73: Name 'b3.d0' does not exist.
+Tried aggregator 2 times.
+MIP Presolve eliminated 10 rows and 4 columns.
+Aggregator did 12 substitutions.
+Reduced MIP has 2 rows, 3 columns, and 5 nonzeros.
+Reduced MIP has 1 binaries, 2 generals, 0 SOSs, and 0 indicators.
+Presolve time = 0.00 sec. (0.03 ticks)
+Found incumbent of value 357.000000 after 0.00 sec. (0.04 ticks)
+Probing fixed 0 vars, tightened 1 bounds.
+Probing time = 0.00 sec. (0.00 ticks)
+Tried aggregator 1 time.
+Reduced MIP has 2 rows, 3 columns, and 5 nonzeros.
+Reduced MIP has 1 binaries, 2 generals, 0 SOSs, and 0 indicators.
+Presolve time = 0.00 sec. (0.00 ticks)
+Probing time = 0.00 sec. (0.00 ticks)
+MIP emphasis: balance optimality and feasibility.
+MIP search method: dynamic search.
+Parallel mode: deterministic, using up to 8 threads.
+Root relaxation solution time = 0.00 sec. (0.00 ticks)
+
+Root node processing (before b&c):
+  Real time             =    0.00 sec. (0.05 ticks)
+Parallel b&c, 8 threads:
+  Real time             =    0.00 sec. (0.00 ticks)
+  Sync time (average)   =    0.00 sec.
+  Wait time (average)   =    0.00 sec.
+                          ------------
+Total (root+branch&cut) =    0.00 sec. (0.05 ticks)
+
+Solution pool: 1 solution saved.
+
+MIP - Integer optimal solution:  Objective =  2.5984552159e+11
+Solution time =    0.00 sec.  Iterations = 0  Nodes = 0
+Deterministic time = 0.05 ticks  (15.28 ticks/sec)
+

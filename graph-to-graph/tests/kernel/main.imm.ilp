@@ -1,0 +1,89 @@
+enter Q
+Maximize
+
+186 dSta_0 + 84 d0_2 + 84 d1_2.v0 + 15 d1_2.v1 + 87 d2_3.v0 + 87 d2_3.v1 + 227 d2_1.v0 + 227 d2_1.v1
+
+
+Subject to
+
+
+\ === tcfg constraints ===
+dSta_0 = 1
+b0 - d0_2 = 0
+b0 - dSta_0 = 0
+b1 - d1_2 = 0
+b1 - d2_1 = 0
+b2 - d2_3 - d2_1 = 0
+b2 - d0_2 - d1_2 = 0
+b3 - d2_3 = 0
+
+
+\ === context constraints ===
+
+\(a)
+d1_2 - d1_2.v0 - d1_2.v1 = 0
+d2_3 - d2_3.v0 - d2_3.v1 = 0
+d2_1 - d2_1.v0 - d2_1.v1 = 0
+
+\(b)
+b1.v0 - d1_2.v0 = 0
+b1.v1 - d1_2.v1 = 0
+b2.v0 - d2_3.v0 - d2_1.v0 = 0
+b2.v1 - d2_3.v1 - d2_1.v1 = 0
+
+\(c)
+b1 - b1.v0 - b1.v1 = 0
+b2 - b2.v0 - b2.v1 = 0
+
+\(d)
+b2.v0 - d0_2 = 0
+
+\(e)
+b2.v1 - d1_2.v0 - d1_2.v1 = 0
+b2.v1 - 1073741823 d1_2.v0 <= 0
+
+\(f)
+
+\(g)
+b1.v0 - d2_1.v0 = 0
+b1.v1 - d2_1.v1 = 0
+
+\ === header constraints ===
+b0 <= 1
+b2 - 1073741824 d0_2 <= 0
+
+Generals
+
+Sta
+b0
+d0_2
+b1
+d1_2
+b2
+d2_3
+d2_1
+b3
+b0.d0
+b0.d1
+b0.d2
+b1.d0
+b1.d1
+b1.d2
+b1.d3
+b2.d0
+b3.d0
+d0_2
+d1_2.v0
+d1_2.v1
+d2_3.v0
+d2_3.v1
+d2_1.v0
+d2_1.v1
+
+End
+\ total_cons: 23 	total_vars: 18
+optimize
+set logfile .//main.imm.sol
+display solution objective
+display solution variables -
+quit

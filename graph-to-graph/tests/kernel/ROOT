@@ -1,0 +1,2 @@
+session SimplExport = AsmRefine +
+    theories "tmp"

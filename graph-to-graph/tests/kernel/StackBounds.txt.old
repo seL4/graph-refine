@@ -1,0 +1,4 @@
+FunctionHash -7772636203259898519
+StackBound main Num 32 Word 32
+StackBound halt Num 16 Word 32
+StackBound g Num 32 Word 32
