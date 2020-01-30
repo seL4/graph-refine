@@ -314,6 +314,8 @@ def smt_expr (expr, env, solv):
                 return '((_ zero_extend %d) %s)' % (
                     expr.typ.num - v.typ.num, ex)
             else:
+                print expr.name
+                #assert None
                 return '((_ sign_extend %d) %s)' % (
                     expr.typ.num - v.typ.num, ex)
     elif expr.is_op (['ToFloatingPoint', 'ToFloatingPointSigned',
@@ -392,10 +394,12 @@ def smt_expr (expr, env, solv):
     elif expr.is_op ('Equals') and expr.vals[0].typ == word32T:
         (x, y) = [smt_expr (e, env, solv) for e in expr.vals]
         sexp = '(word32-eq %s %s)' % (x, y)
+        #assert False
         return sexp
     elif expr.is_op('Equals') and expr.vals[0].typ == word64T:
         (x, y) = [smt_expr(e, env, solv) for e in expr.vals]
         sexp = '(word64-eq %s %s)' % (x, y)
+        print sexp
         return sexp
     elif expr.is_op ('StackEqualsImplies'):
         [sp1, st1, sp2, st2] = [smt_expr (e, env, solv)
@@ -422,6 +426,9 @@ def smt_expr (expr, env, solv):
         var = solv.add_var ('updated_htd', expr.typ)
         return var
     elif expr.kind == 'Op':
+        print "expr:"
+        print expr
+        print 'done\n'
         vals = [smt_expr (e, env, solv) for e in expr.vals]
         if vals:
             sexp = '(%s %s)' % (smt_ops[expr.name], ' '.join(vals))
@@ -435,6 +442,12 @@ def smt_expr (expr, env, solv):
         if (expr.name, expr.typ) not in env:
             trace ('Env miss for %s in smt_expr' % expr.name)
             trace ('Environment is %s' % env)
+            print expr
+            print expr.name
+            print expr.typ
+            for e in env:
+                print e
+                print '\n'
             raise EnvMiss (expr.name, expr.typ)
         val = env[(expr.name, expr.typ)]
         assert val[0] == 'SplitMem' or type(val) == str
@@ -1268,6 +1281,7 @@ class Solver:
 
     def exec_slow_solver (self, input_msgs, timeout = None,
                           use_this_solver = None):
+        import shutil
         solver = self.slow_solver
         if use_this_solver:
             solver = use_this_solver
@@ -1280,7 +1294,11 @@ class Solver:
         self.write_solv_script (tmpfile_write, input_msgs,
                                 solver = solver)
         tmpfile_write.close ()
-
+        shutil.copyfile(name, '/home/yshen' + name)
+        print name
+        print 'solver inputs:\n'
+        print input_msgs
+        print 'done\n'
         proc = subprocess.Popen (solver.args,
                                  stdin = fd, stdout = subprocess.PIPE,
                                  preexec_fn = preexec (timeout))
@@ -1336,10 +1354,19 @@ class Solver:
 
     def add_parallel_solver (self, k, hyps, model = None,
                              use_this_solver = None):
+        for h in hyps:
+            print 'hyp: \n'
+            print h
+            print 'hyp done\n'
+
         cmds = ['(assert %s)' % hyp for hyp in hyps] + ['(check-sat)']
 
         if model != None:
             cmds.append (self.fetch_model_request ())
+
+        print 'cmds'
+        print cmds
+        print 'donecmds'
 
         trace ('  --> new parallel solver %s' % str (k))
 
@@ -1941,8 +1968,10 @@ class Solver:
             wordT = word32T
 
         addr = self.add_var ('stack-eq-witness', wordT)
-        self.assert_fact_smt ('(= (bvand %s #x00000003) #x00000000)'
-                              % addr)
+        if syntax.is_64bit:
+            self.assert_fact_smt('(= (bvand %s #x0000000000000007) #x0000000000000000)' % addr)
+        else:
+            self.assert_fact_smt ('(= (bvand %s #x00000003) #x00000000)' % addr)
         sp_smt = smt_expr (sp, env, self)
         self.assert_fact_smt ('(bvule %s %s)' % (sp_smt, addr))
         ptr = mk_smt_expr (addr, wordT)

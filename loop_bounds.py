@@ -257,8 +257,9 @@ def candidate_additional_eqs (p, split):
             [x, y] = y.vals
             eq_vals.add ((x, y))
             eq_vals.add ((y, x))
-
-    loop = syntax.mk_var ('%i', syntax.word32T)
+    # hack rv64
+    loop = syntax.mk_var ('%i', syntax.word64T)
+    assert False
     minus_loop_step = syntax.mk_uminus (loop)
 
     vas = search.get_loop_var_analysis_at(p, split)
@@ -658,6 +659,7 @@ def get_loop_addrs (split):
             if addr_to_loop_id_cache.get (addr) == split]
 
 def add_fun_to_loop_data_cache (fname):
+    print fname
     p = functions[fname].as_problem (problem.Problem)
     p.do_loop_analysis ()
     for h in p.loop_heads ():

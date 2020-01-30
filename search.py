@@ -13,7 +13,7 @@ from rep_graph import (mk_graph_slice, vc_num, vc_offs, vc_upto,
 import rep_graph
 from syntax import (mk_and, mk_cast, mk_implies, mk_not, mk_uminus, mk_var,
                     foldr1, boolT, word64T, word32T, word8T, builtinTs, true_term, false_term,
-                    mk_word32, mk_word8, mk_times, Expr, Type, mk_or, mk_eq, mk_memacc,
+                    mk_word64, mk_word32, mk_word8, mk_times, Expr, Type, mk_or, mk_eq, mk_memacc,
                     mk_num, mk_minus, mk_plus, mk_less)
 import syntax
 import logic
@@ -489,6 +489,7 @@ def eval_model (m, s, toplevel = None):
     xs = [eval_model (m, x, toplevel) for x in s[1:]]
 
     if op[0] == '_' and op[1] in ['zero_extend', 'sign_extend']:
+        assert False
         [_, ex_kind, n_extend] = op
         n_extend = int (n_extend)
         [x] = xs
@@ -1348,11 +1349,13 @@ def mk_seq_eqs (p, split, step, with_rodata):
 
     # the variable 'loop' will be converted to the point in
     # the sequence - note this should be multiplied by the step size
-    loop = mk_var ('%i', word32T)
+    # hack rv64
+    loop = mk_var ('%i', word64T)
     if step == 1:
         minus_loop_step = mk_uminus (loop)
     else:
-        minus_loop_step = mk_times (loop, mk_word32 (- step))
+        # hack rv64
+        minus_loop_step = mk_times (loop, mk_word64 (- step))
 
     for (var, data) in get_loop_var_analysis_at (p, split):
         if data == 'LoopVariable':
