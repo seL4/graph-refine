@@ -1,4 +1,8 @@
+8 call_zero
 0 f
 4 g 4
 0 halt
+8 loop 8
+8 m 8
 4 main
+8 zero

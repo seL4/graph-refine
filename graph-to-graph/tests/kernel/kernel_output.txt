@@ -49,136 +49,277 @@ val it = (): unit
   Reading /home/yshen/work/verificatin/graph-refine/graph-to-graph/tests/kernel/kernel.elf.txt, done.
   Reading /home/yshen/work/verificatin/graph-refine/graph-to-graph/tests/kernel/kernel.sigs, done.
 ======================================================================
-  Total: 4 functions, 51 RISC-V instructions
-  Longest function: g (17 instructions)
-  0 deps: 3 functions (f, g, halt)
-  1 deps: 1 functions (main)
+  Total: 8 functions, 54 RISC-V instructions
+  Longest function: main (17 instructions)
+  0 deps: 7 functions (call_zero, zero, loop, f, m, g, halt)
+  2 deps: 1 functions (main)
 ======================================================================
 
-Section f (1 of 4)
-==================
+Section call_zero (1 of 8)
+==========================
 
 Deriving specifications
 -----------------------
 
-Section `f` consists of 13 instructions.
+Section `call_zero` consists of 7 instructions.
 
-ADDI..
-SD..
-SW..
-LW..
-ADDIW..
-ADDI_NOP.
-LD..
-JALR..
-JALR_NOP.
+RVC_FFFT__________FT.
+RVC_FTF___________FT.
+RVC_TTT___________TF..
+RVC_FTT_FT________TF.
+RVC_FFFFFFFT______FT.
+RVC_TFFFFFFFTFFFFFTF.
 
 Stack analysis
 ---------------
 
-5 stack accesses found. Annotated code for `f`:
+2 stack accesses found. Annotated code for `call_zero`:
 
-    0x10104     0x0    addi sp,sp,-32
-    0x10108     0x4    sd s0,24(sp)          ; stack access
-    0x1010c     0x8    addi s0,sp,32
-    0x10110     0xc    sw zero,-20(s0)       ; stack access
-    0x10114    0x10    lw a5,-20(s0)         ; stack access
-    0x10118    0x14    sext.w a5,a5
-    0x1011c    0x18    addiw a5,a5,1
-    0x10120    0x1c    sext.w a5,a5
-    0x10124    0x20    sw a5,-20(s0)         ; stack access
-    0x10128    0x24    nop
-    0x1012c    0x28    ld s0,24(sp)          ; stack access
-    0x10130    0x2c    addi sp,sp,32
-    0x10134    0x30    ret
+    0x100fc    0x0    addi sp,sp,-16
+    0x100fe    0x2    li a5,16
+    0x10100    0x4    sd a5,8(sp)           ; stack access
+    0x10102    0x6    ld a0,8(sp)           ; stack access
+    0x10104    0x8    addi a0,a0,-1
+    0x10106    0xa    addi sp,sp,16
+    0x10108    0xc    ret
 
 Proving inst theorems
 ---------------------
 
-13 inst theorems describe instructions.
+7 inst theorems describe instructions.
 
 Evaluating graph
 ----------------
 
-The graph for `f` has 19 nodes.
+The graph for `call_zero` has 10 nodes.
 
-Section g (2 of 4)
-==================
-
-Deriving specifications
------------------------
-
-Section `g` consists of 17 instructions.
-
-SLLIW..
-ANDI..
-ADDW.....
-
-Stack analysis
----------------
-
-5 stack accesses found. Annotated code for `g`:
-
-    0x100c0     0x0    addi sp,sp,-32
-    0x100c4     0x4    sd s0,24(sp)          ; stack access
-    0x100c8     0x8    addi s0,sp,32
-    0x100cc     0xc    mv a5,a0
-    0x100d0    0x10    sw a5,-20(s0)         ; stack access
-    0x100d4    0x14    lw a5,-20(s0)         ; stack access
-    0x100d8    0x18    slliw a5,a5,0x3
-    0x100dc    0x1c    sext.w a4,a5
-    0x100e0    0x20    lw a5,-20(s0)         ; stack access
-    0x100e4    0x24    andi a5,a5,15
-    0x100e8    0x28    sext.w a5,a5
-    0x100ec    0x2c    addw a5,a4,a5
-    0x100f0    0x30    sext.w a5,a5
-    0x100f4    0x34    mv a0,a5
-    0x100f8    0x38    ld s0,24(sp)          ; stack access
-    0x100fc    0x3c    addi sp,sp,32
-    0x10100    0x40    ret
-
-Proving inst theorems
----------------------
-
-17 inst theorems describe instructions.
-
-Evaluating graph
-----------------
-
-The graph for `g` has 23 nodes.
-
-Section halt (3 of 4)
+Section zero (2 of 8)
 =====================
 
 Deriving specifications
 -----------------------
 
-Section `halt` consists of 4 instructions.
+Section `zero` consists of 2 instructions.
 
-JAL.
-JAL_NOP.
 
 Stack analysis
 ---------------
 
-1 stack accesses found. Annotated code for `halt`:
+No stack accesses found. Code for `zero`:
 
-    0x100b0    0x0    addi sp,sp,-16
-    0x100b4    0x4    sd s0,8(sp)           ; stack access
-    0x100b8    0x8    addi s0,sp,16
-    0x100bc    0xc    j 100bc <halt+0xc>
+    0x100f8    0x0    li a0,16
+    0x100fa    0x2    ret
 
 Proving inst theorems
 ---------------------
 
-4 inst theorems describe instructions.
+2 inst theorems describe instructions.
 
 Evaluating graph
 ----------------
 
-The graph for `halt` has 5 nodes.
+The graph for `zero` has 3 nodes.
 
-Section main (4 of 4)
+Section loop (3 of 8)
+=====================
+
+Deriving specifications
+-----------------------
+
+Section `loop` consists of 16 instructions.
+
+BLT..
+RVC_TFFTFT___FT___TF..
+RVC_FFFFFT________FT.
+ADDI..
+BGE..
+ADD.....
+MUL.....
+
+Stack analysis
+---------------
+
+No stack accesses found. Code for `loop`:
+
+    0x100c8     0x0    li a5,-9
+    0x100ca     0x2    blt a0,a5,100dc <loop+0x14>
+    0x100ce     0x6    li a5,0
+    0x100d0     0x8    add a0,a0,a5
+    0x100d2     0xa    addi a5,a5,1
+    0x100d4     0xc    addi a4,a0,9
+    0x100d8    0x10    bge a4,a5,100d0 <loop+0x8>
+    0x100dc    0x14    li a5,-19
+    0x100de    0x16    blt a0,a5,100f6 <loop+0x2e>
+    0x100e2    0x1a    li a5,0
+    0x100e4    0x1c    add a4,a5,a0
+    0x100e8    0x20    mul a0,a0,a4
+    0x100ec    0x24    addi a5,a5,1
+    0x100ee    0x26    addi a4,a0,19
+    0x100f2    0x2a    bge a4,a5,100e4 <loop+0x1c>
+    0x100f6    0x2e    ret
+
+Proving inst theorems
+---------------------
+
+<<HOL message: inventing new type variable names: 'a>>
+<<HOL message: inventing new type variable names: 'a>>
+<<HOL message: inventing new type variable names: 'a>>
+<<HOL message: inventing new type variable names: 'a>>
+16 inst theorems describe instructions.
+
+Evaluating graph
+----------------
+
+The graph for `loop` has 25 nodes.
+
+Section f (4 of 8)
+==================
+
+Deriving specifications
+-----------------------
+
+Section `f` consists of 7 instructions.
+
+RVC_TTF___________TF..
+RVC_FTF_FT________TF.
+RVC_FFT___________FT.
+
+Stack analysis
+---------------
+
+3 stack accesses found. Annotated code for `f`:
+
+    0x100ba    0x0    addi sp,sp,-16
+    0x100bc    0x2    sw zero,12(sp)        ; stack access
+    0x100be    0x4    lw a5,12(sp)          ; stack access
+    0x100c0    0x6    addiw a5,a5,1
+    0x100c2    0x8    sw a5,12(sp)          ; stack access
+    0x100c4    0xa    addi sp,sp,16
+    0x100c6    0xc    ret
+
+Proving inst theorems
+---------------------
+
+7 inst theorems describe instructions.
+
+Evaluating graph
+----------------
+
+The graph for `f` has 11 nodes.
+
+Section m (5 of 8)
+==================
+
+Deriving specifications
+-----------------------
+
+Section `m` consists of 2 instructions.
+
+
+Stack analysis
+---------------
+
+No stack accesses found. Code for `m`:
+
+    0x100b6    0x0    addi a0,a0,-1
+    0x100b8    0x2    ret
+
+Proving inst theorems
+---------------------
+
+2 inst theorems describe instructions.
+
+Evaluating graph
+----------------
+
+The graph for `m` has 3 nodes.
+
+Section g (6 of 8)
+==================
+
+Deriving specifications
+-----------------------
+
+Section `g` consists of 2 instructions.
+
+
+Stack analysis
+---------------
+
+
+Type inference failure: unable to infer a type for the application of
+
+READ32 (a :word32)
+
+on line 179, characters 27-45
+
+which has type
+
+:(word32 -> word8) -> word32
+
+to
+
+m :64 graph_function
+
+at line 179, character 45
+
+unification failure message: Attempt to unify different type operators: min$fun and GraphLang$graph_function
+Stack intro failed in g for pos 0x0.
+
+Proving inst theorems
+---------------------
+
+2 inst theorems describe instructions.
+
+Evaluating graph
+----------------
+
+The graph for `g` has 3 nodes.
+
+Section halt (7 of 8)
+=====================
+
+Deriving specifications
+-----------------------
+
+Section `halt` consists of 1 instructions.
+
+RVC_TFT___________FT.
+
+Stack analysis
+---------------
+
+
+Type inference failure: unable to infer a type for the application of
+
+READ32 (a :word32)
+
+on line 179, characters 27-45
+
+which has type
+
+:(word32 -> word8) -> word32
+
+to
+
+m :64 graph_function
+
+at line 179, character 45
+
+unification failure message: Attempt to unify different type operators: min$fun and GraphLang$graph_function
+Stack intro failed in halt for pos 0x0.
+
+Proving inst theorems
+---------------------
+
+1 inst theorems describe instructions.
+
+Evaluating graph
+----------------
+
+The graph for `halt` has 1 nodes.
+
+Section main (8 of 8)
 =====================
 
 Deriving specifications
@@ -186,29 +327,176 @@ Deriving specifications
 
 Section `main` consists of 17 instructions.
 
+JAL.
+RVC_FTT_FFFFT_____TF.
+RVC_FTTFFFFTFFFFFTFT.
 
 Stack analysis
 ---------------
 
-7 stack accesses found. Annotated code for `main`:
 
-    0x10138     0x0    addi sp,sp,-32
-    0x1013c     0x4    sd ra,24(sp)          ; stack access
-    0x10140     0x8    sd s0,16(sp)          ; stack access
-    0x10144     0xc    addi s0,sp,32
-    0x10148    0x10    sw zero,-20(s0)       ; stack access
-    0x1014c    0x14    jal ra,10104 <f>
-    0x10150    0x18    lw a5,-20(s0)         ; stack access
-    0x10154    0x1c    sext.w a5,a5
-    0x10158    0x20    addiw a5,a5,1
-    0x1015c    0x24    sext.w a5,a5
-    0x10160    0x28    sw a5,-20(s0)         ; stack access
-    0x10164    0x2c    li a5,2
-    0x10168    0x30    mv a0,a5
-    0x1016c    0x34    ld ra,24(sp)          ; stack access
-    0x10170    0x38    ld s0,16(sp)          ; stack access
-    0x10174    0x3c    addi sp,sp,32
-    0x10178    0x40    ret
+Type inference failure: unable to infer a type for the application of
+
+READ32 (a :word32)
+
+on line 179, characters 27-45
+
+which has type
+
+:(word32 -> word8) -> word32
+
+to
+
+m :64 graph_function
+
+at line 179, character 45
+
+unification failure message: Attempt to unify different type operators: min$fun and GraphLang$graph_function
+Stack intro failed in main for pos 0x0.
+
+Type inference failure: unable to infer a type for the application of
+
+riscv_MEMORY (d :word64 -> bool)
+
+on line 14, characters 42-57
+
+which has type
+
+:(word64 -> word8) -> (riscv_component # riscv_data -> bool) -> bool
+
+to
+
+m :64 graph_function
+
+at line 14, character 57
+
+unification failure message: Attempt to unify different type operators: min$fun and GraphLang$graph_function
+
+Type inference failure: unable to infer a type for the application of
+
+riscv_MEMORY (d :word64 -> bool)
+
+on line 14, characters 42-57
+
+which has type
+
+:(word64 -> word8) -> (riscv_component # riscv_data -> bool) -> bool
+
+to
+
+m :64 graph_function
+
+at line 14, character 57
+
+unification failure message: Attempt to unify different type operators: min$fun and GraphLang$graph_function
+
+Type inference failure: unable to infer a type for the application of
+
+riscv_MEMORY (d :word64 -> bool)
+
+on line 14, characters 42-57
+
+which has type
+
+:(word64 -> word8) -> (riscv_component # riscv_data -> bool) -> bool
+
+to
+
+m :64 graph_function
+
+at line 14, character 57
+
+unification failure message: Attempt to unify different type operators: min$fun and GraphLang$graph_function
+
+Type inference failure: unable to infer a type for the application of
+
+riscv_MEMORY (d :word64 -> bool)
+
+on line 14, characters 42-57
+
+which has type
+
+:(word64 -> word8) -> (riscv_component # riscv_data -> bool) -> bool
+
+to
+
+m :64 graph_function
+
+at line 14, character 57
+
+unification failure message: Attempt to unify different type operators: min$fun and GraphLang$graph_function
+
+Type inference failure: unable to infer a type for the application of
+
+riscv_MEMORY (d :word64 -> bool)
+
+on line 14, characters 42-57
+
+which has type
+
+:(word64 -> word8) -> (riscv_component # riscv_data -> bool) -> bool
+
+to
+
+m :64 graph_function
+
+at line 14, character 57
+
+unification failure message: Attempt to unify different type operators: min$fun and GraphLang$graph_function
+
+Type inference failure: unable to infer a type for the application of
+
+riscv_MEMORY (d :word64 -> bool)
+
+on line 14, characters 42-57
+
+which has type
+
+:(word64 -> word8) -> (riscv_component # riscv_data -> bool) -> bool
+
+to
+
+m :64 graph_function
+
+at line 14, character 57
+
+unification failure message: Attempt to unify different type operators: min$fun and GraphLang$graph_function
+
+Type inference failure: unable to infer a type for the application of
+
+riscv_MEMORY (d :word64 -> bool)
+
+on line 14, characters 42-57
+
+which has type
+
+:(word64 -> word8) -> (riscv_component # riscv_data -> bool) -> bool
+
+to
+
+m :64 graph_function
+
+at line 14, character 57
+
+unification failure message: Attempt to unify different type operators: min$fun and GraphLang$graph_function
+
+Type inference failure: unable to infer a type for the application of
+
+riscv_MEMORY (d :word64 -> bool)
+
+on line 14, characters 42-57
+
+which has type
+
+:(word64 -> word8) -> (riscv_component # riscv_data -> bool) -> bool
+
+to
+
+m :64 graph_function
+
+at line 14, character 57
+
+unification failure message: Attempt to unify different type operators: min$fun and GraphLang$graph_function
 
 Proving inst theorems
 ---------------------
@@ -218,7 +506,7 @@ Proving inst theorems
 Evaluating graph
 ----------------
 
-The graph for `main` has 26 nodes.
+The graph for `main` has 27 nodes.
 
 Completing graph
 -----------------
@@ -232,7 +520,9 @@ Offsets proved correct.
 Summary
 =======
 
-No stack intro failures.
+Stack intro failed in main for pos 0x0.
+Stack intro failed in halt for pos 0x0.
+Stack intro failed in g for pos 0x0.
 No graph spec failures.
 No export failures.
 No call offset failures.

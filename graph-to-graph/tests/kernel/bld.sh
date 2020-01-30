@@ -17,7 +17,7 @@ echo $DMP
 rm kernel/*
 
 mkdir kernel
-$CC -march=rv64g --static -nostdlib  -O0 kernel.c -o kernel.elf
+$CC -march=rv64gc --static -nostdlib  -O1 kernel.c -o kernel.elf
 $DMP -D kernel.elf > kernel.elf.rodata
 $DMP -dz kernel.elf > kernel.elf.txt
 $DMP -t kernel.elf > kernel.elf.symtab

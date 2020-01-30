@@ -5,63 +5,74 @@ kernel.elf:     file format elf64-littleriscv
 Disassembly of section .text:
 
 00000000000100b0 <halt>:
-   100b0:	ff010113          	addi	sp,sp,-16
-   100b4:	00813423          	sd	s0,8(sp)
-   100b8:	01010413          	addi	s0,sp,16
-   100bc:	0000006f          	j	100bc <halt+0xc>
+   100b0:	a001                	j	100b0 <halt>
 
-00000000000100c0 <g>:
-   100c0:	fe010113          	addi	sp,sp,-32
-   100c4:	00813c23          	sd	s0,24(sp)
-   100c8:	02010413          	addi	s0,sp,32
-   100cc:	00050793          	mv	a5,a0
-   100d0:	fef42623          	sw	a5,-20(s0)
-   100d4:	fec42783          	lw	a5,-20(s0)
-   100d8:	0037979b          	slliw	a5,a5,0x3
-   100dc:	0007871b          	sext.w	a4,a5
-   100e0:	fec42783          	lw	a5,-20(s0)
-   100e4:	00f7f793          	andi	a5,a5,15
-   100e8:	0007879b          	sext.w	a5,a5
-   100ec:	00f707bb          	addw	a5,a4,a5
-   100f0:	0007879b          	sext.w	a5,a5
-   100f4:	00078513          	mv	a0,a5
-   100f8:	01813403          	ld	s0,24(sp)
-   100fc:	02010113          	addi	sp,sp,32
-   10100:	00008067          	ret
+00000000000100b2 <g>:
+   100b2:	2505                	addiw	a0,a0,1
+   100b4:	8082                	ret
 
-0000000000010104 <f>:
-   10104:	fe010113          	addi	sp,sp,-32
-   10108:	00813c23          	sd	s0,24(sp)
-   1010c:	02010413          	addi	s0,sp,32
-   10110:	fe042623          	sw	zero,-20(s0)
-   10114:	fec42783          	lw	a5,-20(s0)
-   10118:	0007879b          	sext.w	a5,a5
-   1011c:	0017879b          	addiw	a5,a5,1
-   10120:	0007879b          	sext.w	a5,a5
-   10124:	fef42623          	sw	a5,-20(s0)
-   10128:	00000013          	nop
-   1012c:	01813403          	ld	s0,24(sp)
-   10130:	02010113          	addi	sp,sp,32
-   10134:	00008067          	ret
+00000000000100b6 <m>:
+   100b6:	157d                	addi	a0,a0,-1
+   100b8:	8082                	ret
 
-0000000000010138 <main>:
-   10138:	fe010113          	addi	sp,sp,-32
-   1013c:	00113c23          	sd	ra,24(sp)
-   10140:	00813823          	sd	s0,16(sp)
-   10144:	02010413          	addi	s0,sp,32
-   10148:	fe042623          	sw	zero,-20(s0)
-   1014c:	fb9ff0ef          	jal	ra,10104 <f>
-   10150:	fec42783          	lw	a5,-20(s0)
-   10154:	0007879b          	sext.w	a5,a5
-   10158:	0017879b          	addiw	a5,a5,1
-   1015c:	0007879b          	sext.w	a5,a5
-   10160:	fef42623          	sw	a5,-20(s0)
-   10164:	00200793          	li	a5,2
-   10168:	00078513          	mv	a0,a5
-   1016c:	01813083          	ld	ra,24(sp)
-   10170:	01013403          	ld	s0,16(sp)
-   10174:	02010113          	addi	sp,sp,32
-   10178:	00008067          	ret
+00000000000100ba <f>:
+   100ba:	1141                	addi	sp,sp,-16
+   100bc:	c602                	sw	zero,12(sp)
+   100be:	47b2                	lw	a5,12(sp)
+   100c0:	2785                	addiw	a5,a5,1
+   100c2:	c63e                	sw	a5,12(sp)
+   100c4:	0141                	addi	sp,sp,16
+   100c6:	8082                	ret
+
+00000000000100c8 <loop>:
+   100c8:	57dd                	li	a5,-9
+   100ca:	00f54963          	blt	a0,a5,100dc <loop+0x14>
+   100ce:	4781                	li	a5,0
+   100d0:	953e                	add	a0,a0,a5
+   100d2:	0785                	addi	a5,a5,1
+   100d4:	00950713          	addi	a4,a0,9
+   100d8:	fef75ce3          	bge	a4,a5,100d0 <loop+0x8>
+   100dc:	57b5                	li	a5,-19
+   100de:	00f54c63          	blt	a0,a5,100f6 <loop+0x2e>
+   100e2:	4781                	li	a5,0
+   100e4:	00a78733          	add	a4,a5,a0
+   100e8:	02e50533          	mul	a0,a0,a4
+   100ec:	0785                	addi	a5,a5,1
+   100ee:	01350713          	addi	a4,a0,19
+   100f2:	fef759e3          	bge	a4,a5,100e4 <loop+0x1c>
+   100f6:	8082                	ret
+
+00000000000100f8 <zero>:
+   100f8:	4541                	li	a0,16
+   100fa:	8082                	ret
+
+00000000000100fc <call_zero>:
+   100fc:	1141                	addi	sp,sp,-16
+   100fe:	47c1                	li	a5,16
+   10100:	e43e                	sd	a5,8(sp)
+   10102:	6522                	ld	a0,8(sp)
+   10104:	157d                	addi	a0,a0,-1
+   10106:	0141                	addi	sp,sp,16
+   10108:	8082                	ret
+
+000000000001010a <main>:
+   1010a:	1101                	addi	sp,sp,-32
+   1010c:	ec06                	sd	ra,24(sp)
+   1010e:	c602                	sw	zero,12(sp)
+   10110:	fabff0ef          	jal	ra,100ba <f>
+   10114:	47b2                	lw	a5,12(sp)
+   10116:	2785                	addiw	a5,a5,1
+   10118:	c63e                	sw	a5,12(sp)
+   1011a:	47c1                	li	a5,16
+   1011c:	c63e                	sw	a5,12(sp)
+   1011e:	4551                	li	a0,20
+   10120:	fa9ff0ef          	jal	ra,100c8 <loop>
+   10124:	2501                	sext.w	a0,a0
+   10126:	c62a                	sw	a0,12(sp)
+   10128:	4509                	li	a0,2
+   1012a:	60e2                	ld	ra,24(sp)
+   1012c:	6105                	addi	sp,sp,32
+   1012e:	8082                	ret
 
 Disassembly of section .comment:
 

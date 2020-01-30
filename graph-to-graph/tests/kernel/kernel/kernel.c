@@ -54,7 +54,12 @@ void halt(void)
 }
 
 int g (int i) {
-  return i * 8 + (i & 15);
+//  return i * 8 + (i & 15);
+  return i  + 1;
+}
+
+long long m(long long i) {
+  return i - 1;
 }
 
 void f(void) {
@@ -62,6 +67,29 @@ void f(void) {
     b++;
 }
 
+long loop(long v) {
+    for (int i = 0; i < 10 + v; i++) {
+        v += i;
+    }
+
+    for (int j = 0; j < 20 + v; j++) {
+      v *= (j + v);
+    }
+    return v;
+}
+
+long zero(void)
+{
+  return 16;
+}
+
+
+long call_zero(void)
+{
+  volatile long long a = zero();
+
+  return m(a);
+}
 int main(void)
 {
     volatile int a = 0;
@@ -75,7 +103,9 @@ int main(void)
         //asm volatile ("addi %0, %0, 1":"+r"(a));
         a++;
         //a++;
-  //  }
 
-    return 2;
+  //  }
+      a = zero();
+      a = loop(20);
+      return 2;
 }

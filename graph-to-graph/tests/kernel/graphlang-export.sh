@@ -74,6 +74,6 @@ pwd
 cp "$c_file" input.c
 echo -n "$THY" > tmp.thy
 echo -n "$ROOT" > ROOT
-"$TV_ROOT"/isabelle/bin/isabelle build -d "$TV_ROOT"/l4v -D . -f
+"$TV_ROOT"/isabelle/bin/isabelle build -d "$TV_ROOT"/l4v -D . -c
 cp result.txt "$output_file"
 popd
