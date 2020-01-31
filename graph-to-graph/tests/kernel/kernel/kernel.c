@@ -62,25 +62,28 @@ long long m(long long i) {
   return i - 1;
 }
 
-void f(void) {
+int f(void) {
     volatile int b = 0;
     b++;
+    return b;
 }
 
 long loop(long v) {
-    for (int i = 0; i < 10 + v; i++) {
+    for (int i = 0; i < 10; i++) {
         v += i;
     }
-
-    for (int j = 0; j < 20 + v; j++) {
+/*
+    for (int j = 0; j < 20; j++) {
       v *= (j + v);
     }
+    */
     return v;
 }
 
-long zero(void)
+long __attribute__((nolinline)) zero(void)
 {
-  return 16;
+  volatile long a = 100;
+  return (long)16 + a;
 }
 
 
@@ -90,6 +93,7 @@ long call_zero(void)
 
   return m(a);
 }
+
 int main(void)
 {
     volatile int a = 0;
