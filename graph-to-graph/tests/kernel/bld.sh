@@ -17,10 +17,15 @@ echo $DMP
 rm kernel/*
 
 mkdir kernel
-$CC -march=rv64gc --static -nostdlib  -O1 kernel.c -o kernel.elf
-$DMP -D kernel.elf > kernel.elf.rodata
-$DMP -dz kernel.elf > kernel.elf.txt
-$DMP -t kernel.elf > kernel.elf.symtab
+$CC -march=rv64gc --static -nostdlib -O0 kernel.c -o kernelO0.elf
+$CC -march=rv64gc --static -nostdlib  -O1 kernel.c -o kernelO1.elf
+$CC -march=rv64gc --static -nostdlib -O2 kernel.c -o kernelO2.elf
+$DMP -D kernelO1.elf > kernel.elf.rodata
+$DMP -dz kernelO1.elf > kernel.elf.txt
+$DMP -dz kernelO0.elf > kernelO0.elf.txt
+$DMP -dz kernelO1.elf > kernelO1.elf.txt
+$DMP -dz kernelO2.elf > kernelO2.elf.txt
+$DMP -t kernelO1.elf > kernel.elf.symtab
 
 $PARSERPATH RISCV64 kernel.c
 $PARSERPATH RISCV64 --mmbytes kernel.c > kernel.sigs
