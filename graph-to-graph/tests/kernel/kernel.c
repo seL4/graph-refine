@@ -48,6 +48,13 @@ create_loop (unsigned int start, unsigned int end) {
 }
 */
 
+void plus(void)
+{
+  long a = 100;
+  long b = 200;
+  long c = a + b * a;
+}
+
 void halt(void)
 {
     while (1) ;
@@ -62,8 +69,8 @@ long long m(long long i) {
   return i - 1;
 }
 
-int f(void) {
-    volatile int b = 0;
+unsigned long f(void) {
+    unsigned long int b = 0;
     b++;
     return b;
 }
@@ -80,24 +87,29 @@ long loop(long v) {
     return v;
 }
 
-long __attribute__((nolinline)) zero(void)
+unsigned long zero(void)
 {
-  volatile long a = 100;
-  return (long)16 + a;
+  unsigned long a = 100;
+  return (unsigned long)16 + a;
 }
 
+unsigned long vzero(void)
+{
+  volatile unsigned long a = 100;
+  return (unsigned long)16 + a;
+}
 
 long call_zero(void)
 {
-  volatile long long a = zero();
+  long long a = zero();
 
   return m(a);
 }
 
-int main(void)
+long main(void)
 {
-    volatile int a = 0;
-    f();
+    long a = 0;
+    //f();
 
 //    for (int i = 0; i < 10; i++)
  //   {
@@ -109,7 +121,7 @@ int main(void)
         //a++;
 
   //  }
-      a = zero();
+      //a = zero();
       a = loop(20);
-      return 2;
+      return a;
 }
