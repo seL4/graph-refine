@@ -1,0 +1,94 @@
+
+kernelO1.elf:     file format elf32-littlearm
+
+
+Disassembly of section .text:
+
+00008000 <plus>:
+    8000:	e12fff1e 	bx	lr
+
+00008004 <halt>:
+    8004:	eafffffe 	b	8004 <halt>
+
+00008008 <g>:
+    8008:	e2800001 	add	r0, r0, #1
+    800c:	e12fff1e 	bx	lr
+
+00008010 <m>:
+    8010:	e2400001 	sub	r0, r0, #1
+    8014:	e12fff1e 	bx	lr
+
+00008018 <f>:
+    8018:	e3a00001 	mov	r0, #1
+    801c:	e12fff1e 	bx	lr
+
+00008020 <loop>:
+    8020:	e280002d 	add	r0, r0, #45	; 0x2d
+    8024:	e12fff1e 	bx	lr
+
+00008028 <zero>:
+    8028:	e3a00074 	mov	r0, #116	; 0x74
+    802c:	e12fff1e 	bx	lr
+
+00008030 <vzero>:
+    8030:	e24dd008 	sub	sp, sp, #8
+    8034:	e3a03064 	mov	r3, #100	; 0x64
+    8038:	e58d3004 	str	r3, [sp, #4]
+    803c:	e59d0004 	ldr	r0, [sp, #4]
+    8040:	e2800010 	add	r0, r0, #16
+    8044:	e28dd008 	add	sp, sp, #8
+    8048:	e12fff1e 	bx	lr
+
+0000804c <call_zero>:
+    804c:	e3a00073 	mov	r0, #115	; 0x73
+    8050:	e12fff1e 	bx	lr
+
+00008054 <main>:
+    8054:	e92d4010 	push	{r4, lr}
+    8058:	e3a00014 	mov	r0, #20
+    805c:	ebffffef 	bl	8020 <loop>
+    8060:	e8bd4010 	pop	{r4, lr}
+    8064:	e12fff1e 	bx	lr
+
+Disassembly of section .comment:
+
+00000000 <.comment>:
+   0:	3a434347 	bcc	10d0d24 <_stack+0x1050d24>
+   4:	35312820 	ldrcc	r2, [r1, #-2080]!	; 0xfffff7e0
+   8:	322d373a 	eorcc	r3, sp, #15204352	; 0xe80000
+   c:	2d383130 	ldfcss	f3, [r8, #-192]!	; 0xffffff40
+  10:	362d3271 			; <UNDEFINED> instruction: 0x362d3271
+  14:	2e372029 	cdpcs	0, 3, cr2, cr7, cr9, {1}
+  18:	20312e33 	eorscs	r2, r1, r3, lsr lr
+  1c:	38313032 	ldmdacc	r1!, {r1, r4, r5, ip, sp}
+  20:	32323630 	eorscc	r3, r2, #48, 12	; 0x3000000
+  24:	65722820 	ldrbvs	r2, [r2, #-2080]!	; 0xfffff7e0
+  28:	7361656c 	cmnvc	r1, #108, 10	; 0x1b000000
+  2c:	5b202965 	blpl	80a5c8 <_stack+0x78a5c8>
+  30:	2f4d5241 	svccs	0x004d5241
+  34:	65626d65 	strbvs	r6, [r2, #-3429]!	; 0xfffff29b
+  38:	64656464 	strbtvs	r6, [r5], #-1124	; 0xfffffb9c
+  3c:	622d372d 	eorvs	r3, sp, #11796480	; 0xb40000
+  40:	636e6172 	cmnvs	lr, #-2147483620	; 0x8000001c
+  44:	65722068 	ldrbvs	r2, [r2, #-104]!	; 0xffffff98
+  48:	69736976 	ldmdbvs	r3!, {r1, r2, r4, r5, r6, r8, fp, sp, lr}^
+  4c:	32206e6f 	eorcc	r6, r0, #1776	; 0x6f0
+  50:	30393136 	eorscc	r3, r9, r6, lsr r1
+  54:	Address 0x0000000000000054 is out of bounds.
+
+
+Disassembly of section .ARM.attributes:
+
+00000000 <.ARM.attributes>:
+   0:	00002f41 	andeq	r2, r0, r1, asr #30
+   4:	61656100 	cmnvs	r5, r0, lsl #2
+   8:	01006962 	tsteq	r0, r2, ror #18
+   c:	00000025 	andeq	r0, r0, r5, lsr #32
+  10:	4d524105 	ldfmie	f4, [r2, #-20]	; 0xffffffec
+  14:	4d445437 	cfstrdmi	mvd5, [r4, #-220]	; 0xffffff24
+  18:	02060049 	andeq	r0, r6, #73	; 0x49
+  1c:	01090108 	tsteq	r9, r8, lsl #2
+  20:	01140412 	tsteq	r4, r2, lsl r4
+  24:	03170115 	tsteq	r7, #1073741829	; 0x40000005
+  28:	01190118 	tsteq	r9, r8, lsl r1
+  2c:	011e011a 	tsteq	lr, sl, lsl r1

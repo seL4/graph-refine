@@ -1,0 +1,51 @@
+
+kernelO1.elf:     file format elf32-littlearm
+
+
+Disassembly of section .text:
+
+00008000 <plus>:
+    8000:	e12fff1e 	bx	lr
+
+00008004 <halt>:
+    8004:	eafffffe 	b	8004 <halt>
+
+00008008 <g>:
+    8008:	e2800001 	add	r0, r0, #1
+    800c:	e12fff1e 	bx	lr
+
+00008010 <m>:
+    8010:	e2400001 	sub	r0, r0, #1
+    8014:	e12fff1e 	bx	lr
+
+00008018 <f>:
+    8018:	e3a00001 	mov	r0, #1
+    801c:	e12fff1e 	bx	lr
+
+00008020 <loop>:
+    8020:	e280002d 	add	r0, r0, #45	; 0x2d
+    8024:	e12fff1e 	bx	lr
+
+00008028 <zero>:
+    8028:	e3a00074 	mov	r0, #116	; 0x74
+    802c:	e12fff1e 	bx	lr
+
+00008030 <vzero>:
+    8030:	e24dd008 	sub	sp, sp, #8
+    8034:	e3a03064 	mov	r3, #100	; 0x64
+    8038:	e58d3004 	str	r3, [sp, #4]
+    803c:	e59d0004 	ldr	r0, [sp, #4]
+    8040:	e2800010 	add	r0, r0, #16
+    8044:	e28dd008 	add	sp, sp, #8
+    8048:	e12fff1e 	bx	lr
+
+0000804c <call_zero>:
+    804c:	e3a00073 	mov	r0, #115	; 0x73
+    8050:	e12fff1e 	bx	lr
+
+00008054 <main>:
+    8054:	e92d4010 	push	{r4, lr}
+    8058:	e3a00014 	mov	r0, #20
+    805c:	ebffffef 	bl	8020 <loop>
+    8060:	e8bd4010 	pop	{r4, lr}
+    8064:	e12fff1e 	bx	lr

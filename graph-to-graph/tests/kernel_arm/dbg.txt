@@ -1,0 +1,18 @@
+Basic block 0
+inst:0x10108 bb:0 cache_miss:0 lp:0
+inst:0x10110 bb:0 cache_miss:0 lp:0
+inst:0x10114 bb:0 cache_miss:0 lp:0
+Basic block 1
+	0xffffffff(127) l1[0,1073741822] l0[0,0] ps:NULL miss:1073741823
+inst:0x1011c bb:1 cache_miss:1073741823 lp:1
+inst:0x10124 bb:1 cache_miss:0 lp:1
+	0x7ff(127) l1[0,1073741822] l0[0,0] ps:NULL miss:1073741823
+inst:0x10128 bb:1 cache_miss:1073741823 lp:1
+inst:0x10130 bb:1 cache_miss:0 lp:1
+Basic block 2
+	0x7ff(127) l1[0,1073741822] l0[0,0] ps:0 _1  _0  miss:1
+inst:0x10134 bb:2 cache_miss:1 lp:1
+Basic block 3
+	0x800(0) l0[0,0] ps:NULL miss:1
+inst:0x1014c bb:3 cache_miss:1 lp:0
+total: -2147483648

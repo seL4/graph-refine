@@ -1,0 +1,11 @@
+FunctionHash 2733432609993590090
+StackBound halt Num 0 Word 32
+StackBound g Num 0 Word 32
+StackBound f Num 0 Word 32
+StackBound m Num 0 Word 32
+StackBound call_zero Num 0 Word 32
+StackBound zero Num 0 Word 32
+StackBound plus Num 0 Word 32
+StackBound vzero Num 8 Word 32
+StackBound main Num 8 Word 32
+StackBound loop Num 0 Word 32

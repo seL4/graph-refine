@@ -1,0 +1,10 @@
+4 call_zero
+4 f
+4 g 4
+0 halt
+4 loop 4
+4 m 4
+4 main
+0 plus
+4 vzero
+4 zero

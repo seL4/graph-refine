@@ -1,0 +1,458 @@
+
+---------------------------------------------------------------------
+       HOL-4 [Kananaskis 13 (stdknl, built Wed Jan 15 11:51:38 2020)]
+
+       For introductory HOL help, type: help "hol";
+       To exit type <Control>-D
+---------------------------------------------------------------------
+** Load path (see loadPath variable) now contains 18 entries
+** after consulting Holmakefiles
+
+[In non-standard heap: /home/yshen/work/verificatin/HOL4/examples/machine-code/graph/local-hol-heap]
+> > 
+Resetting specifications database.
+
+Specializing fetch: 4 -> 1(1)
+Specializing decode ARM (cond = 14): 95 -> 95(95)
+Specializing decode ARM (cond = 15): 5 -> 5(5)
+Specializing decode ARM (cond not in {14, 15}): 95 -> 95(95)
+Specializing decode ARM (fallback): 1 -> 1(1)
+Specializing eval: 374 -> 348(348)
+<<HOL message: inventing new type variable names: 'a>>
+<<HOL message: inventing new type variable names: 'a>>
+<<HOL message: inventing new type variable names: 'a>>
+<<HOL message: inventing new type variable names: 'a>>
+<<HOL message: inventing new type variable names: 'a>>
+<<HOL message: inventing new type variable names: 'a>>
+<<HOL message: inventing new type variable names: 'a>>
+<<HOL message: inventing new type variable names: 'a>>
+<<HOL message: inventing new type variable names: 'a>>
+<<HOL message: inventing new type variable names: 'a>>
+<<HOL message: inventing new type variable names: 'a>>
+<<HOL message: inventing new type variable names: 'a>>
+<<HOL message: inventing new type variable names: 'a>>
+<<HOL message: inventing new type variable names: 'a>>
+<<HOL message: inventing new type variable names: 'a>>
+<<HOL message: inventing new type variable names: 'a>>
+<<HOL message: inventing new type variable names: 'a>>
+<<HOL message: inventing new type variable names: 'a>>
+<<HOL message: inventing new type variable names: 'a>>
+<<HOL message: inventing new type variable names: 'a>>
+<<HOL message: inventing new type variable names: 'a>>
+val it = (): unit
+> ======================================================================
+  Base name: /home/yshen/work/verificatin/graph-refine/graph-to-graph/tests/kernel_arm/kernel
+  Poly/ML: 580
+  HOL: Kananaskis 13 (stdknl) commit 1953e2133
+======================================================================
+  Reading /home/yshen/work/verificatin/graph-refine/graph-to-graph/tests/kernel_arm/kernel.elf.txt, done.
+  Reading /home/yshen/work/verificatin/graph-refine/graph-to-graph/tests/kernel_arm/kernel.elf.txt, done.
+  Reading /home/yshen/work/verificatin/graph-refine/graph-to-graph/tests/kernel_arm/kernel.sigs, done.
+======================================================================
+  Total: 10 functions, 26 ARM instructions
+  Longest function: vzero (7 instructions)
+  0 deps: 9 functions (call_zero, vzero, zero, loop, f, m, g, ...)
+  1 deps: 1 functions (main)
+======================================================================
+
+Section call_zero (1 of 10)
+===========================
+
+Deriving specifications
+-----------------------
+
+Section `call_zero` consists of 2 instructions.
+ MOV (imm).+
+ BX.+
+
+
+Stack analysis
+---------------
+
+No stack accesses found. Code for `call_zero`:
+
+    0x804c    0x0    mov r0, #115 
+    0x8050    0x4    bx lr
+
+Proving inst theorems
+---------------------
+
+2 inst theorems describe instructions.
+
+Evaluating graph
+----------------
+
+The graph for `call_zero` has 3 nodes.
+
+Section vzero (2 of 10)
+=======================
+
+Deriving specifications
+-----------------------
+
+Section `vzero` consists of 7 instructions.
+ SUB (imm)...++
+ STR (+imm,pre)...++
+ LDR (+imm,pre)..++
+ ADD (imm)...++
+
+
+Stack analysis
+---------------
+
+2 stack accesses found. Annotated code for `vzero`:
+
+    0x8030     0x0    sub sp, sp, #8
+    0x8034     0x4    mov r3, #100 
+    0x8038     0x8    str r3, [sp, #4]      ; stack access
+    0x803c     0xc    ldr r0, [sp, #4]      ; stack access
+    0x8040    0x10    add r0, r0, #16
+    0x8044    0x14    add sp, sp, #8
+    0x8048    0x18    bx lr
+
+Proving inst theorems
+---------------------
+
+7 inst theorems describe instructions.
+
+Evaluating graph
+----------------
+
+The graph for `vzero` has 10 nodes.
+
+Section zero (3 of 10)
+======================
+
+Deriving specifications
+-----------------------
+
+Section `zero` consists of 2 instructions.
+
+
+Stack analysis
+---------------
+
+No stack accesses found. Code for `zero`:
+
+    0x8028    0x0    mov r0, #116 
+    0x802c    0x4    bx lr
+
+Proving inst theorems
+---------------------
+
+2 inst theorems describe instructions.
+
+Evaluating graph
+----------------
+
+The graph for `zero` has 3 nodes.
+
+Section loop (4 of 10)
+======================
+
+Deriving specifications
+-----------------------
+
+Section `loop` consists of 2 instructions.
+
+
+Stack analysis
+---------------
+
+No stack accesses found. Code for `loop`:
+
+    0x8020    0x0    add r0, r0, #45 
+    0x8024    0x4    bx lr
+
+Proving inst theorems
+---------------------
+
+2 inst theorems describe instructions.
+
+Evaluating graph
+----------------
+
+The graph for `loop` has 3 nodes.
+
+Section f (5 of 10)
+===================
+
+Deriving specifications
+-----------------------
+
+Section `f` consists of 2 instructions.
+
+
+Stack analysis
+---------------
+
+No stack accesses found. Code for `f`:
+
+    0x8018    0x0    mov r0, #1
+    0x801c    0x4    bx lr
+
+Proving inst theorems
+---------------------
+
+2 inst theorems describe instructions.
+
+Evaluating graph
+----------------
+
+The graph for `f` has 3 nodes.
+
+Section m (6 of 10)
+===================
+
+Deriving specifications
+-----------------------
+
+Section `m` consists of 2 instructions.
+
+
+Stack analysis
+---------------
+
+No stack accesses found. Code for `m`:
+
+    0x8010    0x0    sub r0, r0, #1
+    0x8014    0x4    bx lr
+
+Proving inst theorems
+---------------------
+
+2 inst theorems describe instructions.
+
+Evaluating graph
+----------------
+
+The graph for `m` has 3 nodes.
+
+Section g (7 of 10)
+===================
+
+Deriving specifications
+-----------------------
+
+Section `g` consists of 2 instructions.
+
+
+Stack analysis
+---------------
+
+
+Type inference failure: unable to infer a type for the application of
+
+READ32 (a :word32)
+
+on line 179, characters 27-45
+
+which has type
+
+:(word32 -> word8) -> word32
+
+to
+
+m :32 graph_function
+
+at line 179, character 45
+
+unification failure message: Attempt to unify different type operators: min$fun and GraphLang$graph_function
+Stack intro failed in g for pos 0x0.
+
+Proving inst theorems
+---------------------
+
+2 inst theorems describe instructions.
+
+Evaluating graph
+----------------
+
+The graph for `g` has 3 nodes.
+
+Section halt (8 of 10)
+======================
+
+Deriving specifications
+-----------------------
+
+Section `halt` consists of 1 instructions.
+ B.+
+
+
+Stack analysis
+---------------
+
+
+Type inference failure: unable to infer a type for the application of
+
+READ32 (a :word32)
+
+on line 179, characters 27-45
+
+which has type
+
+:(word32 -> word8) -> word32
+
+to
+
+m :32 graph_function
+
+at line 179, character 45
+
+unification failure message: Attempt to unify different type operators: min$fun and GraphLang$graph_function
+Stack intro failed in halt for pos 0x0.
+
+Proving inst theorems
+---------------------
+
+1 inst theorems describe instructions.
+
+Evaluating graph
+----------------
+
+The graph for `halt` has 1 nodes.
+
+Section plus (9 of 10)
+======================
+
+Deriving specifications
+-----------------------
+
+Section `plus` consists of 1 instructions.
+
+
+Stack analysis
+---------------
+
+
+Type inference failure: unable to infer a type for the application of
+
+READ32 (a :word32)
+
+on line 179, characters 27-45
+
+which has type
+
+:(word32 -> word8) -> word32
+
+to
+
+m :32 graph_function
+
+at line 179, character 45
+
+unification failure message: Attempt to unify different type operators: min$fun and GraphLang$graph_function
+Stack intro failed in plus for pos 0x0.
+
+Proving inst theorems
+---------------------
+
+1 inst theorems describe instructions.
+
+Evaluating graph
+----------------
+
+The graph for `plus` has 2 nodes.
+
+Section main (10 of 10)
+=======================
+
+Deriving specifications
+-----------------------
+
+Section `main` consists of 5 instructions.
+ STMDB (wb);14,4..+
+ BL.+
+ LDMIA (wb);14,4.+
+
+
+Stack analysis
+---------------
+
+
+Type inference failure: unable to infer a type for the application of
+
+READ32 (a :word32)
+
+on line 179, characters 27-45
+
+which has type
+
+:(word32 -> word8) -> word32
+
+to
+
+m :32 graph_function
+
+at line 179, character 45
+
+unification failure message: Attempt to unify different type operators: min$fun and GraphLang$graph_function
+Stack intro failed in main for pos 0x0.
+
+Type inference failure: unable to infer a type for the application of
+
+arm_MEMORY (d :word32 -> bool)
+
+on line 12, characters 40-53
+
+which has type
+
+:(word32 -> word8) -> (arm_component # arm_data -> bool) -> bool
+
+to
+
+m :32 graph_function
+
+at line 12, character 53
+
+unification failure message: Attempt to unify different type operators: min$fun and GraphLang$graph_function
+
+Type inference failure: unable to infer a type for the application of
+
+arm_MEMORY (d :word32 -> bool)
+
+on line 12, characters 40-53
+
+which has type
+
+:(word32 -> word8) -> (arm_component # arm_data -> bool) -> bool
+
+to
+
+m :32 graph_function
+
+at line 12, character 53
+
+unification failure message: Attempt to unify different type operators: min$fun and GraphLang$graph_function
+
+Proving inst theorems
+---------------------
+
+5 inst theorems describe instructions.
+
+Evaluating graph
+----------------
+
+The graph for `main` has 9 nodes.
+
+Completing graph
+-----------------
+
+
+Proving correctness of call offsets
+===================================
+
+Offsets proved correct.
+
+Summary
+=======
+
+Stack intro failed in main for pos 0x0.
+Stack intro failed in plus for pos 0x0.
+Stack intro failed in halt for pos 0x0.
+Stack intro failed in g for pos 0x0.
+No graph spec failures.
+No export failures.
+No call offset failures.
+> 
