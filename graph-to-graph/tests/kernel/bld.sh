@@ -26,6 +26,7 @@ $DMP -dz kernelO0.elf > kernelO0.elf.txt
 $DMP -dz kernelO1.elf > kernelO1.elf.txt
 $DMP -dz kernelO2.elf > kernelO2.elf.txt
 $DMP -t kernelO1.elf > kernel.elf.symtab
+cp kernelO1.elf kernel.elf
 
 $PARSERPATH RISCV64 kernel.c
 $PARSERPATH RISCV64 --mmbytes kernel.c > kernel.sigs
