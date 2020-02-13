@@ -2,29 +2,29 @@
 kernelO1.elf:     file format elf32-littlearm
 
 SYMBOL TABLE:
-00008000 l    d  .text	00000000 .text
+e0000000 l    d  .text	00000000 .text
 00000000 l    d  .comment	00000000 .comment
 00000000 l    d  .ARM.attributes	00000000 .ARM.attributes
 00000000 l    df *ABS*	00000000 kernel.c
-00018068 g       .text	00000000 _bss_end__
-00008018 g     F .text	00000008 f
-00008000 g     F .text	00000004 plus
-00008030 g     F .text	0000001c vzero
-0000804c g     F .text	00000008 call_zero
-00008020 g     F .text	00000008 loop
-00008008 g     F .text	00000008 g
-00018068 g       .text	00000000 __bss_start__
-00018068 g       .text	00000000 __bss_end__
+e0010068 g       .text	00000000 _bss_end__
+e0000018 g     F .text	00000008 f
+e0000000 g     F .text	00000004 plus
+e0000030 g     F .text	0000001c vzero
+e000004c g     F .text	00000008 call_zero
+e0000020 g     F .text	00000008 loop
+e0000008 g     F .text	00000008 g
+e0010068 g       .text	00000000 __bss_start__
+e0010068 g       .text	00000000 __bss_end__
 00000000         *UND*	00000000 _start
-00018068 g       .text	00000000 __bss_start
-00008054 g     F .text	00000014 main
-00018068 g       .text	00000000 __end__
-00008028 g     F .text	00000008 zero
-00018068 g       .text	00000000 _edata
-00018068 g       .text	00000000 _end
-00008004 g     F .text	00000004 halt
-00008010 g     F .text	00000008 m
+e0010068 g       .text	00000000 __bss_start
+e0000054 g     F .text	00000014 main
+e0010068 g       .text	00000000 __end__
+e0000028 g     F .text	00000008 zero
+e0010068 g       .text	00000000 _edata
+e0010068 g       .text	00000000 _end
+e0000004 g     F .text	00000004 halt
+e0000010 g     F .text	00000008 m
 00080000 g       .text	00000000 _stack
-00018068 g       .text	00000000 __data_start
+e0010068 g       .text	00000000 __data_start
 
 

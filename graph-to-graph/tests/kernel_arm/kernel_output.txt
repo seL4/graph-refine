@@ -71,8 +71,8 @@ Stack analysis
 
 No stack accesses found. Code for `call_zero`:
 
-    0x804c    0x0    mov r0, #115 
-    0x8050    0x4    bx lr
+    0xe000004c    0x0    mov r0, #115 
+    0xe0000050    0x4    bx lr
 
 Proving inst theorems
 ---------------------
@@ -102,13 +102,13 @@ Stack analysis
 
 2 stack accesses found. Annotated code for `vzero`:
 
-    0x8030     0x0    sub sp, sp, #8
-    0x8034     0x4    mov r3, #100 
-    0x8038     0x8    str r3, [sp, #4]      ; stack access
-    0x803c     0xc    ldr r0, [sp, #4]      ; stack access
-    0x8040    0x10    add r0, r0, #16
-    0x8044    0x14    add sp, sp, #8
-    0x8048    0x18    bx lr
+    0xe0000030     0x0    sub sp, sp, #8
+    0xe0000034     0x4    mov r3, #100 
+    0xe0000038     0x8    str r3, [sp, #4]      ; stack access
+    0xe000003c     0xc    ldr r0, [sp, #4]      ; stack access
+    0xe0000040    0x10    add r0, r0, #16
+    0xe0000044    0x14    add sp, sp, #8
+    0xe0000048    0x18    bx lr
 
 Proving inst theorems
 ---------------------
@@ -134,8 +134,8 @@ Stack analysis
 
 No stack accesses found. Code for `zero`:
 
-    0x8028    0x0    mov r0, #116 
-    0x802c    0x4    bx lr
+    0xe0000028    0x0    mov r0, #116 
+    0xe000002c    0x4    bx lr
 
 Proving inst theorems
 ---------------------
@@ -161,8 +161,8 @@ Stack analysis
 
 No stack accesses found. Code for `loop`:
 
-    0x8020    0x0    add r0, r0, #45 
-    0x8024    0x4    bx lr
+    0xe0000020    0x0    add r0, r0, #45 
+    0xe0000024    0x4    bx lr
 
 Proving inst theorems
 ---------------------
@@ -188,8 +188,8 @@ Stack analysis
 
 No stack accesses found. Code for `f`:
 
-    0x8018    0x0    mov r0, #1
-    0x801c    0x4    bx lr
+    0xe0000018    0x0    mov r0, #1
+    0xe000001c    0x4    bx lr
 
 Proving inst theorems
 ---------------------
@@ -215,8 +215,8 @@ Stack analysis
 
 No stack accesses found. Code for `m`:
 
-    0x8010    0x0    sub r0, r0, #1
-    0x8014    0x4    bx lr
+    0xe0000010    0x0    sub r0, r0, #1
+    0xe0000014    0x4    bx lr
 
 Proving inst theorems
 ---------------------

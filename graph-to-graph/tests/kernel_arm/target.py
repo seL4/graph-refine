@@ -14,7 +14,7 @@ import re
 #symbols.update (lsymbs)
 #sections.update (lsects)
 
-syntax.set_arch('armv7')
+#syntax.set_arch('armv7')
 
 f = open ('%s/CFuns.txt' % target_dir)
 syntax.parse_and_install_all (f, 'C')

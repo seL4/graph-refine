@@ -4,45 +4,45 @@ kernelO2.elf:     file format elf32-littlearm
 
 Disassembly of section .text:
 
-00008000 <main>:
-    8000:	e3a00041 	mov	r0, #65	; 0x41
-    8004:	e12fff1e 	bx	lr
+e0000000 <main>:
+e0000000:	e3a00041 	mov	r0, #65	; 0x41
+e0000004:	e12fff1e 	bx	lr
 
-00008008 <plus>:
-    8008:	e12fff1e 	bx	lr
+e0000008 <plus>:
+e0000008:	e12fff1e 	bx	lr
 
-0000800c <halt>:
-    800c:	eafffffe 	b	800c <halt>
+e000000c <halt>:
+e000000c:	eafffffe 	b	e000000c <halt>
 
-00008010 <g>:
-    8010:	e2800001 	add	r0, r0, #1
-    8014:	e12fff1e 	bx	lr
+e0000010 <g>:
+e0000010:	e2800001 	add	r0, r0, #1
+e0000014:	e12fff1e 	bx	lr
 
-00008018 <m>:
-    8018:	e2400001 	sub	r0, r0, #1
-    801c:	e12fff1e 	bx	lr
+e0000018 <m>:
+e0000018:	e2400001 	sub	r0, r0, #1
+e000001c:	e12fff1e 	bx	lr
 
-00008020 <f>:
-    8020:	e3a00001 	mov	r0, #1
-    8024:	e12fff1e 	bx	lr
+e0000020 <f>:
+e0000020:	e3a00001 	mov	r0, #1
+e0000024:	e12fff1e 	bx	lr
 
-00008028 <loop>:
-    8028:	e280002d 	add	r0, r0, #45	; 0x2d
-    802c:	e12fff1e 	bx	lr
+e0000028 <loop>:
+e0000028:	e280002d 	add	r0, r0, #45	; 0x2d
+e000002c:	e12fff1e 	bx	lr
 
-00008030 <zero>:
-    8030:	e3a00074 	mov	r0, #116	; 0x74
-    8034:	e12fff1e 	bx	lr
+e0000030 <zero>:
+e0000030:	e3a00074 	mov	r0, #116	; 0x74
+e0000034:	e12fff1e 	bx	lr
 
-00008038 <vzero>:
-    8038:	e3a03064 	mov	r3, #100	; 0x64
-    803c:	e24dd008 	sub	sp, sp, #8
-    8040:	e58d3004 	str	r3, [sp, #4]
-    8044:	e59d0004 	ldr	r0, [sp, #4]
-    8048:	e2800010 	add	r0, r0, #16
-    804c:	e28dd008 	add	sp, sp, #8
-    8050:	e12fff1e 	bx	lr
+e0000038 <vzero>:
+e0000038:	e3a03064 	mov	r3, #100	; 0x64
+e000003c:	e24dd008 	sub	sp, sp, #8
+e0000040:	e58d3004 	str	r3, [sp, #4]
+e0000044:	e59d0004 	ldr	r0, [sp, #4]
+e0000048:	e2800010 	add	r0, r0, #16
+e000004c:	e28dd008 	add	sp, sp, #8
+e0000050:	e12fff1e 	bx	lr
 
-00008054 <call_zero>:
-    8054:	e3a00073 	mov	r0, #115	; 0x73
-    8058:	e12fff1e 	bx	lr
+e0000054 <call_zero>:
+e0000054:	e3a00073 	mov	r0, #115	; 0x73
+e0000058:	e12fff1e 	bx	lr

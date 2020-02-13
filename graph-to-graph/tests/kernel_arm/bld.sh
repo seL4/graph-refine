@@ -18,9 +18,9 @@ rm kernel/*
 
 mkdir -p kernel
 
-$CC  --static -nostdlib -O0 kernel.c -o kernelO0.elf
-$CC  --static -nostdlib  -O1 kernel.c -o kernelO1.elf
-$CC  --static -nostdlib -O2 kernel.c -o kernelO2.elf
+$CC  -Ttext=0xe0000000 --static -nostdlib -O0 kernel.c -o kernelO0.elf
+$CC  -Ttext=0xe0000000 --static -nostdlib  -O1 kernel.c -o kernelO1.elf
+$CC  -Ttext=0xe0000000 --static -nostdlib -O2 kernel.c -o kernelO2.elf
 $DMP -D kernelO1.elf > kernel.elf.rodata
 $DMP -dz kernelO1.elf > kernel.elf.txt
 $DMP -dz kernelO0.elf > kernelO0.elf.txt
