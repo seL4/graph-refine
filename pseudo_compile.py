@@ -16,7 +16,7 @@ import logic
  mk_word32_maybe, mk_cast, mk_memacc, mk_memupd, mk_arr_index, mk_arroffs,
  mk_if, mk_meta_typ, mk_pvalid) = syntax.mks
 
-from syntax import word32T, word8T
+from syntax import word64T, word32T, word8T
 
 from syntax import fresh_name, foldr1
 
@@ -40,6 +40,7 @@ def compile_field_acc (name, expr, replaces):
         assert expr.typ.kind == 'Struct'
         (typ, offs, _) = structs[expr.typ.name].fields[name]
         [m, p] = expr.vals
+        assert False
         return mk_memacc (m, mk_plus (p, mk_word32 (offs)), typ)
     elif expr.kind == 'Field':
         expr2 = compile_field_acc (expr.field[0], expr.struct, replaces)
@@ -62,6 +63,7 @@ def compile_array_acc (i, expr, replaces, must = True):
         if logic.is_int (i):
             return expr.vals[i]
         else:
+            assert False
             expr2 = expr.vals[-1]
             for (j, v) in enumerate (expr.vals[:-1]):
                 expr2 = mk_if (mk_eq (i, mk_word32 (j)), v, expr2)
@@ -74,6 +76,7 @@ def compile_array_acc (i, expr, replaces, must = True):
             else:
                 return compile_array_acc (i, arr, replaces)
         else:
+            assert False
             return mk_if (mk_eq (j, mk_word32_maybe (i)), v,
                           compile_array_acc (i, arr, replaces))
     elif expr.is_op ('MemAcc'):
@@ -89,6 +92,7 @@ def compile_array_acc (i, expr, replaces, must = True):
             (_, v_nm, typ) = replaces[expr.name][i]
             return mk_var (v_nm, typ)
         else:
+            assert False
             vs = [(mk_word32 (j), mk_var (v_nm, typ))
                   for (j, v_nm, typ)
                   in replaces[expr.name]]
@@ -99,6 +103,7 @@ def compile_array_acc (i, expr, replaces, must = True):
     else:
         if not must:
             return None
+        assert False
         return mk_arr_index (expr, mk_word32_maybe (i))
 
 def num_fields (container, typ):
@@ -118,6 +123,7 @@ def get_const_global_acc_offset (expr, offs, typ):
         return (expr, offs)
     elif expr.is_op ('ArrayIndex'):
         [expr2, offs2] = expr.vals
+        assert False
         offs = mk_plus (offs, mk_times (offs2,
                                         mk_word32 (num_fields (expr.typ, typ))))
         return get_const_global_acc_offset (expr2, offs, typ)
@@ -126,6 +132,7 @@ def get_const_global_acc_offset (expr, offs, typ):
         offs2 = 0
         for (nm, typ2) in struct.field_list:
             if (nm, typ2) == expr.field:
+                assert False
                 offs = mk_plus (offs, mk_word32 (offs2))
                 return get_const_global_acc_offset (
                     expr.struct, offs, typ)
@@ -140,6 +147,7 @@ def compile_const_global_acc (expr):
         return None
     if expr.typ.kind != 'Word':
         return None
+    assert False
     r = get_const_global_acc_offset (expr, mk_word32 (0), expr.typ)
     if r == None:
         return None
@@ -202,6 +210,7 @@ def compile_accs (replaces, expr):
         assert f_upd.typ.kind == 'Struct'
         (typ, offs, _) = structs[f_upd.typ.name].fields[f_upd.field[0]]
         assert f_upd.val.typ == typ
+        assert False
         return compile_accs (replaces,
                              mk_memupd (mk_memupd (m, p, f_upd.struct),
                                         mk_plus (p, mk_word32 (offs)), f_upd.val))
@@ -212,6 +221,7 @@ def compile_accs (replaces, expr):
         for (nm, (typ, offs, _)) in struct.fields.iteritems ():
             f = compile_field_acc (nm, s_val, replaces)
             assert f.typ == typ
+            assert False
             m = mk_memupd (m, mk_plus (p, mk_word32 (offs)), f)
         return compile_accs (replaces, m)
     elif (expr.is_op ('MemUpdate')
@@ -230,6 +240,7 @@ def compile_accs (replaces, expr):
             offs = i * typ.size ()
             assert offs == i or offs % 4 == 0
             e = compile_array_acc (i, arr, replaces)
+            assert False
             m = mk_memupd (m, mk_plus (p, mk_word32 (offs)), e)
         return compile_accs (replaces, m)
     elif expr.is_op ('Equals') \
@@ -249,7 +260,9 @@ def compile_accs (replaces, expr):
         vals = [compile_accs (replaces, v) for v in expr.vals]
         return syntax.adjust_op_vals (expr, vals)
     elif expr.kind == 'Symbol':
+        assert False
         return mk_word32 (symbols[expr.name][0])
+
     else:
         if expr.kind not in {'Var':True, 'ConstGlobal':True,
                              'Num':True, 'Invent':True, 'Type':True}:
@@ -357,7 +370,9 @@ def check_compile (func):
 def subst_expr (expr):
     if expr.kind == 'Symbol':
         if expr.name in symbols:
-            return mk_word32 (symbols[expr.name][0])
+            #assert False
+            #rv64_hack
+            return mk_word64(symbols[expr.name][0])
         else:
             return None
     elif expr.is_op ('PAlignValid'):

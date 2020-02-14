@@ -64,6 +64,7 @@ def split_scalar_globals (vs):
         print '\n'
         print v.typ
         print 'done \n'
+
         if v.typ not in [builtinTs['Mem'], builtinTs['Dom'],
                          builtinTs['HTD'], builtinTs['PMS'],
                          ghost_assertion_type]:
@@ -193,7 +194,7 @@ def mk_eqs_arm_none_eabi_gnu (var_c_args, var_c_rets, c_imem, c_omem,
                      if addr != None]
     swrap = mk_stack_wrapper (sp, st, arg_seq_addrs)
     swrap2 = mk_stack_wrapper (sp, st, save_addrs)
-    post_eqs += [(swrap, swrap2)]
+    #post_eqs += [(swrap, swrap2)]
 
     mem = mk_var ('mem', builtinTs['Mem'])
     (mem_ieqs, mem_oeqs) = mk_mem_eqs ([mem], c_imem, [mem], c_omem,
@@ -209,7 +210,7 @@ def mk_eqs_arm_none_eabi_gnu (var_c_args, var_c_rets, c_imem, c_omem,
     preconds = [((a_x, 'ASM_IN'), (true_term, 'ASM_IN')) for a_x in preconds]
     asm_invs = [((vin, 'ASM_IN'), (vout, 'ASM_OUT')) for (vin, vout) in post_eqs]
 
-    assert False
+    #assert False
     return (arg_eqs + mem_ieqs + preconds,
             ret_eqs + mem_oeqs + asm_invs)
 
@@ -223,7 +224,7 @@ def mk_eqs_riscv64_unknown_linux_gnu(var_c_args, var_c_rets, c_imem, c_omem,
     print c_imem
     print '\n'
     print c_omem
-
+    # it looks lik
     arg_regs = mk_var_list(['r10', 'r11', 'r12', 'r13', 'r15', 'r16', 'r17'], word64T)
     print arg_regs
 
@@ -233,20 +234,22 @@ def mk_eqs_riscv64_unknown_linux_gnu(var_c_args, var_c_rets, c_imem, c_omem,
 
     sp = mk_var('r2', word64T)
     st = mk_var('stack', builtinTs['Mem'])
-    #r0_input = mk_var('r0_input', word64T)
+    r10_input = mk_var('r10_input', word64T)
     sregs = mk_stack_sequence(sp, 8, st, word64T, len(var_c_args) + 1)
     ret = mk_var('ret', word64T)
 
     preconds = [
         #for RV64, assume the stack is 8-byte aligned
-        #mk_aligned(sp, 3),
+        mk_aligned(sp, 3),
         mk_eq(ret, mk_var('r1', word64T)),
-        #mk_eq(sp, mk_var('r2', word64T)),
+        mk_eq(sp, mk_var('r2', word64T)),
         # precondition; ret address is 2-byte aligned for
         # compress insturction or 4-byte aligned for
         # normal instruction
+        # note that the assembly decompiler addes a check to
+        # assert that the return address in r1 is 2-byte aligend.
         mk_aligned(ret, 1),
-        #	mk_eq(r0_input, r0),
+        #mk_eq(r10_input, r10),
         mk_less_eq(min_stack_size, sp)
     ]
 
@@ -258,9 +261,11 @@ def mk_eqs_riscv64_unknown_linux_gnu(var_c_args, var_c_rets, c_imem, c_omem,
     ]
 
     arg_seq = [(r, None) for r in arg_regs] + sregs
+
     print arg_seq
 
     print 'seq'
+
     if len (var_c_rets) > 1:
         # the 'return-too-much' issue.
         # instead r0 is a save-returns-here pointer
@@ -293,7 +298,8 @@ def mk_eqs_riscv64_unknown_linux_gnu(var_c_args, var_c_rets, c_imem, c_omem,
     swrap2 = mk_stack_wrapper (sp, st, save_addrs)
     print swrap
     print swrap2
-    post_eqs += [(swrap, swrap2)]
+
+#	post_eqs += [(swrap, swrap2)]
 
     mem = mk_var ('mem', builtinTs['Mem'])
     (mem_ieqs, mem_oeqs) = mk_mem_eqs ([mem], c_imem, [mem], c_omem,
@@ -301,6 +307,7 @@ def mk_eqs_riscv64_unknown_linux_gnu(var_c_args, var_c_rets, c_imem, c_omem,
 
     print mem_ieqs
     print mem_oeqs
+    #assert None
     addr = None
     arg_eqs = [cast_pair (((a_x, 'ASM_IN'), (c_x, 'C_IN')))
                for (c_x, (a_x, addr)) in zip (var_c_args, arg_seq)]
@@ -323,12 +330,11 @@ def mk_eqs_riscv64_unknown_linux_gnu(var_c_args, var_c_rets, c_imem, c_omem,
     print asm_invs
     print 'asm'
     #assert None
-    return (arg_eqs + preconds, asm_invs)
+    #return (arg_eqs + preconds, asm_invs)
     #return (arg_eqs + preconds, ret_eqs)
     #return (arg_eqs + preconds, ret_eqs + asm_invs)
-    #return (arg_eqs +  preconds, ret_eqs + asm_invs)
-    #return (arg_eqs + mem_ieqs + preconds,
-    #	ret_eqs + mem_oeqs + asm_invs)
+    return (arg_eqs +  preconds, ret_eqs + asm_invs)
+    #return (arg_eqs + mem_ieqs + preconds, ret_eqs + mem_oeqs + asm_invs)
 
 known_CPUs = {
     'arm-none-eabi-gnu': mk_eqs_arm_none_eabi_gnu,
@@ -591,14 +597,19 @@ def mk_bwand_mask (expr, n):
     return mk_bwand (expr, mk_num (((1 << n) - 1), expr.typ))
 
 def end_addr (p, typ):
+    if syntax.is_64bit:
+        mk_word = syntax.mk_word64
+    else:
+        mk_word = syntax.mk_word32
+
     if typ[0] == 'Array':
         (_, typ, n) = typ
-        sz = mk_times (mk_word32 (typ.size ()), n)
+        sz = mk_times (mk_word(typ.size ()), n)
     else:
         assert typ[0] == 'Type', typ
         (_, typ) = typ
-        sz = mk_word32 (typ.size ())
-    return mk_plus (p, mk_minus (sz, mk_word32 (1)))
+        sz = mk_word(typ.size ())
+    return mk_plus (p, mk_minus (sz, mk_word(1)))
 
 def pvalid_assertion1 ((typ, k, p, pv), (typ2, k2, p2, pv2)):
     """first pointer validity assertion: incompatibility.
@@ -632,14 +643,24 @@ def pvalid_assertion2 ((typ, k, p, pv), (typ2, k2, p2, pv2)):
     return mk_and (imp1, imp2)
 
 def sym_distinct_assertion ((typ, p, pv), (start, end)):
-    out1 = mk_less (mk_plus (p, mk_word32 (typ.size () - 1)), mk_word32 (start))
-    out2 = mk_less (mk_word32 (end), p)
+    if syntax.is_64bit:
+        mk_word = syntax.mk_word64
+    else:
+        mk_word = syntax.mk_word32
+
+    out1 = mk_less (mk_plus (p, mk_word(typ.size () - 1)), mk_word(start))
+    out2 = mk_less (mk_word(end), p)
     return mk_implies (pv, mk_or (out1, out2))
 
 def norm_array_type (t):
+    if syntax.is_64bit:
+        mk_word = syntax.mk_word64
+    else:
+        mk_word = syntax.mk_word32
+
     if t[0] == 'Type' and t[1].kind == 'Array':
         (_, atyp) = t
-        return ('Array', atyp.el_typ_symb, mk_word32 (atyp.num), 'Strong')
+        return ('Array', atyp.el_typ_symb, mk_word(atyp.num), 'Strong')
     elif t[0] == 'Array' and len (t) == 3:
         (_, typ, l) = t
         # these derive from PArrayValid assertions. we know the array is
@@ -668,10 +689,21 @@ def get_styp_condition_inner1 (inner_typ, outer_typ):
     return r
 
 def array_typ_size ((kind, el_typ, num, _)):
-    el_size = mk_word32 (el_typ.size ())
+    if syntax.is_64bit:
+        mk_word = syntax.mk_word64
+    else:
+        mk_word = syntax.mk_word32
+    el_size = mk_word(el_typ.size ())
     return mk_times (num, el_size)
 
 def get_styp_condition_inner2 (inner_typ, outer_typ):
+    if syntax.is_64bit:
+        wordT = syntax.word64T
+        mk_word = syntax.mk_word64
+    else:
+        wordT = syntax.word32T
+        mk_word = syntax.mk_word32
+
     if inner_typ[0] == 'Array' and outer_typ[0] == 'Array':
         (_, ityp, inum, _) = inner_typ
         (_, otyp, onum, outer_bound) = outer_typ
@@ -687,10 +719,10 @@ def get_styp_condition_inner2 (inner_typ, outer_typ):
         else:
             return cond
     elif inner_typ == outer_typ:
-        return lambda offs: mk_eq (offs, mk_word32 (0))
+        return lambda offs: mk_eq (offs, mk_word(0))
     elif outer_typ[0] == 'Type' and outer_typ[1].kind == 'Struct':
         conds = [(get_styp_condition_inner1 (inner_typ,
-                                             ('Type', sf_typ)), mk_word32 (offs2))
+                                             ('Type', sf_typ)), mk_word(offs2))
                  for (_, offs2, sf_typ)
                  in structs[outer_typ[1].name].fields.itervalues()]
         conds = [cond for cond in conds if cond[0]]
@@ -703,7 +735,7 @@ def get_styp_condition_inner2 (inner_typ, outer_typ):
     elif outer_typ[0] == 'Array':
         (_, el_typ, n, bound) = outer_typ
         cond = get_styp_condition_inner1 (inner_typ, ('Type', el_typ))
-        el_size = mk_word32 (el_typ.size ())
+        el_size = mk_word(el_typ.size ())
         size = mk_times (n, el_size)
         if bound == 'Strong' and cond:
             return lambda offs: mk_and (mk_less (offs, size),
@@ -738,27 +770,39 @@ def var_not_in_expr (var, expr):
     return all_vars_have_prop (expr, lambda v: v != v2)
 
 def mk_array_size_ineq (typ, num, p):
+    if syntax.is_64bit:
+        mk_word = syntax.mk_word64
+    else:
+        mk_word = syntax.mk_word32
+
     align = typ.align ()
-    size = mk_times (mk_word32 (typ.size ()), num)
+    size = mk_times (mk_word(typ.size ()), num)
     size_lim = ((2 ** 32) - 4) / typ.size ()
-    return mk_less_eq (num, mk_word32 (size_lim))
+    return mk_less_eq (num, mk_word(size_lim))
 
 def mk_align_valid_ineq (typ, p):
+    if syntax.is_64bit:
+        mk_word = syntax.mk_word64
+        wordT = syntax.word64T
+    else:
+        mk_word = syntax.mk_word32
+        wordT = syntax.word32T
+
     if typ[0] == 'Type':
         (_, typ) = typ
         align = typ.align ()
-        size = mk_word32 (typ.size ())
+        size = mk_word(typ.size ())
         size_req = []
     else:
         assert typ[0] == 'Array', typ
         (kind, typ, num) = typ
         align = typ.align ()
-        size = mk_times (mk_word32 (typ.size ()), num)
+        size = mk_times (mk_word(typ.size ()), num)
         size_req = [mk_array_size_ineq (typ, num, p)]
     assert align in [1, 4, 8]
-    w0 = mk_word32 (0)
+    w0 = mk_word(0)
     if align > 1:
-        align_req = [mk_eq (mk_bwand (p, mk_word32 (align - 1)), w0)]
+        align_req = [mk_eq (mk_bwand (p, mk_word(align - 1)), w0)]
     else:
         align_req = []
     return foldr1 (mk_and, align_req + size_req + [mk_not (mk_eq (p, w0)),
@@ -1369,7 +1413,8 @@ def interesting_node_exprs (p, n, tags = None, use_pairings = True):
     vs = [(kind, ptr) for (kind, ptr, v, m) in memaccs]
     vs += [('MemUpdateArg', v) for (kind, ptr, v, m) in memaccs
            if kind == 'MemUpdate']
-
+    print vs
+    assert False
     if node.kind == 'Call' and use_pairings:
         tag = p.node_tags[n][0]
         from target_objects import functions, pairings
@@ -1751,7 +1796,7 @@ def apply_rel_wrapper (lhs, rhs):
         assert not 'rel wrapper opname understood'
 
 def inst_eq_at_visit (exp, vis):
-    #assert False
+    assert False
     if not exp.is_op ('EqSelectiveWrapper'):
         return True
     [_, xs, ys] = exp.vals

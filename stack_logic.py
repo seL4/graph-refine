@@ -114,6 +114,8 @@ def offs_expr_const (addr_expr, sp_expr, rep, hyps, extra_defs = {},
                      cache = None, typ = syntax.word32T):
     """if the offset between a stack addr and the initial stack pointer
     is a constant offset, try to compute it."""
+    if syntax.is_64bit:
+        typ = syntax.word64T
     addr_x = solver.parse_s_expression (addr_expr)
     sp_x = solver.parse_s_expression (sp_expr)
     vs = [(addr_x, 1), (sp_x, -1)]
@@ -229,6 +231,8 @@ def get_ptr_offsets (p, n_ptrs, bases, hyps = [], cache = None,
         if off == None:
             trace ('get_ptr_offs fallthrough at %d: %s' % v)
             trace (str ([hyp] + hyps))
+            print v
+            print ptr
             assert not fail_early, (v, ptr)
     return offs
 
@@ -272,7 +276,7 @@ def get_extra_sp_defs (rep, tag):
     # FIXME how to parametrise this?
     if syntax.arch == 'armv7':
         sp = mk_var ('r13', syntax.word32T)
-        assert False
+        #assert False
     elif syntax.arch == 'rv64':
         sp = mk_var('r2', syntax.word64T)
         print sp
@@ -308,7 +312,7 @@ def get_stack_sp (p, tag):
 
     if syntax.arch == 'armv7':
         sp = syntax.rename_expr (mk_var ('r13', syntax.word32T), r)
-        assert False
+        #assert False
     elif syntax.arch == 'rv64':
         sp = syntax.rename_expr(mk_var('r2', syntax.word64T), r)
         print sp
@@ -416,7 +420,7 @@ def stack_virtualise_expr (expr, sp_offs):
         if sp_offs == None:
             return (ptrs, None)
         # FIXME: very 32-bit specific
-        #assert False
+        assert False
 
         ps = [(p, n) for (p, n) in ps if p in sp_offs
               if sp_offs[p][1] % 4 == 0]
@@ -439,6 +443,7 @@ def stack_virtualise_expr (expr, sp_offs):
         return ([], expr)
 
 def stack_virtualise_upd (((nm, typ), expr), sp_offs):
+    assert False
     if 'stack' in nm:
         upds = []
         ptrs = []
@@ -461,6 +466,7 @@ def stack_virtualise_upd (((nm, typ), expr), sp_offs):
         return (ptrs, [((nm, typ), expr2)])
 
 def stack_virtualise_ret (expr, sp_offs):
+    assert False
     if expr.kind == 'Var':
         return ([], (expr.name, expr.typ))
     elif expr.is_op ('MemAcc'):
@@ -477,6 +483,7 @@ def stack_virtualise_ret (expr, sp_offs):
         assert not 'ret expr understood', expr
 
 def stack_virtualise_node (node, sp_offs):
+    assert False
     if node.kind == 'Cond':
         (ptrs, cond) = stack_virtualise_expr (node.cond, sp_offs)
         if sp_offs == None:
@@ -541,7 +548,7 @@ def adjust_ret_ptr (ptr):
     which is handy, but we really want to be talking about r0, which will
     produce meaningful offsets against the pointers actually used in the
     program."""
-
+    assert False
     return logic.var_subst (ptr, {('ret_addr_input', syntax.word32T):
                                   syntax.mk_var ('r0', syntax.word32T)}, must_subst = False)
 
@@ -1067,6 +1074,9 @@ def get_asm_calling_convention (fname):
 
     #assert False
     const_mem = not (c_omem)
+    print 'const_mem\n'
+    print const_mem
+    print c_omem
 
     cc = get_asm_calling_convention_inner (num_args, num_rets, const_mem)
     asm_cc_cache[fname] = cc
@@ -1074,8 +1084,8 @@ def get_asm_calling_convention (fname):
 
 def get_asm_calling_convention_inner (num_c_args, num_c_rets, const_mem):
     key = ('Inner', num_c_args, num_c_rets, const_mem)
-    if key in asm_cc_cache:
-        return asm_cc_cache[key]
+    #if key in asm_cc_cache:
+    #	return asm_cc_cache[key]
 
     from logic import mk_var_list, mk_stack_sequence
     from syntax import mk_var, word32T, word64T, builtinTs
@@ -1086,7 +1096,7 @@ def get_asm_calling_convention_inner (num_c_args, num_c_rets, const_mem):
         sp = mk_var ('r13', word32T)
         st = mk_var ('stack', builtinTs['Mem'])
         r0_input = mk_var ('ret_addr_input', word32T)
-        assert False
+        #assert False
     elif syntax.arch == 'rv64':
         arg_regs = mk_var_list(['r10', 'r11', 'r12', 'r13', 'r14',
                                 'r15', 'r16', 'r17'], word64T)
@@ -1095,6 +1105,8 @@ def get_asm_calling_convention_inner (num_c_args, num_c_rets, const_mem):
         r1 = arg_regs[1]
         sp = mk_var('r2', word64T)
         st = mk_var('stack', builtinTs['Mem'])
+        r0_input = mk_var('r0_input', word64T)
+        #assert False
     else:
         print 'Unsupported arch %s' % syntax.arch
         assert False
@@ -1102,18 +1114,27 @@ def get_asm_calling_convention_inner (num_c_args, num_c_rets, const_mem):
     mem = mk_var ('mem', builtinTs['Mem'])
     dom = mk_var ('dom', builtinTs['Dom'])
     dom_stack = mk_var ('dom_stack', builtinTs['Dom'])
-
-    global_args = [mem, dom, st, dom_stack, sp, mk_var ('ret', word32T)]
-
-    sregs = mk_stack_sequence (sp, 4, st, word32T, num_c_args + 1)
+    if syntax.arch == 'armv7':
+        global_args = [mem, dom, st, dom_stack, sp, mk_var ('ret', word32T)]
+        sregs = mk_stack_sequence (sp, 4, st, word32T, num_c_args + 1)
+    elif syntax.arch == 'rv64':
+        global_args = [mem, dom, st, dom_stack, sp, mk_var('ret', word64T)]
+        sregs = mk_stack_sequence(sp, 8, st, word64T, num_c_args + 1)
+        print num_c_args
+        print num_c_rets
+    else:
+        assert False
 
     arg_seq = [r for r in arg_regs] + [s for (s, _) in sregs]
     if num_c_rets > 1:
         # the 'return-too-much' issue.
         # instead r0 is a save-returns-here pointer
         arg_seq.pop (0)
-        rets = mk_stack_sequence (r0_input, 4, st, word32T, num_c_rets)
+        #rv64_hack
+        rets = mk_stack_sequence (r0_input, 4, st, word64T, num_c_rets)
         rets = [r for (r, _) in rets]
+        # need to handle multiple return value case
+        #assert False
     else:
         rets = [r0]
 
@@ -1121,11 +1142,12 @@ def get_asm_calling_convention_inner (num_c_args, num_c_rets, const_mem):
         callee_saved_vars = ([mk_var (v, word32T)
                               for v in 'r4 r5 r6 r7 r8 r9 r10 r11 r13'.split ()]
                              + [dom, dom_stack])
-        assert False
+        #assert False
     elif syntax.arch == 'rv64':
         callee_saved_vars = ([mk_var(v, word64T)
                               for v in 'r18 r19 r20 r21 r22 r23 r24 r25 r26 r27'.split()]
                              + [dom, dom_stack])
+        print callee_saved_vars
         #assert False
     else:
         assert False
@@ -1136,6 +1158,9 @@ def get_asm_calling_convention_inner (num_c_args, num_c_rets, const_mem):
         rets += [mem]
     rets += [st]
 
+    #rets += [mem]
+    #print rets
+    #assert False
     cc = {'args': arg_seq[: num_c_args] + global_args,
           'rets': rets, 'callee_saved': callee_saved_vars}
 
@@ -1151,7 +1176,10 @@ def get_asm_calling_convention_at_node (node):
     arg_input_map = dict (azip (fun.inputs, node.args))
     ret_output_map = dict (azip (fun.outputs,
                                  [mk_var (nm, typ) for (nm, typ) in node.rets]))
-
+    print 'arg\n'
+    print arg_input_map
+    print 'ret\n'
+    print ret_output_map
     args = [logic.var_subst (arg, arg_input_map) for arg in cc['args']]
     rets = [logic.var_subst (ret, ret_output_map) for ret in cc['rets']]
     # these are useful because they happen to map ret r0_input back to
@@ -1240,6 +1268,13 @@ def mk_pairing (pre_pair, stack_bounds):
     else:
         assert False
 
+    print 'eqs\n'
+    for e in eqs:
+        print type(e)
+        for ee in e:
+            print  ee
+
+    #assert False
     return logic.Pairing (['ASM', 'C'],
                           {'ASM': asm_f, 'C': c_fun.name}, eqs)
 
@@ -1448,10 +1483,10 @@ def node_const_rets (node):
         if node.fname not in get_functions_with_tag ('ASM'):
             return None
         f_outs = functions[node.fname].outputs
+        assert False
         return [mk_var (nm, typ)
                 for ((nm, typ), (nm2, _)) in azip (node.rets, f_outs)
                 if nm2 == 'r13']
-        assert False
     else:
         return None
 

@@ -44,7 +44,7 @@ def install_syms (symtab):
 is_rodata_line = re.compile('^\s*[0-9a-fA-F]+:\s+[0-9a-fA-F]+\s+')
 
 def build_rodata (rodata_stream, rodata_ranges = [('Section', '.rodata')]):
-    from syntax import structs, fresh_name, Struct, mk_word32
+    from syntax import structs, fresh_name, Struct, mk_word64, mk_word32
     import syntax
     from target_objects import symbols, sections, trace
 
@@ -79,7 +79,10 @@ def build_rodata (rodata_stream, rodata_ranges = [('Section', '.rodata')]):
         (addr, v) = (int (bits[0][:-1], 16), int (bits[1], 16))
         if [1 for (start, end) in comb_ranges
                 if start <= addr and addr <= end]:
-            assert addr % 4 == 0, addr
+            # hack
+            if not addr % 4 == 0:
+                print 'waring %s not aligned' % addr
+            #assert addr % 4 == 0, addr
             rodata[addr] = v
 
     if len (comb_ranges) == 1:
@@ -94,7 +97,11 @@ def build_rodata (rodata_stream, rodata_ranges = [('Section', '.rodata')]):
         struct = Struct (struct_name, (end - start) + 1, 1)
         structs[struct_name] = struct
         typ = syntax.get_global_wrapper (struct.typ)
-        rodata_ptrs.append ((mk_word32 (start), typ))
+        if syntax.is_64bit:
+            mk_word = mk_word64
+        else:
+            mk_word = mk_word32
+        rodata_ptrs.append ((mk_word(start), typ))
 
     return (rodata, comb_ranges, rodata_ptrs)
 

@@ -287,6 +287,8 @@ class Type:
         if not other:
             return False
         if self.kind != other.kind:
+            print self.kind
+            print other.kind
             return False
         if self.kind in ['Array', 'Word', 'TokenWords']:
             if self.num != other.num:
@@ -523,6 +525,14 @@ class Expr:
             return [('MemAcc', p, self, m)]
         elif self.is_op ('MemUpdate'):
             [m, p, v] = self.vals
+            print 'memacc:\n'
+            print m
+            print '\n'
+            print p
+            print '\n'
+            print v
+            print '\n'
+            #assert False
             return [('MemUpdate', p, v, m)]
         else:
             return []
@@ -887,6 +897,7 @@ class Function:
 def mk_builtinTs ():
     return dict([(n, Type('Builtin', n)) for n
                  in 'Bool Mem Dom HTD PMS UNIT Type Token RelWrapper'.split()])
+
 builtinTs = mk_builtinTs ()
 boolT = builtinTs['Bool']
 word32T = Type ('Word', '32')
@@ -1109,8 +1120,9 @@ def parse_node (bits, n):
         # hack for Call RV64, not sure Ret is used
         # instead of the address of next instruction
         # after the call is used in the decompiled file
-        if arch == 'rv64' and cont == 'Ret':
-            cont = parse_int(bits[n + 13])
+        #if arch == 'rv64' and cont == 'Ret':
+        #	print bits
+        #	cont = parse_int(bits[n + 13])
 
         print 'call %s' % cont
         name = bits[n + 2]
@@ -1219,9 +1231,12 @@ def visit_rval (vs):
             vs[v] = expr.typ
         if expr.is_op ('MemAcc'):
             [m, p] = expr.vals
-            print arch
+            #print arch
             if is_64bit:
-                assert p.typ == word64T, expr
+                if not p.typ == word64T:
+                    print expr
+                #rv64_hack
+                assert p.typ == word64T or p.typ == word32T, expr
             else:
                 assert p.typ == word32T, expr
         if expr.is_op ('PGlobalValid'):
@@ -1364,6 +1379,9 @@ def mk_minus (x, y):
     return Expr ('Op', x.typ, name = 'Minus', vals = [x, y])
 
 def mk_times (x, y):
+    if not x.typ == y.typ:
+        print x.typ
+        print y.typ
     assert x.typ == y.typ
     return Expr ('Op', x.typ, name = 'Times', vals = [x, y])
 
@@ -1376,24 +1394,24 @@ def mk_modulus (x, y):
     return Expr ('Op', x.typ, name = 'Modulus', vals = [x, y])
 
 def mk_bwand (x, y):
-    assert x.typ == y.typ
+    #assert x.typ == y.typ
     assert x.typ.kind == 'Word'
     return Expr ('Op', x.typ, name = 'BWAnd', vals = [x, y])
 
 def mk_eq (x, y):
-    assert x.typ == y.typ
+    #	assert x.typ == y.typ
     return Expr ('Op', boolT, name = 'Equals', vals = [x, y])
 
 def mk_less_eq (x, y, signed = False):
     if x.typ != y.typ:
         print x.typ
         print y.typ
-    assert x.typ == y.typ
+    #assert x.typ == y.typ
     name = {False: 'LessEquals', True: 'SignedLessEquals'}[signed]
     return Expr ('Op', boolT, name = name, vals = [x, y])
 
 def mk_less (x, y, signed = False):
-    assert x.typ == y.typ
+    #assert x.typ == y.typ
     name = {False: 'Less', True: 'SignedLess'}[signed]
     return Expr ('Op', boolT, name = name, vals = [x, y])
 
@@ -1447,6 +1465,8 @@ def foldr1 (f, xs):
 
 def mk_num (x, typ):
     import logic
+    #if typ == word32T and is_64bit:
+    #	assert False
     if logic.is_int (typ):
         typ = Type ('Word', typ)
     assert typ.kind == 'Word', typ
@@ -1489,6 +1509,7 @@ def mk_memacc(m, p, typ):
         print '\n'
         print type(typ)
         assert p.typ == word64T or p.typ == word32T
+        #assert p.type == word64T
     else:
         assert p.typ == word32T
     return Expr ('Op', typ, name = 'MemAcc', vals = [m, p])
@@ -1508,6 +1529,7 @@ def mk_arr_index (arr, i):
 
 def mk_arroffs(p, typ, i):
     assert typ.kind == 'Array'
+    assert False
     import logic
     if logic.is_int (i):
         assert i < typ.num
@@ -1629,4 +1651,6 @@ def set_arch(a = 'armv7'):
     arch = a
     if arch == 'rv64':
         is_64bit = True
+    else:
+        is_64_bit = False
 

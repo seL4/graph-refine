@@ -147,7 +147,8 @@ def parse_config_change (config, solver):
             assert rhs in ['8', '32']
             solver.mem_mode = rhs
             # hack set the mem_mode to 64
-            solver.mem_mode = '64'
+            if syntax.arch == 'rv64':
+                solver.mem_mode = '64'
         else:
             assert not 'config understood', assign
 
@@ -254,7 +255,9 @@ def smt_typ (typ):
             token_smt_typ.num, typ.num)
     return smt_typ_builtins[typ.name]
 
+# HACK HERE
 token_smt_typ = syntax.word64T
+#token_smt_typ = syntax.word32T
 
 smt_typ_builtins = {'Bool':'Bool', 'Mem':'{MemSort}', 'Dom':'{MemDomSort}',
                     'Token': smt_typ (token_smt_typ)}
@@ -311,6 +314,7 @@ def smt_expr (expr, env, solv):
             return '((_ extract %d 0) %s)' % (expr.typ.num - 1, ex)
         else:
             if expr.name == 'WordCast':
+                print 'HERHEHEH'
                 return '((_ zero_extend %d) %s)' % (
                     expr.typ.num - v.typ.num, ex)
             else:
@@ -345,6 +349,8 @@ def smt_expr (expr, env, solv):
         return smt_expr (expr, env, solv)
     elif expr.is_op (['PValid', 'PGlobalValid',
                       'PWeakValid', 'PArrayValid']):
+        print 'pvalid:\n'
+        print expr
         if expr.name == 'PArrayValid':
             [htd, typ_expr, p, num] = expr.vals
             num = to_smt_expr (num, env, solv)
@@ -501,13 +507,31 @@ def smt_expr_memupd (m, p, v, typ, solv):
         bot = '(ite (bvule %s %s) %s %s)' % (split, p, bot, bot_upd)
         return ('SplitMem', split, top, bot)
     elif typ.num == 8:
+        #assert False
         p = solv.cache_large_expr (p, 'memupd_pointer', wordT)
+
         # Note hack for RV64
-        #p_align = '(bvand %s #xfffffffd)' % p
-        p_align = '(bvand %s #xfffffffffffffffd)' % p
+        if syntax.is_64bit:
+            p_align = '(bvand %s #xfffffffffffffffd)' % p
+        else:
+            p_align = '(bvand %s #xfffffffd)' % p
+
         solv.note_model_expr (p_align, wordT)
-        solv.note_model_expr ('(load-word32 %s %s)' % (m, p_align),
-                              syntax.word32T)
+        # note hack for rv64
+
+        if syntax.is_64bit:
+            solv.note_model_expr('(load-word64 %s %s)' % (m, p_align),
+                                 syntax.word64T)
+        else:
+            solv.note_model_expr ('(load-word32 %s %s)' % (m, p_align),
+                                  syntax.word32T)
+        print 'bla\n'
+        print m
+        print '\n'
+        print p
+        print '\n'
+        print v
+        #assert False
         return '(store-word8 %s %s %s)' % (m, p, v)
     elif typ.num in [32, 64]:
         solv.note_model_expr ('(load-word%d %s %s)' % (typ.num, m, p),
@@ -631,6 +655,8 @@ mem_word8_preamble = [
     '''(define-fun mem-eq ((x {MemSort}) (y {MemSort})) Bool (= x y))''',
     '''(define-fun word32-eq ((x (_ BitVec 32)) (y (_ BitVec 32)))
     Bool (= x y))''',
+    '''(define-fun word64-eq ((x (_ BitVec 64)) (y (_ BitVec 64)))
+	Bool (= x y))''',
     '''(define-fun word2-xor-scramble ((a (_ BitVec 2)) (x (_ BitVec 2))
    (b (_ BitVec 2)) (c (_ BitVec 2)) (y (_ BitVec 2)) (d (_ BitVec 2))) Bool
 (bvult (bvadd (bvxor a x) b) (bvadd (bvxor c y) d)))''',
@@ -670,6 +696,8 @@ mem_word32_preamble = [
     '''(define-fun mem-eq ((x {MemSort}) (y {MemSort})) Bool (= x y))''',
     '''(define-fun word32-eq ((x (_ BitVec 32)) (y (_ BitVec 32)))
     Bool (= x y))''',
+    '''(define-fun word64-eq ((x (_ BitVec 64)) (y (_ BitVec 64)))
+	Bool (= x y))''',
     '''(define-fun word2-xor-scramble ((a (_ BitVec 2)) (x (_ BitVec 2))
    (b (_ BitVec 2)) (c (_ BitVec 2)) (y (_ BitVec 2)) (d (_ BitVec 2))) Bool
 (bvult (bvadd (bvxor a x) b) (bvadd (bvxor c y) d)))''',
@@ -1019,6 +1047,8 @@ class Solver:
 
     def prompt_s_expression_inner (self, prompt):
         try:
+            #print 'here'
+            #print prompt
             self.write (prompt)
             return self.get_s_expression (prompt)
         except IOError, e:
@@ -1258,6 +1288,7 @@ class Solver:
     def write_solv_script (self, f, input_msgs, solver = slow_solver,
                            only_if_is_model = False):
         if solver.mem_mode == '8':
+            assert False
             smt_convs = word8_smt_convs
         else:
             if syntax.is_64bit:
@@ -1855,10 +1886,16 @@ class Solver:
         return name2
 
     def note_ptr (self, p_s):
+        print 'note_ptr:'
+        print p_s
         if p_s in self.ptrs:
             p = self.ptrs[p_s]
         else:
-            p = self.add_def ('ptr', mk_smt_expr (p_s, word32T), {})
+            if syntax.is_64bit:
+                wordT = syntax.word64T
+            else:
+                wordT = syntax.word32T
+            p = self.add_def ('ptr', mk_smt_expr (p_s, wordT), {})
             self.ptrs[p_s] = p
         return p
 
@@ -1895,7 +1932,11 @@ class Solver:
             pvalids[htd_s][(typ, p, kind)] = var
 
             def smtify (((typ, p, kind), var)):
-                return (typ, kind, mk_smt_expr (p, word32T),
+                if syntax.is_64bit:
+                    wordT = syntax.word64T
+                else:
+                    wordT = syntax.word32T
+                return (typ, kind, mk_smt_expr (p, wordT),
                         mk_smt_expr (var, boolT))
             pdata = smtify (((typ, p, kind), var))
             (_, _, p, pv) = pdata
@@ -1919,12 +1960,19 @@ class Solver:
             return var
 
     def get_imm_basis_mems (self, m, accum):
+        print m
+        print accum
+        print m[0]
+        print type(m)
+
         if m[0] == 'ite':
             (_, c, l, r) = m
             self.get_imm_basis_mems (l, accum)
             self.get_imm_basis_mems (r, accum)
-        elif m[0] in ['store-word32', 'store-word8']:
+        elif m[0] in ['store-word32', 'store-word8', 'store-word64']:
             (_, m, p, v) = m
+            print m
+            assert False
             self.get_imm_basis_mems (m, accum)
         elif type (m) == tuple:
             assert not 'mem construction understood', m
@@ -1969,6 +2017,7 @@ class Solver:
 
         addr = self.add_var ('stack-eq-witness', wordT)
         if syntax.is_64bit:
+            print addr
             self.assert_fact_smt('(= (bvand %s #x0000000000000007) #x0000000000000000)' % addr)
         else:
             self.assert_fact_smt ('(= (bvand %s #x00000003) #x00000000)' % addr)
@@ -2178,6 +2227,7 @@ def hash_test_hyp_fast (solv, hyp, env, cache):
 paren_re = re.compile (r"(\(|\))")
 
 def parse_s_expressions (ss):
+    print ss
     bits = [bit for s in ss for split1 in paren_re.split (s)
             for bit in split1.split ()]
     def group (n):
