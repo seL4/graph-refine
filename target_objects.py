@@ -74,6 +74,7 @@ def default_tracer (s, push):
 tracer = [default_tracer]
 
 def trace (s, push = 0):
+    print 'trace %s' % str(s)
     tracer[0](str (s), push)
 
 def load_target (target, target_args = None):

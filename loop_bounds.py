@@ -241,6 +241,7 @@ def is_zero (expr):
     return expr.kind == 'Num' and expr.val & ((1 << expr.typ.num) - 1) == 0
 
 def candidate_additional_eqs (p, split):
+
     eq_vals = set ()
     def visitor (expr):
         if expr.is_op ('Equals') and expr.vals[0].typ.kind == 'Word':
@@ -257,9 +258,9 @@ def candidate_additional_eqs (p, split):
             [x, y] = y.vals
             eq_vals.add ((x, y))
             eq_vals.add ((y, x))
-    # hack rv64
+    # rv64_hack rv64
     loop = syntax.mk_var ('%i', syntax.word64T)
-    assert False
+    #assert False
     minus_loop_step = syntax.mk_uminus (loop)
 
     vas = search.get_loop_var_analysis_at(p, split)
@@ -659,7 +660,7 @@ def get_loop_addrs (split):
             if addr_to_loop_id_cache.get (addr) == split]
 
 def add_fun_to_loop_data_cache (fname):
-    print fname
+    #print fname
     p = functions[fname].as_problem (problem.Problem)
     p.do_loop_analysis ()
     for h in p.loop_heads ():

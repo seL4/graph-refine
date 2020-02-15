@@ -314,11 +314,11 @@ def smt_expr (expr, env, solv):
             return '((_ extract %d 0) %s)' % (expr.typ.num - 1, ex)
         else:
             if expr.name == 'WordCast':
-                print 'HERHEHEH'
+                #print 'HERHEHEH'
                 return '((_ zero_extend %d) %s)' % (
                     expr.typ.num - v.typ.num, ex)
             else:
-                print expr.name
+                #print expr.name
                 #assert None
                 return '((_ sign_extend %d) %s)' % (
                     expr.typ.num - v.typ.num, ex)
@@ -349,8 +349,8 @@ def smt_expr (expr, env, solv):
         return smt_expr (expr, env, solv)
     elif expr.is_op (['PValid', 'PGlobalValid',
                       'PWeakValid', 'PArrayValid']):
-        print 'pvalid:\n'
-        print expr
+        #print 'pvalid:\n'
+        #print expr
         if expr.name == 'PArrayValid':
             [htd, typ_expr, p, num] = expr.vals
             num = to_smt_expr (num, env, solv)
@@ -405,7 +405,7 @@ def smt_expr (expr, env, solv):
     elif expr.is_op('Equals') and expr.vals[0].typ == word64T:
         (x, y) = [smt_expr(e, env, solv) for e in expr.vals]
         sexp = '(word64-eq %s %s)' % (x, y)
-        print sexp
+        #print sexp
         return sexp
     elif expr.is_op ('StackEqualsImplies'):
         [sp1, st1, sp2, st2] = [smt_expr (e, env, solv)
@@ -432,9 +432,9 @@ def smt_expr (expr, env, solv):
         var = solv.add_var ('updated_htd', expr.typ)
         return var
     elif expr.kind == 'Op':
-        print "expr:"
-        print expr
-        print 'done\n'
+        #print "expr:"
+        #print expr
+        #print 'done\n'
         vals = [smt_expr (e, env, solv) for e in expr.vals]
         if vals:
             sexp = '(%s %s)' % (smt_ops[expr.name], ' '.join(vals))
@@ -525,12 +525,12 @@ def smt_expr_memupd (m, p, v, typ, solv):
         else:
             solv.note_model_expr ('(load-word32 %s %s)' % (m, p_align),
                                   syntax.word32T)
-        print 'bla\n'
-        print m
-        print '\n'
-        print p
-        print '\n'
-        print v
+        #print 'bla\n'
+        #print m
+        #print '\n'
+        #print p
+        #print '\n'
+        #print v
         #assert False
         return '(store-word8 %s %s %s)' % (m, p, v)
     elif typ.num in [32, 64]:
@@ -1385,19 +1385,19 @@ class Solver:
 
     def add_parallel_solver (self, k, hyps, model = None,
                              use_this_solver = None):
-        for h in hyps:
-            print 'hyp: \n'
-            print h
-            print 'hyp done\n'
+        #for h in hyps:
+        #	print 'hyp: \n'
+        #	print h
+        #	print 'hyp done\n'
 
         cmds = ['(assert %s)' % hyp for hyp in hyps] + ['(check-sat)']
 
         if model != None:
             cmds.append (self.fetch_model_request ())
 
-        print 'cmds'
-        print cmds
-        print 'donecmds'
+        #print 'cmds'
+        #print cmds
+        #print 'donecmds'
 
         trace ('  --> new parallel solver %s' % str (k))
 
@@ -1886,8 +1886,8 @@ class Solver:
         return name2
 
     def note_ptr (self, p_s):
-        print 'note_ptr:'
-        print p_s
+        #print 'note_ptr:'
+        #print p_s
         if p_s in self.ptrs:
             p = self.ptrs[p_s]
         else:
@@ -1960,10 +1960,10 @@ class Solver:
             return var
 
     def get_imm_basis_mems (self, m, accum):
-        print m
-        print accum
-        print m[0]
-        print type(m)
+        #print m
+        #print accum
+        #print m[0]
+        #print type(m)
 
         if m[0] == 'ite':
             (_, c, l, r) = m
@@ -2017,7 +2017,7 @@ class Solver:
 
         addr = self.add_var ('stack-eq-witness', wordT)
         if syntax.is_64bit:
-            print addr
+            #print addr
             self.assert_fact_smt('(= (bvand %s #x0000000000000007) #x0000000000000000)' % addr)
         else:
             self.assert_fact_smt ('(= (bvand %s #x00000003) #x00000000)' % addr)
@@ -2227,7 +2227,7 @@ def hash_test_hyp_fast (solv, hyp, env, cache):
 paren_re = re.compile (r"(\(|\))")
 
 def parse_s_expressions (ss):
-    print ss
+    #print ss
     bits = [bit for s in ss for split1 in paren_re.split (s)
             for bit in split1.split ()]
     def group (n):

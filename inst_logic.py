@@ -28,6 +28,7 @@ inst_split_re = re.compile('[_,]*')
 crn_re = re.compile('cr[0123456789][0123456789]*')
 pn_re = re.compile('p[0123456789][0123456789]*')
 def split_inst_name_regs (nm):
+    #assert False
     bits = inst_split_re.split (nm)
     fin_bits = []
     regs = []
@@ -51,9 +52,11 @@ asm_globs = [('Mem', syntax.builtinTs['Mem'])]
 
 def mk_fun (nm, word_args, ex_args, word_rets, ex_rets, globs):
     """wrapper for making a syntax.Function with standard args/rets."""
+    #assert False
+    #rv64_hack
     return syntax.Function (nm,
-                            [(nm, syntax.word32T) for nm in word_args] + ex_args + globs,
-                            [(nm, syntax.word32T) for nm in word_rets] + ex_rets + globs)
+                            [(nm, syntax.word64T) for nm in word_args] + ex_args + globs,
+                            [(nm, syntax.word64T) for nm in word_rets] + ex_rets + globs)
 
 instruction_fun_specs = {
     'mcr' : ("impl'mcr", ["I"]),
@@ -77,6 +80,7 @@ instruction_name_aliases = {
 }
 
 def add_impl_fun (impl_fname, regspecs):
+    #assert  False
     l_fname = 'l_' + impl_fname
     r_fname = 'r_' + impl_fname
     if l_fname in functions:
@@ -118,6 +122,10 @@ def split_inst_name_addr (instname):
     return ('_'.join (bits[:-1]), addr)
 
 def mk_bin_inst_spec (fname):
+    #rv64_hack
+    return
+    #print fname
+    #assert False
     if not fname.startswith ("instruction'"):
         return
     if functions[fname].entry:
@@ -134,6 +142,9 @@ def mk_bin_inst_spec (fname):
     assert len (regspecs) == len (regs), (fname, regs, regspecs)
     inp_regs = [reg for (reg, d) in zip (regs, regspecs) if d == 'I']
     out_regs = [reg for (reg, d) in zip (regs, regspecs) if d == 'O']
+    #print inp_regs
+    #print out_regs
+    #assert False
     call = syntax.Node ('Call', 'Ret', ('l_' + impl_fname,
                                         [syntax.mk_var (reg, syntax.word32T) for reg in inp_regs]
                                         + [syntax.mk_token (ident)]
@@ -144,10 +155,15 @@ def mk_bin_inst_spec (fname):
     functions[fname].entry = 1
 
 def mk_asm_inst_spec (fname):
+
     if not fname.startswith ("asm_instruction'"):
         return
     if functions[fname].entry:
         return
+
+    #print fname
+    #assert False
+
     (_, ident) = fname.split ("'", 1)
     (args, ident) = split_inst_name_regs (ident)
     if not all ([arg.startswith ('%') for arg in args]):

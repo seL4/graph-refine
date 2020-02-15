@@ -70,6 +70,9 @@ def toplevel_check(pair, check_loops=True, report=False, count=None,
         proof = search.build_proof(p)
         if report:
             printout(' .. proof found.')
+        #print 'report\n'
+        #print report
+        #print proof
 
         try:
             if report:
@@ -146,7 +149,7 @@ def check_search(s, tags=None, report_mode=False,
 
 def problem_search(s):
     pair = name_search(s)
-    print pair.name
+    #print pair.name
     return check.build_problem(pair)
 
 

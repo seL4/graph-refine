@@ -74,9 +74,15 @@ def is_addr (n):
     return n % 4 == 0
 
 def setup_body_addrs ():
+    #print 'kk'
+    #print stack_logic.get_functions_with_tag('ASM')
+    #print 'zzz'
     for f in stack_logic.get_functions_with_tag ('ASM'):
+        #	print f
         count = 0
         for n in functions[f].nodes:
+            #print n
+            #print '\n'
             if is_addr (n):
                 body_addrs[n] = f
                 count += 1
@@ -87,6 +93,7 @@ def setup_body_addrs ():
 def get_body_addrs_fun (n):
     """get the function a given body address is within."""
     if not body_addrs:
+        print 'set body addrs\n'
         setup_body_addrs ()
     return body_addrs.get (n)
 

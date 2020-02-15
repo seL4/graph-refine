@@ -287,8 +287,8 @@ class Type:
         if not other:
             return False
         if self.kind != other.kind:
-            print self.kind
-            print other.kind
+            #	print self.kind
+            #	print other.kind
             return False
         if self.kind in ['Array', 'Word', 'TokenWords']:
             if self.num != other.num:
@@ -525,13 +525,13 @@ class Expr:
             return [('MemAcc', p, self, m)]
         elif self.is_op ('MemUpdate'):
             [m, p, v] = self.vals
-            print 'memacc:\n'
-            print m
-            print '\n'
-            print p
-            print '\n'
-            print v
-            print '\n'
+            #print 'memacc:\n'
+            #print m
+            #print '\n'
+            #print p
+            #print '\n'
+            #print v
+            #print '\n'
             #assert False
             return [('MemUpdate', p, v, m)]
         else:
@@ -1124,7 +1124,7 @@ def parse_node (bits, n):
         #	print bits
         #	cont = parse_int(bits[n + 13])
 
-        print 'call %s' % cont
+        #print 'call %s' % cont
         name = bits[n + 2]
         (n, args) = parse_list (parse_expr, bits, n + 3)
         (n, saves) = parse_list (parse_lval, bits, n)
@@ -1501,15 +1501,16 @@ def mk_cast (x, typ):
 def mk_memacc(m, p, typ):
     assert m.typ == builtinTs['Mem']
     if is_64bit:
-        print p
-        print '\n'
-        print p.typ
-        print '\n'
-        print typ
-        print '\n'
-        print type(typ)
-        assert p.typ == word64T or p.typ == word32T
+        #print p
+        #print '\n'
+        #print p.typ
+        #print '\n'
+        #print typ
+        #print '\n'
+        #print type(typ)
+        #assert p.typ == word64T or p.typ == word32T
         #assert p.type == word64T
+        pass
     else:
         assert p.typ == word32T
     return Expr ('Op', typ, name = 'MemAcc', vals = [m, p])
@@ -1652,5 +1653,5 @@ def set_arch(a = 'armv7'):
     if arch == 'rv64':
         is_64bit = True
     else:
-        is_64_bit = False
+        is_64bit = False
 

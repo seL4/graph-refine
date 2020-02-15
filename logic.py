@@ -28,12 +28,14 @@ def mk_rodata (m):
     return Expr ('Op', boolT, name = 'ROData', vals = [m])
 
 def cast_pair (((a, a_addr), (c, c_addr))):
+    '''
     print 'a.typ: '
     print a.typ
     print a_addr
     print 'c.typ: '
     print c.typ
     print c_addr
+    '''
     if a.typ != c.typ and c.typ == boolT:
         assert False
         c = mk_if (c, mk_word32 (1), mk_word32 (0))
@@ -58,17 +60,17 @@ def split_scalar_globals (vs):
         assert False
 
     for v in global_vars:
-
-        print 'v:'
-        print v
-        print '\n'
-        print v.typ
-        print 'done \n'
+        #print 'v:'
+        #print v
+        #print '\n'
+        #print v.typ
+        #print 'done \n'
 
         if v.typ not in [builtinTs['Mem'], builtinTs['Dom'],
                          builtinTs['HTD'], builtinTs['PMS'],
                          ghost_assertion_type]:
             assert not "scalar_global split expected", vs
+
     memT = builtinTs['Mem']
     mems = [v for v in global_vars if v.typ == memT]
     others = [v for v in global_vars if v.typ != memT]
@@ -114,8 +116,8 @@ def mk_fun_eqs (as_f, c_f, prunes = None):
     (mem_ieqs, mem_oeqs) = mk_mem_eqs (a_imem, c_imem, a_omem, c_omem,
                                        ['ASM', 'C'])
 
-    print var_a_rets
-    print var_c_rets
+    #print var_a_rets
+    #print var_c_rets
     assert False
 
     if not prunes:
@@ -217,24 +219,25 @@ def mk_eqs_arm_none_eabi_gnu (var_c_args, var_c_rets, c_imem, c_omem,
 def mk_eqs_riscv64_unknown_linux_gnu(var_c_args, var_c_rets, c_imem, c_omem,
                                      min_stack_size):
 
-    print var_c_args
-    print '\n'
-    print var_c_rets
-    print'\n'
-    print c_imem
-    print '\n'
-    print c_omem
+    #print var_c_args
+    #print '\n'
+    #print var_c_rets
+    #print'\n'
+    #print c_imem
+    #print '\n'
+    #print c_omem
     # it looks lik
     arg_regs = mk_var_list(['r10', 'r11', 'r12', 'r13', 'r15', 'r16', 'r17'], word64T)
-    print arg_regs
+    #print arg_regs
 
     r10 = arg_regs[0]
-    print r10
-    print type(r10)
+#	print r10
+#	print type(r10)
 
     sp = mk_var('r2', word64T)
     st = mk_var('stack', builtinTs['Mem'])
-    r10_input = mk_var('r10_input', word64T)
+    #r10_input = mk_var('r10_input', word64T)
+    r10_input = mk_var('ret_addr_input', word64T)
     sregs = mk_stack_sequence(sp, 8, st, word64T, len(var_c_args) + 1)
     ret = mk_var('ret', word64T)
 
@@ -249,7 +252,7 @@ def mk_eqs_riscv64_unknown_linux_gnu(var_c_args, var_c_rets, c_imem, c_omem,
         # note that the assembly decompiler addes a check to
         # assert that the return address in r1 is 2-byte aligend.
         mk_aligned(ret, 1),
-        #mk_eq(r10_input, r10),
+        mk_eq(r10_input, r10),
         mk_less_eq(min_stack_size, sp)
     ]
 
@@ -262,23 +265,25 @@ def mk_eqs_riscv64_unknown_linux_gnu(var_c_args, var_c_rets, c_imem, c_omem,
 
     arg_seq = [(r, None) for r in arg_regs] + sregs
 
-    print arg_seq
+#	print arg_seq
 
-    print 'seq'
+#	print 'seq'
 
     if len (var_c_rets) > 1:
         # the 'return-too-much' issue.
         # instead r0 is a save-returns-here pointer
-        assert False
+        #assert False
         arg_seq.pop (0)
-        preconds += [mk_aligned (r0, 2), mk_less_eq (sp, r0)]
-        save_seq = mk_stack_sequence (r0_input, 4, st, word32T,
+        #preconds += [mk_aligned (r0, 2), mk_less_eq (sp, r0)]
+        #preconds += [mk_less_]
+        save_seq = mk_stack_sequence (r10_input, 8, st, word64T,
                                       len (var_c_rets))
         save_addrs = [addr for (_, addr) in save_seq]
-        post_eqs += [(r0_input, r0_input)]
+        #save_addrs = []
+        #post_eqs += [(r10_input, r10_input)]
         out_eqs = zip (var_c_rets, [x for (x, _) in save_seq])
         out_eqs = [(c, mk_cast (a, c.typ)) for (c, a) in out_eqs]
-        init_save_seq = mk_stack_sequence (r0, 4, st, word32T,
+        init_save_seq = mk_stack_sequence (r10, 8, st, word64T,
                                            len (var_c_rets))
         (_, last_arg_addr) = arg_seq[len (var_c_args) - 1]
         preconds += [mk_less_eq (sp, addr)
@@ -292,12 +297,12 @@ def mk_eqs_riscv64_unknown_linux_gnu(var_c_args, var_c_rets, c_imem, c_omem,
 
     arg_seq_addrs = [addr for ((_, addr), _) in zip (arg_seq, var_c_args)
                      if addr != None]
-    print arg_seq_addrs
-    print 'kkjk'
+    #print arg_seq_addrs
+    #print 'kkjk'
     swrap = mk_stack_wrapper (sp, st, arg_seq_addrs)
     swrap2 = mk_stack_wrapper (sp, st, save_addrs)
-    print swrap
-    print swrap2
+    #print swrap
+    #print swrap2
 
 #	post_eqs += [(swrap, swrap2)]
 
@@ -305,30 +310,30 @@ def mk_eqs_riscv64_unknown_linux_gnu(var_c_args, var_c_rets, c_imem, c_omem,
     (mem_ieqs, mem_oeqs) = mk_mem_eqs ([mem], c_imem, [mem], c_omem,
                                        ['ASM', 'C'])
 
-    print mem_ieqs
-    print mem_oeqs
+    #print mem_ieqs
+    #print mem_oeqs
     #assert None
     addr = None
     arg_eqs = [cast_pair (((a_x, 'ASM_IN'), (c_x, 'C_IN')))
                for (c_x, (a_x, addr)) in zip (var_c_args, arg_seq)]
-    print arg_eqs
-    print var_c_args
-    print arg_seq
-    print 'bla'
+    #print arg_eqs
+    #print var_c_args
+    #print arg_seq
+    #print 'bla'
     if addr:
         preconds += [mk_less_eq (sp, addr)]
     ret_eqs = [cast_pair (((a_x, 'ASM_OUT'), (c_x, 'C_OUT')))
                for (c_x, a_x) in out_eqs]
-    print 'kk'
-    print ret_eqs
+    #print 'kk'
+    #print ret_eqs
 
     preconds = [((a_x, 'ASM_IN'), (true_term, 'ASM_IN')) for a_x in preconds]
     asm_invs = [((vin, 'ASM_IN'), (vout, 'ASM_OUT')) for (vin, vout) in post_eqs]
 
-    print preconds
-    print 'pre'
-    print asm_invs
-    print 'asm'
+    #print preconds
+    #print 'pre'
+    #print asm_invs
+    #print 'asm'
     #assert None
     #return (arg_eqs + preconds, asm_invs)
     #return (arg_eqs + preconds, ret_eqs)
@@ -428,10 +433,11 @@ def var_match (var_exp, conc_exp, assigns):
         return False
 
 def var_subst (var_exp, assigns, must_subst = True):
-    print 'var_exp'
-    print var_exp
-    print 'assigns'
-    print assigns
+
+    #print 'var_exp'
+    #print var_exp
+    #print 'assigns'
+    #print assigns
 
     # hack for void func(void)
     must_subst = False
@@ -1413,8 +1419,8 @@ def interesting_node_exprs (p, n, tags = None, use_pairings = True):
     vs = [(kind, ptr) for (kind, ptr, v, m) in memaccs]
     vs += [('MemUpdateArg', v) for (kind, ptr, v, m) in memaccs
            if kind == 'MemUpdate']
-    print vs
-    assert False
+    #print vs
+    #assert False
     if node.kind == 'Call' and use_pairings:
         tag = p.node_tags[n][0]
         from target_objects import functions, pairings
@@ -1587,7 +1593,7 @@ def strongly_connected_split_points1 (graph):
              for n in cycle]
     i = 0
     while i < len (cycle):
-        print i, cycle
+        #print i, cycle
         (kind, ns, test, unvisited) = cycle[i]
         if not unvisited:
             i += 1
@@ -1624,7 +1630,7 @@ def strongly_connected_split_points1 (graph):
         new_ns.update (arc_set)
         new_unvisited.update ([n3 for n2 in arc_set for n3 in graph[n2]])
         new_v = ('Group', new_ns, new_test, list (new_unvisited - new_ns))
-        print i, j, n
+        #print i, j, n
         if j > i:
             cycle[i + 1:j] = [new_v]
         else:
@@ -1796,22 +1802,22 @@ def apply_rel_wrapper (lhs, rhs):
         assert not 'rel wrapper opname understood'
 
 def inst_eq_at_visit (exp, vis):
-    assert False
+    #assert False
     if not exp.is_op ('EqSelectiveWrapper'):
         return True
     [_, xs, ys] = exp.vals
     # hacks
-    print xs
+    #print xs
 
-    print ys
+    #print ys
     #xs = word32_list_from_tm (xs)
     #ys = word32_list_from_tm (ys)
     xs = word64_list_from_tm(xs)
     ys = word64_list_from_tm(ys)
-    print 'xs:'
-    print xs
-    print 'ys:'
-    print ys
+    #print 'xs:'
+    #print xs
+    #print 'ys:'
+    #print ys
     #assert None
     if vis.kind == 'Number':
         return vis.n in xs

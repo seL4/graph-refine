@@ -489,7 +489,7 @@ def eval_model (m, s, toplevel = None):
     xs = [eval_model (m, x, toplevel) for x in s[1:]]
 
     if op[0] == '_' and op[1] in ['zero_extend', 'sign_extend']:
-        assert False
+        #assert False
         [_, ex_kind, n_extend] = op
         n_extend = int (n_extend)
         [x] = xs

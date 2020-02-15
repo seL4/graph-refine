@@ -116,8 +116,12 @@ def offs_expr_const (addr_expr, sp_expr, rep, hyps, extra_defs = {},
     is a constant offset, try to compute it."""
     if syntax.is_64bit:
         typ = syntax.word64T
+    #print 'bla:'
+    #print typ
     addr_x = solver.parse_s_expression (addr_expr)
     sp_x = solver.parse_s_expression (sp_expr)
+    #print addr_x
+    #print sp_x
     vs = [(addr_x, 1), (sp_x, -1)]
     const = 0
 
@@ -187,14 +191,14 @@ def get_ptr_offsets (p, n_ptrs, bases, hyps = [], cache = None,
     for (n, ptr, k) in bases:
         n_vc = default_n_vc (p, n)
         (_, env) = rep.get_node_pc_env (n_vc)
-        print 'ptr\n'
-        print ptr
-        print '\n'
-        print 'env\n'
-        print env
+        #print 'ptr\n'
+        #print ptr
+        #print '\n'
+        #print 'env\n'
+        #print env
 
-        print '\n'
-        print rep.solv
+        #print '\n'
+        #print rep.solv
         smt = solver.smt_expr (ptr, env, rep.solv)
 
         smt_bases.append ((smt, k))
@@ -231,9 +235,10 @@ def get_ptr_offsets (p, n_ptrs, bases, hyps = [], cache = None,
         if off == None:
             trace ('get_ptr_offs fallthrough at %d: %s' % v)
             trace (str ([hyp] + hyps))
-            print v
-            print ptr
-            assert not fail_early, (v, ptr)
+            #print v
+            #print ptr
+            #rv64_hack
+            #assert not fail_early, (v, ptr)
     return offs
 
 def init_correctness_hyps (p, tag):
@@ -279,7 +284,7 @@ def get_extra_sp_defs (rep, tag):
         #assert False
     elif syntax.arch == 'rv64':
         sp = mk_var('r2', syntax.word64T)
-        print sp
+        #print sp
         #assert False
     else:
         print 'unsupported arch %s' % syntax.arch
@@ -307,22 +312,27 @@ def get_extra_sp_defs (rep, tag):
 def get_stack_sp (p, tag):
     """get stack and stack-pointer variables"""
     entry = p.get_entry (tag)
+    #print 'entry'
+    #print entry
     renames = p.entry_exit_renames (tags = [tag])
     r = renames[tag + '_IN']
+    #print renames
+    #print r
+    #assert False
 
     if syntax.arch == 'armv7':
         sp = syntax.rename_expr (mk_var ('r13', syntax.word32T), r)
         #assert False
     elif syntax.arch == 'rv64':
         sp = syntax.rename_expr(mk_var('r2', syntax.word64T), r)
-        print sp
+        #print sp
     else:
         print "Unsupported arch %s" % syntax.arch
         assert False
 
     stack = syntax.rename_expr (mk_var ('stack',
                                         syntax.builtinTs['Mem']), r)
-    print stack
+    #print stack
     return (stack, sp)
 
 def pseudo_node_lvals_rvals (node):
@@ -389,16 +399,16 @@ class StackOffsMissing (Exception):
     pass
 
 def stack_virtualise_expr (expr, sp_offs):
-    print expr.kind
-    print 'kk \n'
+    #print expr.kind
+    #print 'kk \n'
 
     if expr.is_op ('MemAcc') and is_stack (expr.vals[0]):
-        print 'here \n'
+        #	print 'here \n'
         [m, p] = expr.vals
-        print 'type'
-        print expr.typ
-        print '\n'
-        print expr
+    #	print 'type'
+    #	print expr.typ
+    #	print '\n'
+    #	print expr
 
         if syntax.is_64bit:
             mk_word = syntax.mk_word64
@@ -443,7 +453,7 @@ def stack_virtualise_expr (expr, sp_offs):
         return ([], expr)
 
 def stack_virtualise_upd (((nm, typ), expr), sp_offs):
-    assert False
+    #assert False
     if 'stack' in nm:
         upds = []
         ptrs = []
@@ -456,8 +466,9 @@ def stack_virtualise_upd (((nm, typ), expr), sp_offs):
                 if p not in sp_offs:
                     raise StackOffsMissing ()
                 (k, offs) = sp_offs[p]
+                #rv64_hack
                 upds.append (((('Fake', k, offs),
-                               syntax.word32T), v2))
+                               syntax.word64T), v2))
             expr = m
         assert is_stack (expr), expr
         return (ptrs, upds)
@@ -466,16 +477,17 @@ def stack_virtualise_upd (((nm, typ), expr), sp_offs):
         return (ptrs, [((nm, typ), expr2)])
 
 def stack_virtualise_ret (expr, sp_offs):
-    assert False
+    #assert False
     if expr.kind == 'Var':
         return ([], (expr.name, expr.typ))
     elif expr.is_op ('MemAcc'):
         [m, p] = expr.vals
-        assert expr.typ == syntax.word32T, expr
+    #	assert expr.typ == syntax.word32T, expr
         assert is_stack (m), expr
         if sp_offs != None:
             (k, offs) = sp_offs[p]
-            r = (('Fake', k, offs), syntax.word32T)
+            #rv64_hack
+            r = (('Fake', k, offs), syntax.word64T)
         else:
             r = None
         return ([(p, 'MemUpdate')], r)
@@ -483,7 +495,7 @@ def stack_virtualise_ret (expr, sp_offs):
         assert not 'ret expr understood', expr
 
 def stack_virtualise_node (node, sp_offs):
-    assert False
+    #assert False
     if node.kind == 'Cond':
         (ptrs, cond) = stack_virtualise_expr (node.cond, sp_offs)
         if sp_offs == None:
@@ -515,7 +527,8 @@ def stack_virtualise_node (node, sp_offs):
         if sp_offs == None:
             return (ptrs, None)
         else:
-            ptr_upds = [(('unused#ptr#name%d' % i, syntax.word32T),
+            #rv64_hack
+            ptr_upds = [(('unused#ptr#name%d' % i, syntax.word64T),
                          ptr) for (i, (ptr, _)) in enumerate (ptrs)]
             return (ptrs, syntax.Node ('Basic', node.cont,
                     [upd for (_, us) in upds for upd in us]
@@ -548,9 +561,15 @@ def adjust_ret_ptr (ptr):
     which is handy, but we really want to be talking about r0, which will
     produce meaningful offsets against the pointers actually used in the
     program."""
-    assert False
-    return logic.var_subst (ptr, {('ret_addr_input', syntax.word32T):
-                                  syntax.mk_var ('r0', syntax.word32T)}, must_subst = False)
+    #assert False
+    if syntax.is_64bit:
+        return logic.var_subst(ptr,
+                               {('ret_addr_inpt', syntax.word64T):
+                                syntax.mk_var('r10', syntax.word32T)},
+                               must_subst = False)
+    else:
+        return logic.var_subst (ptr, {('ret_addr_input', syntax.word32T):
+                                      syntax.mk_var ('r0', syntax.word32T)}, must_subst = False)
 
 def get_loop_virtual_stack_analysis (p, tag):
     """computes variable liveness etc analyses with stack slots treated
@@ -643,8 +662,8 @@ def loop_var_analysis (p, split):
     tag = p.node_tags[split][0]
     assert head
 
-    print 'aa\n'
-    print p
+    #print 'aa\n'
+    #print p
 
     key = ('loop_stack_virtual_var_cycle_analysis', split)
     if key in p.cached_analysis:
@@ -744,8 +763,9 @@ def guess_asm_stack_depth (fun):
     offs = get_ptr_offsets (p, [(n, sp) for n in nodes],
                             [(entry, sp, 'InitSP')], fail_early = True)
 
-    assert len (offs) == len (nodes), map (hex, set (nodes)
-                                           - set ([n for ((n, _), _, _) in offs]))
+    #rv64_hack
+    #assert len (offs) == len (nodes), map (hex, set (nodes)
+    #	- set ([n for ((n, _), _, _) in offs]))
 
     all_offs = [(n, signed_offset (off, 32, 10 ** 6))
                 for ((n, ptr), off, _) in offs]
@@ -888,7 +908,7 @@ def stack_bounds_to_closed_form (bounds, names, idents):
         mk_word = syntax.mk_word64
     else:
         mk_word = syntax.mk_word32
-    print mk_word
+    #print mk_word
     #assert False
 
     for fname in names:
@@ -1069,14 +1089,14 @@ def get_asm_calling_convention (fname):
 
     num_args = len (var_c_args)
     num_rets = len (var_c_rets)
-    print num_args
-    print num_rets
+    #print num_args
+    #print num_rets
 
     #assert False
     const_mem = not (c_omem)
-    print 'const_mem\n'
-    print const_mem
-    print c_omem
+    #print 'const_mem\n'
+    #print const_mem
+    #print c_omem
 
     cc = get_asm_calling_convention_inner (num_args, num_rets, const_mem)
     asm_cc_cache[fname] = cc
@@ -1105,7 +1125,7 @@ def get_asm_calling_convention_inner (num_c_args, num_c_rets, const_mem):
         r1 = arg_regs[1]
         sp = mk_var('r2', word64T)
         st = mk_var('stack', builtinTs['Mem'])
-        r0_input = mk_var('r0_input', word64T)
+        r0_input = mk_var('r10_input', word64T)
         #assert False
     else:
         print 'Unsupported arch %s' % syntax.arch
@@ -1120,8 +1140,8 @@ def get_asm_calling_convention_inner (num_c_args, num_c_rets, const_mem):
     elif syntax.arch == 'rv64':
         global_args = [mem, dom, st, dom_stack, sp, mk_var('ret', word64T)]
         sregs = mk_stack_sequence(sp, 8, st, word64T, num_c_args + 1)
-        print num_c_args
-        print num_c_rets
+        #print num_c_args
+        #print num_c_rets
     else:
         assert False
 
@@ -1147,7 +1167,7 @@ def get_asm_calling_convention_inner (num_c_args, num_c_rets, const_mem):
         callee_saved_vars = ([mk_var(v, word64T)
                               for v in 'r18 r19 r20 r21 r22 r23 r24 r25 r26 r27'.split()]
                              + [dom, dom_stack])
-        print callee_saved_vars
+        #print callee_saved_vars
         #assert False
     else:
         assert False
@@ -1176,10 +1196,10 @@ def get_asm_calling_convention_at_node (node):
     arg_input_map = dict (azip (fun.inputs, node.args))
     ret_output_map = dict (azip (fun.outputs,
                                  [mk_var (nm, typ) for (nm, typ) in node.rets]))
-    print 'arg\n'
-    print arg_input_map
-    print 'ret\n'
-    print ret_output_map
+    #print 'arg\n'
+    #print arg_input_map
+    #print 'ret\n'
+    #print ret_output_map
     args = [logic.var_subst (arg, arg_input_map) for arg in cc['args']]
     rets = [logic.var_subst (ret, ret_output_map) for ret in cc['rets']]
     # these are useful because they happen to map ret r0_input back to
@@ -1252,7 +1272,7 @@ def convert_recursion_idents (idents):
 def mk_pairing (pre_pair, stack_bounds):
     asm_f = pre_pair['ASM']
     sz = stack_bounds[asm_f]
-    print sz
+    #print sz
     c_fun = functions[pre_pair['C']]
 
     from logic import split_scalar_pairs
@@ -1268,11 +1288,11 @@ def mk_pairing (pre_pair, stack_bounds):
     else:
         assert False
 
-    print 'eqs\n'
-    for e in eqs:
-        print type(e)
-        for ee in e:
-            print  ee
+    #print 'eqs\n'
+    #for e in eqs:
+    #	print type(e)
+    #	for ee in e:
+    #		print  ee
 
     #assert False
     return logic.Pairing (['ASM', 'C'],
@@ -1305,11 +1325,11 @@ def deserialise_stack_bounds (lines):
         assert bits[0] == 'StackBound'
         fname = bits[1]
         (_, bound) = syntax.parse_expr (bits, 2)
-        print 'bound: '
-        print bound
-        print 'bits: '
-        print bits
-        print bits[2]
+        #print 'bound: '
+        #print bound
+        #print 'bits: '
+        #print bits
+        #print bits[2]
         #assert False
         bounds[fname] = bound
     return bounds
@@ -1357,7 +1377,7 @@ def compute_stack_bounds (quiet = False):
 def read_fn_hash (fname):
     try:
         assert fname != None
-        print fname
+        #print fname
         f = open (fname)
         s = f.readline ()
         bits = s.split ()
@@ -1453,9 +1473,9 @@ def inst_const_rets (node):
     def is_const (nm, typ):
         if typ in [builtinTs['Mem'], builtinTs['Dom']]:
             return True
-        print typ
-        assert False
-        if typ != word32T:
+        #print typ
+        #assert False
+        if typ != word32T or typ != word64T:
             return False
         return not (nm in bits or [al for al in reg_aliases.get (nm, [])
                                    if al in bits])
@@ -1483,10 +1503,15 @@ def node_const_rets (node):
         if node.fname not in get_functions_with_tag ('ASM'):
             return None
         f_outs = functions[node.fname].outputs
-        assert False
+        #rv64_hack
+        sp_reg = 'r13'
+        if syntax.arch == 'rv64':
+            sp_reg = 'r2'
+
+        #assert False
         return [mk_var (nm, typ)
                 for ((nm, typ), (nm2, _)) in azip (node.rets, f_outs)
-                if nm2 == 'r13']
+                if nm2 == sp_reg]
     else:
         return None
 

@@ -481,8 +481,10 @@ class GraphSlice:
             new_nm = nm
             node = self.p.nodes[n]
             if node.kind == 'Call':
+                #print 'call1:\n'
                 if (nm, typ) not in node.rets:
                     pass
+                    #print 'call2:\n'
                 elif self.fast_const_ret (n, nm, typ):
                     pass
                 else:
@@ -552,6 +554,8 @@ class GraphSlice:
             name = self.path_cond_name ((n, vcount), tag)
             name = self.solv.add_def (name, pc, env)
             pc = mk_smt_expr (name, boolT)
+            #print name
+            #print pc
 
         for (nm, typ) in env:
             if len (env[(nm, typ)]) > 80:
@@ -642,6 +646,13 @@ class GraphSlice:
 
     def emit_node (self, n):
         (pc, env) = self.get_node_pc_env (n, request = False)
+        '''
+		print '\nemit_node:\n'
+		print pc
+		print '==='
+		print env
+		print 'emit_node done\n'
+		'''
         tag = self.p.node_tags[n[0]][0]
         app_eqs = self.apply_known_eqs_tm (n, tag)
         # node = logic.simplify_node_elementary (self.p.nodes[n[0]])
@@ -656,6 +667,10 @@ class GraphSlice:
         env = dict (env)
 
         if node.kind == 'Call':
+            #print 'tryinline:'
+            #print pc
+            #print env
+            #print 'done tryinline'
             self.try_inline (n[0], pc, env)
 
         if pc == false_term:
@@ -680,28 +695,53 @@ class GraphSlice:
                 env[lv] = v
             return [(node.cont, pc, env)]
         elif node.kind == 'Cond':
+            #print 'node_cond:\n'
+            #print node
+            #print 'done node\n'
             name = self.cond_name (n)
             cond = self.p.fresh_var (name, boolT)
+            #print 'nodename:\n'
+            #print name
+            #print cond
+            #print 'nodenamedone\n'
             env[(cond.name, boolT)] = self.add_local_def (n,
                                                           'Cond', name, app_eqs (node.cond), env)
             lpc = mk_and (cond, pc)
             rpc = mk_and (mk_not (cond), pc)
             return [(node.left, lpc, env), (node.right, rpc, env)]
         elif node.kind == 'Call':
+            #print 'callhere:'
             nm = self.success_name (node.fname, n)
             success = self.solv.add_var (nm, boolT)
             success = mk_smt_expr (success, boolT)
             fun = functions[node.fname]
+            #print 'fname:\n'
+            #print node.fname
+            #print fun
+            #print 'fninputs:\n'
+            #print fun.inputs
+            #print 'fnoutputs:\n'
+            #print fun.outputs
+
             ins = dict ([((x, typ), smt_expr (app_eqs (arg), env, self.solv))
                          for ((x, typ), arg) in azip (fun.inputs, node.args)])
             mem_name = None
             for (x, typ) in reversed (fun.inputs):
                 if typ == builtinTs['Mem']:
                     inp_mem = ins[(x, typ)]
+                    #p#rint 'inpmem:'
+                    #print inp_mem
+                    #print 'inpmemdone'
                     mem_name = (node.fname, inp_mem)
             mem_calls = self.scan_mem_calls (ins)
             mem_calls = self.add_mem_call (node.fname, mem_calls)
+            #print 'memcalls\n'
+            #print mem_calls
+            #print 'memcallsdone'
             outs = {}
+            #print 'memname:\n'
+            #print mem_name
+            #print 'memnamedone\n'
             for ((x, typ), (y, typ2)) in azip (node.rets, fun.outputs):
                 assert typ2 == typ
                 if self.fast_const_ret (n[0], x, typ):
@@ -719,6 +759,10 @@ class GraphSlice:
                     env[(x, typ)] = z
                     outs[(y, typ)] = z
             self.add_func (node.fname, ins, outs, success, n)
+            #print 'return:'
+            #print pc
+            #print env
+            #print 'done return'
             return [(node.cont, pc, env)]
         else:
             assert not 'node kind understood'
@@ -1146,8 +1190,18 @@ def to_smt_expr_under_op (expr, env, solv):
         return to_smt_expr (expr, env, solv)
 
 def inst_eq_with_envs ((x, env1), (y, env2), solv):
+    #print 'insteq:\n'
+    #print x
+    #print y
+    #assert None
     x = to_smt_expr_under_op (x, env1, solv)
     y = to_smt_expr_under_op (y, env2, solv)
+
+    #print 'inst_eq_with_envs\n'
+    #print x
+    #print y
+    #print 'done\n'
+
     if x.typ == syntax.builtinTs['RelWrapper']:
         return logic.apply_rel_wrapper (x, y)
     else:

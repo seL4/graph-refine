@@ -148,7 +148,7 @@ def inst_eqs (p, restrs, eqs, tag_map = {}):
     return hyps
 
 def init_point_hyps (p):
-    print p.pairing.eqs
+    #print p.pairing.eqs
     (inp_eqs, _) = p.pairing.eqs
     return inst_eqs (p, (), inp_eqs)
 
@@ -177,11 +177,11 @@ class ProofNode:
             assert not 'proof node kind understood', kind
 
     def __repr__ (self):
-        print 'args:'
-        print self.args
-        print "subproofs:"
-        for s in self.subproofs:
-            print s
+        #print 'args:'
+        #print self.args
+        #print "subproofs:"
+        #for s in self.subproofs:
+        #	print s
         return 'ProofNode (%r, %r, %r)' % (self.kind,
                                            self.args, self.subproofs)
 
@@ -412,16 +412,16 @@ def split_hyps_at_visit (tags, split, restrs, visit):
         # hack rv64
         lsub = mksub (mk_word64 (visit.n))
     else:
-        print 'bla:'
-        print visit
-        print visit.n
-        print visit.kind
-        # hack rv64
+        #print 'bla:'
+        #print visit
+        #print visit.n
+        #print visit.kind
+        # rv64_hack rv64
         lsub = mksub (mk_plus (mk_var ('%n', word64T),
                                mk_word64 (visit.n)))
 
-    print 'lsub:'
-    print lsub
+    #print 'lsub:'
+    #print lsub
     hyps = [(Hyp ('PCImp', l_visit, r_visit), 'pc imp'),
             (Hyp ('PCImp', l_visit, l_start), '%s pc imp' % l_tag),
             (Hyp ('PCImp', r_visit, r_start), '%s pc imp' % r_tag)]
@@ -436,8 +436,8 @@ def split_hyps_at_visit (tags, split, restrs, visit):
              for (l_exp, r_exp) in eqs
              if inst (l_exp) and inst (r_exp)]
 
-    print 'hyps:'
-    print hyps
+    #print 'hyps:'
+    #print hyps
     return hyps
 
 def split_loop_hyps (tags, split, restrs, exit):
