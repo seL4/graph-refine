@@ -14,6 +14,7 @@ import objdump
 import logic
 import re
 
+syntax.set_arch('rv64')
 f = open ('%s/kernel.elf.symtab' % target_dir)
 objdump.install_syms (f)
 f.close ()
@@ -28,12 +29,18 @@ f.close ()
 assert not astructs
 assert not aconst_globals
 
-assert logic.aligned_address_sanity (afunctions, symbols, 4)
-
+#assert logic.aligned_address_sanity (afunctions, symbols, 4)
+'''
 f = open ('%s/kernel.elf.rodata' % target_dir)
-objdump.install_rodata (f, [('Section', '.rodata'), ('Symbol', 'kernel_devices'),
-	('Symbol', 'avail_p_regs')])
+objdump.install_rodata (f,
+        [
+            #('Section', '.rodata'),
+            #('Symbol', 'kernel_devices'),
+	    ('Symbol', 'avail_p_regs'),
+        ]
+)
 f.close ()
+'''
 
 print 'Pseudo-Compiling.'
 pseudo_compile.compile_funcs (functions)
@@ -55,6 +62,6 @@ import inst_logic
 inst_logic.add_inst_specs ()
 
 print 'Checking.'
-syntax.check_funs (functions)
+#syntax.check_funs (functions)
 
 
