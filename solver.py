@@ -1151,26 +1151,42 @@ class Solver:
         assert ro_name == 'rodata', repr (ro_name)
         assert imp_ro_name == 'implies-rodata', repr (imp_ro_name)
         [rodata_data, rodata_ranges, rodata_ptrs] = rodata
+
+        if syntax.is_64bit:
+            bits = 64
+            wordT = word64T
+            and_mask = '#x0000000000000003'
+            cmp_val = '#x0000000000000000'
+        else:
+            bits = 32
+            wordT = word32T
+            and_mask = '#x00000003'
+            cmp_val = '#x00000000'
+
         if not rodata_ptrs:
             assert not rodata_data
             ro_def = 'true'
             imp_ro_def = 'true'
         else:
-            ro_witness = self.add_var ('rodata-witness', word32T)
-            ro_witness_val = self.add_var ('rodata-witness-val', word32T)
+            ro_witness = self.add_var ('rodata-witness', wordT)
+            ro_witness_val = self.add_var ('rodata-witness-val', wordT)
             assert ro_witness == 'rodata-witness'
             assert ro_witness_val == 'rodata-witness-val'
-            eq_vs = [(smt_num (p, 32), smt_num (v, 32))
+            eq_vs = [(smt_num (p, bits), smt_num (v, bits))
                      for (p, v) in rodata_data.iteritems ()]
             eq_vs.append ((ro_witness, ro_witness_val))
-            eqs = ['(= (load-word32 m %s) %s)' % v for v in eq_vs]
+            if syntax.is_64bit:
+                eqs = ['(= (load-word64 m %s) %s)' % v for v in eq_vs]
+            else:
+                eqs = ['(= (load-word32 m %s) %s)' % v for v in eq_vs]
+
             ro_def = '(and %s)' % ' \n  '.join (eqs)
             ro_ineqs = ['(and (bvule %s %s) (bvule %s %s))'
-                        % (smt_num (start, 32), ro_witness,
-                           ro_witness, smt_num (end, 32))
+                        % (smt_num (start, bits), ro_witness,
+                           ro_witness, smt_num (end, bits))
                         for (start, end) in rodata_ranges]
             assns = ['(or %s)' % ' '.join (ro_ineqs),
-                     '(= (bvand rodata-witness #x00000003) #x00000000)']
+                     '(= (bvand rodata-witness %s) %s)' % (and_mask, cmp_val)]
             for assn in assns:
                 self.assert_fact_smt (assn)
             imp_ro_def = eqs[-1]
