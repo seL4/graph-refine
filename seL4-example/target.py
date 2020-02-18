@@ -30,17 +30,17 @@ assert not astructs
 assert not aconst_globals
 
 #assert logic.aligned_address_sanity (afunctions, symbols, 4)
-'''
+
 f = open ('%s/kernel.elf.rodata' % target_dir)
 objdump.install_rodata (f,
         [
-            #('Section', '.rodata'),
+            ('Section', '.rodata'),
             #('Symbol', 'kernel_devices'),
 	    ('Symbol', 'avail_p_regs'),
         ]
 )
 f.close ()
-'''
+
 
 print 'Pseudo-Compiling.'
 pseudo_compile.compile_funcs (functions)
