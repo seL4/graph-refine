@@ -87,7 +87,12 @@ def split_inst_name_regs_rv64(nm):
 
     for i in range(len(bits)):
         if bits[i] in reg_aliases_rv64.keys():
-            regs.append(reg_aliases_rv64.get(bits[i]))
+            if bits[i] == 'zero' and bits[0] == 'sfence':
+                print bits[i]
+                fin_bits.append(bits[i])
+                #assert False
+            else:
+                regs.append(reg_aliases_rv64.get(bits[i]))
         elif bits[i] in reg_set_rv64:
             regs.append('r' + bits[i][1:])
         elif bits[i] in csrs_rv64:
@@ -174,8 +179,9 @@ instruction_fun_specs_armv7 = {
 instruction_fun_specs_rv64 = {
 
     'fence_i': 	    ("fence_i", []),
-    'sfence_vma': 	("sfence_vma", ["I", "I"]),
+    'sfence_vma': 	("sfence_vma", []),
 
+    'sfence_vma_zero': ("sfence_vma_zero", ["I"]),
     'fence.i': ("fence_i", []),
     'sfence.vma': ("sfence_vma", ["I", "I"]),
 
@@ -313,10 +319,6 @@ def mk_bin_inst_spec (fname):
         assert False
         return
     (impl_fname, regspecs) = instruction_fun_specs[base_ident]
-    if base_ident == 'sfence_vma' and len(regs) == 0:
-        # special handling for the instruction
-        regs.append('r0')
-        regs.append('r0')
 
     print 'asmimpl %s' % impl_fname
     add_impl_fun (impl_fname, regspecs)
