@@ -1,4 +1,4 @@
-# * Copyright 2016, Data61
+# * Copyright 2015, NICTA
 # *
 # * This software may be distributed and modified according to the terms of
 # * the BSD 2-Clause license. Note that NO WARRANTY is provided.
@@ -6,10 +6,186 @@
 # *
 # * @TAG(NICTA_BSD)
 
-# makefile for building, decompiling and validating seL4 here.
+# makefile for building, decompiling & validating seL4.
 
-# optional configuration
+# n.b. doesn't track the dependencies of the custom tools
+# (e.g. standalone c-parser and decompiler) properly, so may not know to
+# rebuild if a custom tool is updated.
 
-CONFIG_OPTIMISATION_LEVEL=-O1
+CONFIG_OPTIMISATION_LEVEL?=-O1
+export CONFIG_OPTIMISATION_LEVEL
 
-include Makefile.common
+# necessary configuration
+
+SOURCE_ROOT?=../../seL4
+
+L4V_ROOT?=../../l4v
+L4V_ARCH?=ARM
+PARSERPATH?=${L4V_ROOT}/tools/c-parser/standalone-parser
+CSPEC_PATH?=${L4V_ROOT}/spec/cspec/c
+
+HOL4_ROOT?=../../HOL4
+DECOMP_DIR?=${HOL4_ROOT}/examples/machine-code/graph
+
+GREF_ROOT?=..
+
+OBJDUMP?=${TOOLPREFIX}objdump
+
+# derived configuration
+
+TOOLPREFIX?=$(shell bash ${GREF_ROOT}/seL4-example/get_tool_prefix.sh)
+$(if ${TOOLPREFIX},,$(error failed to pick a toolset))
+
+CSPEC_BUILD_PREFIX=build/${L4V_ARCH}
+CSPEC_BUILD_PATH=${CSPEC_PATH}/${CSPEC_BUILD_PREFIX}
+CONFIG=${L4V_ARCH}_verified.cmake
+CONFIG_DOMAIN_SCHEDULE=${CSPEC_PATH}/config_sched.c
+
+# sanity test configuration
+
+OBJDUMP_PATH = $(shell which ${OBJDUMP})
+$(if ${OBJDUMP_PATH},,$(error objdump ${OBJDUMP} not executable))
+
+DECOMP_SCRIPT= $(shell PATH="${DECOMP_DIR}:${PATH}" sh -c "which decompile.py")
+$(if ${DECOMP_SCRIPT},,$(error decompile.py not executable in ${DECOMP_DIR}))
+
+$(if $(wildcard ${HOL4_ROOT}/bin/Holmake ${HOL4_ROOT}/bin/build),, \
+  $(error Holmake/build not found in ${HOL4_ROOT}/bin - first configure HOL4. \
+  See INSTALL in HOL4, but skip the bin/build step))
+
+SOLV=python ${GREF_ROOT}/solver.py
+
+SOLV_TEST_SUCC='Solver self-test succ'
+SOLV_TEST = $(shell $(if ${SKIP_SOLV_TEST}, echo ${SOLV_TEST_SUCC}, \
+    ${SOLV} testq) | grep ${SOLV_TEST_SUCC})
+$(if ${SOLV_TEST},,$(error Solver self-test failed (${SOLV} test)))
+
+# compile and decompile
+
+KERNEL_DEPS = $(shell find ${SOURCE_ROOT} -type f)
+
+${CSPEC_BUILD_PATH}/kernel_all.c_pp: ${KERNEL_DEPS} ${CONFIG_DOMAIN_SCHEDULE}
+	# have the l4v build system build its kernel source
+	cd ${CSPEC_PATH} && L4V_ARCH=${L4V_ARCH} make c-kernel-source
+
+kernel_all.c_pp: build/.cmake_done
+	cd build && ninja kernel_all_pp_wrapper
+	cp -a build/kernel_all_pp.c $@
+
+kernel.elf: build/.cmake_done kernel_all.c_pp
+	cd build && ninja kernel.elf
+	cp -a build/kernel.elf $@
+
+ABS_SOURCE_ROOT=$(realpath ${SOURCE_ROOT})
+
+build/.cmake_done: ${KERNEL_DEPS} ${CONFIG_DOMAIN_SCHEDULE}
+	# hack borrowed from l4v, create a new build dir each time
+	rm -rf build
+	mkdir -p build
+	cd build && cmake -DCROSS_COMPILER_PREFIX=${TOOLPREFIX} \
+		-DCMAKE_TOOLCHAIN_FILE=${ABS_SOURCE_ROOT}/gcc.cmake -C ${ABS_SOURCE_ROOT}/configs/${CONFIG} \
+		-DKernelDomainSchedule=$(realpath ${CONFIG_DOMAIN_SCHEDULE}) \
+		-G Ninja ${ABS_SOURCE_ROOT} \
+		-DKernelOptimisation=${CONFIG_OPTIMISATION_LEVEL}
+	touch build/.cmake_done
+
+kernel.elf.rodata: kernel.elf
+	${OBJDUMP} -z -D $^ > $@
+
+kernel.elf.txt: kernel.elf
+	${OBJDUMP} -dz $^ > $@
+
+kernel.elf.symtab: kernel.elf
+	${OBJDUMP} -t $^ > $@
+
+kernel.sigs: kernel_all.c_pp
+	MAKEFILES= make -C ${PARSERPATH} standalone-cparser
+	${PARSERPATH}/c-parser ${L4V_ARCH} --underscore_idents --mmbytes $^ > $@.tmp
+	mv $@.tmp $@
+
+summary.txt: kernel_all.c_pp
+	echo Summary > pre_summary.txt
+	bash mk_summ ${SOURCE_ROOT} >> pre_summary.txt
+	bash mk_summ ${L4V_ROOT} >> pre_summary.txt
+	bash mk_summ ${HOL4_ROOT} >> pre_summary.txt
+	bash mk_summ . >> pre_summary.txt
+	mv pre_summary.txt summary.txt
+
+KERNEL_FILES= kernel.elf.rodata kernel.elf.txt kernel.elf.symtab \
+  kernel_all.c_pp kernel.sigs kernel.elf
+
+kernel.tar.gz: ${KERNEL_FILES}
+	tar -cvzf $@ $^
+
+target.tar.gz: ${KERNEL_FILES} target.py CFunctions.txt ASMFunctions.txt
+	tar -cvzf $@ $^
+
+tar: kernel.tar.gz
+
+clean:
+	rm -rf build kernel.elf.* kernel_all* kernel.tar*
+
+.PHONY: clean
+
+H4PATH=$(realpath ${HOL4_ROOT}/bin):${PATH}
+
+IGNORES= fastpath_restore,slowpath,fastpath_call,fastpath_reply_recv,restore_user_context,lockTLBEntry,lockTLBEntryCritical
+
+ASMFunctions.txt: kernel.elf.txt kernel.sigs
+	PATH=${H4PATH} ${DECOMP_SCRIPT} --fast ./kernel --ignore=${IGNORES}
+	# we move the output to a new location to get around a problem where
+	# the decompiler can fail leaving an incomplete output file.
+	mv kernel_mc_graph.txt ASMFunctions.txt
+
+KERNEL_ALL_FILES= kernel_all.c_pp ${CSPEC_BUILD_PATH}/kernel_all.c_pp
+
+CFunctions.txt: $(KERNEL_ALL_FILES) ${L4V_ROOT}/tools/asmrefine/*.thy
+	# it's important that the parser and compiler see the same source
+	diff -qs --ignore-matching-lines='^#' ${KERNEL_ALL_FILES}
+	MAKEFILES= make -C ${L4V_ROOT}/proof/ SimplExportOnly
+	cp ${L4V_ROOT}/proof/asmrefine/${L4V_ARCH}/CFunDump.txt CFunctions.txt
+
+GRAPH_REFINE_INPUTS= kernel.elf.rodata kernel.elf.symtab ASMFunctions.txt \
+                CFunctions.txt target.py ${GREF_ROOT}/*.py
+
+GRAPH_REFINE=python ${GREF_ROOT}/graph-refine.py
+
+StackBounds.txt: ${GRAPH_REFINE_INPUTS}
+	${GRAPH_REFINE} .
+
+demo-report.txt: StackBounds.txt ${GRAPH_REFINE_INPUTS}
+	${GRAPH_REFINE} . trace-to:partial-$@ deps:Kernel_C.cancelAllIPC
+	mv partial-$@ $@
+
+report.txt: StackBounds.txt ${GRAPH_REFINE_INPUTS}
+	${GRAPH_REFINE} . trace-to:partial-$@ all
+	mv partial-$@ $@
+
+default: report.txt
+
+.PHONY: .FORCE
+.FORCE:
+
+# WCET (worst-case execution time) targets
+
+GTG=${GREF_ROOT}/graph-to-graph/
+HERE=$(shell pwd)
+
+loop_counts_1.py: StackBounds.txt ${GRAPH_REFINE_INPUTS}
+	cd ${GTG} ; python graph_to_graph.py ${HERE} handleSyscall --l
+	cp loop_counts.py $@
+
+lb_reports/report_%.txt : loop_counts_1.py
+	mkdir -p lb_reports
+	cd ${GTG} ; python convert_loop_bounds.py --worker-id $* ${HERE} &> ${HERE}/lb_reports/pre-report_$*.txt
+	tail -n 500 lb_reports/pre-report_$*.txt > $@
+	rm lb_reports/pre-report_$*.txt
+
+ALL_LB_REPORTS=$(patsubst %, lb_reports/report_%.txt, 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 )
+
+lb_reports/fin_report.txt : ${ALL_LB_REPORTS}
+	cd ${GTG} ; python convert_loop_bounds.py $* ${HERE} &> ${HERE}/lb_reports/pre-freport.txt
+	mv lb_reports/pre-freport.txt $@
+
+lb: lb_reports/fin_report.txt
+
