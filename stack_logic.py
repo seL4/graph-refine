@@ -1104,8 +1104,8 @@ def get_asm_calling_convention (fname):
 
 def get_asm_calling_convention_inner (num_c_args, num_c_rets, const_mem):
     key = ('Inner', num_c_args, num_c_rets, const_mem)
-    #if key in asm_cc_cache:
-    #	return asm_cc_cache[key]
+    if key in asm_cc_cache:
+        return asm_cc_cache[key]
 
     from logic import mk_var_list, mk_stack_sequence
     from syntax import mk_var, word32T, word64T, builtinTs
@@ -1151,7 +1151,7 @@ def get_asm_calling_convention_inner (num_c_args, num_c_rets, const_mem):
         # instead r0 is a save-returns-here pointer
         arg_seq.pop (0)
         #rv64_hack
-        rets = mk_stack_sequence (r0_input, 4, st, word64T, num_c_rets)
+        rets = mk_stack_sequence (r0_input, 8, st, word64T, num_c_rets)
         rets = [r for (r, _) in rets]
         # need to handle multiple return value case
         #assert False
