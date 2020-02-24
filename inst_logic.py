@@ -78,7 +78,9 @@ reg_set_rv64 = set(['x%d' % i for i in range(32)])
 inst_split_re = re.compile('[_,]*')
 
 def split_inst_name_regs_rv64(nm):
+    print 'splitinst'
     print nm
+
     reg_aliases = reg_aliases_rv64
     bits = inst_split_re.split(nm)
     print bits
@@ -93,20 +95,29 @@ def split_inst_name_regs_rv64(nm):
                 #assert False
             else:
                 regs.append(reg_aliases_rv64.get(bits[i]))
+                fin_bits.append('-argv%d' % len(regs))
+
+        elif bits[i] == 'x0' and bits[0] == 'sfence.vma':
+            fin_bits.append(bits[i])
         elif bits[i] in reg_set_rv64:
             regs.append('r' + bits[i][1:])
+            fin_bits.append('-argv%d' % len(regs))
         elif bits[i] in csrs_rv64:
-            pass
             #regs.append(bits[i])
-            #fin_bits.append(bits[i])
+            fin_bits.append(bits[i])
         elif bits[i].startswith('%'):
             regs.append(bits[i])
-            #fin_bits.append('argv%d', )
+            fin_bits.append('-argv%d' % len(regs))
         else:
             fin_bits.append(bits[i])
 
     print 'dada'
     print regs
+    for f in fin_bits:
+        if f.startswith('-argv'):
+            fin_bits.remove(f)
+            fin_bits.append(f)
+
     print fin_bits
     #print fin_bits
     #print '_'.join(fin_bits)
@@ -178,22 +189,29 @@ instruction_fun_specs_armv7 = {
 
 instruction_fun_specs_rv64 = {
 
-    'fence_i': 	    ("fence_i", []),
-    'sfence_vma': 	("sfence_vma", []),
-
-    'sfence_vma_zero': ("sfence_vma_zero", ["I"]),
-    'fence.i': ("fence_i", []),
-    'sfence.vma': ("sfence_vma", ["I", "I"]),
-
-    'csrr': 	    ("csrr", ["O"]),
-    'csrrc':	    ("csrrc", ["O", "I"]),
-    'csrrs':	    ("csrrs", ["O", "I"]),
-    'csrw': 	    ("csrw", ["I"]),
-    'csrrw':	    ("csrrw", ["O", "I"]),
-    'wfi':		    ("wfi", []),
-    'ecall': 	    ("ecall", []),
-    'rdtime': 	    ("rdtime", ["O"]),
-    'unimp':	    ("unimp", []),
+    'fence_i': 	        ("impl'fence_i", []),
+    'sfence_vma': 	    ("impl'sfence_vma", []),
+    'sfence_vma_zero':  ("impl'sfence_vma_zero", ["I"]),
+    'sfence.vma':       ("impl'sfence_vma", []),
+    'sfence.vma_x0':    ("impl'sfence_vma_zero", ["I"]),
+    'csrr_sip': 	    ("impl'csrr_sip", ["O"]),
+    'csrr_sepc':        ("impl'csrr_sepc", ["O"]),
+    'csrr_scause':      ("impl'csrr_scause", ["O"]),
+    'csrr_sstatus':     ("impl'csrr_sstatus", ["O"]),
+    'csrr_sbadaddr':    ("impl'csrr_sbadaddr", ["O"]),
+    'csrr_sscratch':    ("impl'csrr_sscratch", ["O"]),
+    'csrr_stval':       ("impl'csrr_stval", ["O"]),
+    'csrw_sptbr':       ("impl'csrw_sptbr", ["I"]),
+    'csrw_stvec':       ("impl'csrw_stvec", ["I"]),
+    'csrw_satp':        ("impl'csrw_satp", ["I"]),
+    'csrw_sscratch':    ("impl'csrw_sscratch", ["I"]),
+    'csrrc_sie':	    ("impl'csrrc_sie", ["O", "I"]),
+    'csrrs_sie':	    ("impl'csrrs_sie", ["O", "I"]),
+    'csrrw_sscratch':	("impl'csrrw_sscratch", ["O", "I"]),
+    'wfi':		        ("impl'wfi", []),
+    'ecall': 	        ("impl'ecall", []),
+    'rdtime': 	        ("impl'rdtime", ["O"]),
+    'unimp':	        ("unimp", []),
 }
 
 instruction_name_aliases = {
@@ -208,6 +226,7 @@ def add_impl_fun (impl_fname, regspecs):
     r_fname = 'r_' + impl_fname
 
     if l_fname in functions:
+        print 'skip_add %s' % l_fname
         return
 
     assert r_fname not in functions
@@ -246,12 +265,14 @@ def add_impl_fun (impl_fname, regspecs):
     print inp_eqs
     print out_eqs
     print 'kkk'
+
     assert l_fname not in pairings
     assert r_fname not in pairings
     functions[l_fname] = l_fun
     functions[r_fname] = r_fun
     pairings[l_fname] = [pair]
     pairings[r_fname] = [pair]
+    print 'addpairing %s %s' % (l_fname, r_fname)
 
 inst_addr_re_armv7 = re.compile('E[0123456789][0123456789]*')
 # Note that the decompiler seems ignore the top 4 bytes which
@@ -290,7 +311,9 @@ def mk_bin_inst_spec (fname):
 
     if not fname.startswith ("instruction'"):
         return
+
     if functions[fname].entry:
+        print 'binalready %s %s' % (fname, functions[fname].entry)
         return
 
     (_, ident) = fname.split ("'", 1)
@@ -310,7 +333,11 @@ def mk_bin_inst_spec (fname):
     if syntax.arch == 'armv7':
         base_ident = ident.split ("_")[0]
     else:
-        base_ident = ident
+        tmp = ident.split('-')
+        if len(tmp) > 1:
+            base_ident = ident.split('-')[0][:-1]
+        else:
+            base_ident = tmp[0]
 
     print 'ident'
     print base_ident
@@ -318,9 +345,11 @@ def mk_bin_inst_spec (fname):
         print base_ident
         assert False
         return
+
     (impl_fname, regspecs) = instruction_fun_specs[base_ident]
 
     print 'asmimpl %s' % impl_fname
+    impl_fname = impl_fname + '@' + str(hex(addr))
     add_impl_fun (impl_fname, regspecs)
 
     print impl_fname
@@ -340,10 +369,15 @@ def mk_bin_inst_spec (fname):
                                         + [syntax.mk_var (nm, typ) for (nm, typ) in bin_globs],
                                         [(reg, wordT) for reg in out_regs] + bin_globs))
     assert not functions[fname].nodes
+    print 'binfname %s' % fname
     functions[fname].nodes[1] = call
     functions[fname].entry = 1
 
+# inline assembly from C-refine
 def mk_asm_inst_spec (fname):
+
+    if not fname.startswith ("asm_instruction'"):
+        return
 
     if syntax.arch == 'armv7':
         instruction_fun_specs = instruction_fun_specs_armv7
@@ -352,35 +386,56 @@ def mk_asm_inst_spec (fname):
     else:
         assert False
 
-    if not fname.startswith ("asm_instruction'"):
-        return
     if functions[fname].entry:
-
-        #	assert False
+        print 'already %s %s' % (fname, functions[fname].entry)
+        #assert False
         return
+
+    #	assert False
 
     (_, ident) = fname.split ("'", 1)
     (args, ident) = split_inst_name_regs (ident)
+
+    print 'args'
+    print ident
+    print args
+
     if not all ([arg.startswith ('%') for arg in args]):
         printout ('Warning: asm instruction name: formatting: %r'
                   % fname)
         #rv64_hack
-        #return
+        assert False
+        return
 
-    base_ident = ident.split ("_")[0]
+    if syntax.arch == 'armv7':
+        base_ident = ident.split ("_")[0]
+    else:
+        tmp = ident.split('-')
+        if len(tmp) > 1:
+            base_ident = tmp[0][:-1]
+        else:
+            base_ident = tmp[0]
+
+    print 'ident %s' % base_ident
     if base_ident not in instruction_fun_specs:
         print base_ident
         assert False
         return
+
     (impl_fname, regspecs) = instruction_fun_specs[base_ident]
+
+#    impl_fname = 'asm_' + impl_fname
     print 'implfun %s' % impl_fname
     add_impl_fun (impl_fname, regspecs)
+
     (iscs, imems, _) = logic.split_scalar_pairs (functions[fname].inputs)
     (oscs, omems, _) = logic.split_scalar_pairs (functions[fname].outputs)
+
     call = syntax.Node ('Call', 'Ret', ('r_' + impl_fname,
                                         iscs + [syntax.mk_token (ident)] + imems,
                                         [(v.name, v.typ) for v in oscs + omems]))
     assert not functions[fname].nodes
+    print 'asmfname %s' % fname
     functions[fname].nodes[1] = call
     functions[fname].entry = 1
 

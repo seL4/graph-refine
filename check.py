@@ -72,6 +72,7 @@ def inline_completely_unmatched (p, ref_tags = None, skip_underspec = False):
 
 def inline_reachable_unmatched_C (p, force_inline = None,
                                   skip_underspec = False):
+    print 'inline_c %s' % p.pairing.tags
     if 'C' not in p.pairing.tags:
         return
     [compare_tag] = [tag for tag in p.pairing.tags if tag != 'C']
@@ -80,13 +81,36 @@ def inline_reachable_unmatched_C (p, force_inline = None,
 
 def inline_reachable_unmatched (p, inline_tag, compare_tag,
                                 force_inline = None, skip_underspec = False):
+    print 'inline_tag %s cmp %s' % (inline_tag, compare_tag)
     funs = [pair.funs[inline_tag]
             for n in p.nodes
             if p.nodes[n].kind == 'Call'
-            if p.node_tags[n][0] == compare_tag
+            if p.node_tags[n][0] == compare_tag or (inline_tag == 'C' and p.node_tags[n][0] == 'C')
             for pair in pairings.get (p.nodes[n].fname, [])
             if inline_tag in pair.tags]
 
+    #print pair.funs[inline_tag]
+    print 'inline %s' % inline_tag
+    print 'pari.tags %s\n' % pair.tags
+    for n in p.nodes:
+        if p.nodes[n].kind == 'Call':
+            print 'call:'
+            print p.nodes[n].fname
+            print p.node_tags[n][0]
+            print p.node_tags[n][1]
+            pp = pairings.get(p.nodes[n].fname)
+            for ppp in pp:
+                print ppp.l_f
+                print ppp.r_f
+                print '%s \n' % ppp.name
+        #print '\n'
+
+    #'print pairing'
+    #for ppp in pairings.keys():
+    #	print ppp
+
+    print 'fnma'
+    print funs
     rep = mk_graph_slice (p,
                           consider_inline (funs, inline_tag, force_inline,
                                            skip_underspec))
@@ -114,15 +138,29 @@ def consider_inline1 (p, n, matched_funs, inline_tag,
     assert node.kind == 'Call'
 
     if p.node_tags[n][0] != inline_tag:
+        print 'inline_tag'
+        print p.node_tags[n][0]
+        print p.node_tags[n][1]
+        print inline_tag
         return False
 
     f_nm = node.fname
+
+    for m in matched_funs:
+        matched_funs.remove(m)
+        m = m.split('@')[0]
+        matched_funs.append(m)
+
     if skip_underspec and not functions[f_nm].entry:
         trace ('Skipping inlining underspecified %s' % f_nm)
         return False
     if f_nm not in matched_funs or (force_inline and force_inline (f_nm)):
+        print 'not_matched:'
+        print f_nm
+        print matched_funs
         return lambda: inline_at_point (p, n)
     else:
+        print 'bla'
         return False
 
 def consider_inline (matched_funs, tag, force_inline, skip_underspec = False):
