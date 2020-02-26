@@ -91,8 +91,8 @@ def inline_reachable_unmatched (p, inline_tag, compare_tag,
             if inline_tag in pair.tags]
 
     #print pair.funs[inline_tag]
-    print 'inline %s' % inline_tag
-    print 'pari.tags %s\n' % pair.tags
+    #print 'inline %s' % inline_tag
+    #print 'pari.tags %s\n' % pair.tags
     for n in p.nodes:
         if p.nodes[n].kind == 'Call':
             print 'call:'
