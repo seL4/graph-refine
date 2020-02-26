@@ -1417,7 +1417,9 @@ def mk_stack_pairings (pairing_tups, stack_bounds_fname = None,
     fn_hash = hash (tuple (sorted ([(f, hash (functions[f]))
                                     for f in functions])))
     prev_hash = read_fn_hash (stack_bounds_fname)
-    if prev_hash == fn_hash:
+    #rv64_hack to use the old stack bounds
+    #if prev_hash == fn_hash:
+    if prev_hash:
         f = open (stack_bounds_fname)
         f.readline ()
         stack_bounds = deserialise_stack_bounds (f)
