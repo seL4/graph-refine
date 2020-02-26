@@ -71,7 +71,7 @@ def check_cond_map():
             ta = bin_branch_map[addr]
             if not ta == jaddr:
                print 'Invalid j at %s wrong %s right %s' % (addr, jaddr, ta)
-               f[2] = '0x' + ta
+               f[2] = '0x' + ta.upper()
                print 'new line %s ' % ' '.join(f)
             out_lines.append(' '.join(f) + '\n')
             i = i + 1
@@ -97,7 +97,7 @@ def check_cond_map():
             #print 'addr %s lcf %s ta %s', (addr, lcf_addr, ta)
             if not ta == lcf_addr:
                 print 'Invalid branch at %s wrong %s right %s' % (addr, lcf_addr, ta)
-                lcf[2] = '0x' + ta
+                lcf[2] = '0x' + ta.upper()
                 print 'new line %s' % ' '.join(lcf)
 
             out_lines.append(l)
