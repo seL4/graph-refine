@@ -83,6 +83,11 @@ def split_scalar_pairs (var_pairs):
     return split_scalar_globals (mk_vars (var_pairs))
 
 def azip (xs, ys):
+    if not len(xs) == len(ys):
+        print len(xs)
+        print len(ys)
+        print xs
+        print ys
     assert len (xs) == len (ys)
     return zip (xs, ys)
 
@@ -272,13 +277,24 @@ def mk_eqs_riscv64_unknown_linux_gnu(var_c_args, var_c_rets, c_imem, c_omem,
     if len (var_c_rets) > 1:
         # the 'return-too-much' issue.
         # instead r0 is a save-returns-here pointer
-        #assert False
+        print len(var_c_rets)
+        print 'cregs'
+        print var_c_args
+        print var_c_rets
+        print '\n'
+    #	print 'b_arg_seq\n'
+    #	print arg_seq
         arg_seq.pop (0)
         #preconds += [mk_aligned (r0, 2), mk_less_eq (sp, r0)]
         #preconds += [mk_less_]
         save_seq = mk_stack_sequence (r10_input, 8, st, word64T,
                                       len (var_c_rets))
         save_addrs = [addr for (_, addr) in save_seq]
+    #	print 'a_arg_seq\n'
+    #	print arg_seq
+    #	print 'save_seq\n'
+    #	print save_seq
+    #	print save_addrs
         #save_addrs = []
         #post_eqs += [(r10_input, r10_input)]
         out_eqs = zip (var_c_rets, [x for (x, _) in save_seq])
@@ -291,6 +307,8 @@ def mk_eqs_riscv64_unknown_linux_gnu(var_c_args, var_c_rets, c_imem, c_omem,
         if last_arg_addr:
             preconds += [mk_less (last_arg_addr, addr)
                          for (_, addr) in init_save_seq[:1]]
+
+        #assert False
     else:
         out_eqs = zip (var_c_rets, [r10])
         save_addrs = []
@@ -338,8 +356,8 @@ def mk_eqs_riscv64_unknown_linux_gnu(var_c_args, var_c_rets, c_imem, c_omem,
     #return (arg_eqs + preconds, asm_invs)
     #return (arg_eqs + preconds, ret_eqs)
     #return (arg_eqs + preconds, ret_eqs + asm_invs)
-    return (arg_eqs +  preconds, ret_eqs + asm_invs)
-    #return (arg_eqs + mem_ieqs + preconds, ret_eqs + mem_oeqs + asm_invs)
+    #return (arg_eqs +  preconds, ret_eqs + asm_invs)
+    return (arg_eqs + mem_ieqs + preconds, ret_eqs + mem_oeqs + asm_invs)
 
 known_CPUs = {
     'arm-none-eabi-gnu': mk_eqs_arm_none_eabi_gnu,
