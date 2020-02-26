@@ -85,7 +85,8 @@ def inline_reachable_unmatched (p, inline_tag, compare_tag,
     funs = [pair.funs[inline_tag]
             for n in p.nodes
             if p.nodes[n].kind == 'Call'
-            if p.node_tags[n][0] == compare_tag or (inline_tag == 'C' and p.node_tags[n][0] == 'C')
+            #if p.node_tags[n][0] == compare_tag or (inline_tag == 'C' and p.node_tags[n][0] == 'C')
+            if p.node_tags[n][0] == compare_tag
             for pair in pairings.get (p.nodes[n].fname, [])
             if inline_tag in pair.tags]
 
