@@ -945,7 +945,7 @@ def parse_typ(bits, n, symbolic_types = False):
         return (n + 2, Type('Word', parse_int (bits[n + 1])))
     elif bits[n] == 'WordArray' or bits[n] == 'FloatingPoint':
         return (n + 3, Type(bits[n],
-                parse_int (bits[n + 1]), parse_int (bits[n + 2])))
+                            parse_int (bits[n + 1]), parse_int (bits[n + 2])))
     elif bits[n] in builtinTs:
         return (n + 1, builtinTs[bits[n]])
     elif bits[n] == 'Array':
@@ -1063,7 +1063,7 @@ def parse_expr (bits, n):
         (n, struct) = parse_expr (bits, n)
         assert struct.typ == typ
         return (n, Expr ('Field', typ2, struct = struct,
-                field = (name, typ2)))
+                         field = (name, typ2)))
     elif bits[n] == 'FieldUpd':
         (n, typ) = parse_typ (bits, n + 1)
         name = bits[n]
@@ -1071,7 +1071,7 @@ def parse_expr (bits, n):
         (n, val) = parse_expr (bits, n)
         (n, struct) = parse_expr (bits, n)
         return (n, Expr ('FieldUpd', typ, struct = struct,
-                field = (name, typ2), val = val))
+                         field = (name, typ2), val = val))
     elif bits[n] == 'StructCons':
         (n, typ) = parse_typ (bits, n + 1)
         (n, xs) = parse_list (parse_struct_elem, bits, n)
@@ -1120,11 +1120,12 @@ def parse_node (bits, n):
         # hack for Call RV64, not sure Ret is used
         # instead of the address of next instruction
         # after the call is used in the decompiled file
-        #if arch == 'rv64' and cont == 'Ret':
-        #	print bits
-        #	cont = parse_int(bits[n + 13])
+        if arch == 'rv64' and cont == 'Ret':
+            try:
+                cont = parse_int(bits[n + 13])
+            except:
+                cont = 'Ret'
 
-        #print 'call %s' % cont
         name = bits[n + 2]
         (n, args) = parse_list (parse_expr, bits, n + 3)
         (n, saves) = parse_list (parse_lval, bits, n)
@@ -1326,10 +1327,20 @@ def check_funs (functions, verbose = False):
             get_vars(fun)
             for (n, node) in fun.nodes.iteritems():
                 if node.kind == 'Call':
+                    # rv64_hack
+                    if not node.fname in functions.keys():
+                        print 'fn %s not in functions' % node.fname
+                        continue
+
                     c = functions[node.fname]
+                    if 'ecall' in node.fname:
+                        print 'skip %s', node.fname
+                        continue
                     assert map(get_expr_typ, node.args) == \
                         map (get_lval_typ, c.inputs), (
-                        node.fname, node.args, c.inputs)
+                        node.fname, node.args, c.inputs,
+                            get_expr_typ, node.args,
+                            get_lval_typ, c.inputs)
                     assert map (get_lval_typ, node.rets) == \
                         map (get_lval_typ, c.outputs), (
                         node.fname, node.rets, c.outputs)
