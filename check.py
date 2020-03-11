@@ -35,6 +35,7 @@ def build_problem (pairing, force_inline = None, avoid_abort = False):
     inline_completely_unmatched (p, skip_underspec = avoid_abort)
 
     # now do any C inlining
+    assert avoid_abort == False
     inline_reachable_unmatched_C (p, force_inline,
                                   skip_underspec = avoid_abort)
 
@@ -49,6 +50,7 @@ def build_problem (pairing, force_inline = None, avoid_abort = False):
     return p
 
 def inline_completely_unmatched (p, ref_tags = None, skip_underspec = False):
+
     if ref_tags == None:
         ref_tags = p.pairing.tags
     while True:
@@ -61,7 +63,14 @@ def inline_completely_unmatched (p, ref_tags = None, skip_underspec = False):
                       if pair.tags == ref_tags]]
         [trace ('Skipped inlining underspecified %s.'
                 % p.nodes[n].fname) for (n, skip) in ns if skip]
+
+#        for zz in p.nodes:
+#            if p.nodes[zz].kind == 'Call':
+#                print p.nodes[zz]
+#                print '\n'
+
         ns = [n for (n, skip) in ns if not skip]
+
         for n in ns:
             trace ('Function %s at %d - %s - completely unmatched.'
                    % (p.nodes[n].fname, n, p.node_tags[n][0]))
@@ -93,18 +102,18 @@ def inline_reachable_unmatched (p, inline_tag, compare_tag,
     #print pair.funs[inline_tag]
     #print 'inline %s' % inline_tag
     #print 'pari.tags %s\n' % pair.tags
-    for n in p.nodes:
-        if p.nodes[n].kind == 'Call':
-            print 'call:'
-            print p.nodes[n].fname
-            print p.node_tags[n][0]
-            print p.node_tags[n][1]
-            pp = pairings.get(p.nodes[n].fname)
-            for ppp in pp:
-                print ppp.l_f
-                print ppp.r_f
-                print '%s \n' % ppp.name
-        #print '\n'
+#    for n in p.nodes:
+#        if p.nodes[n].kind == 'Call':
+#            print 'call:'
+#            print p.nodes[n].fname
+#            print p.node_tags[n][0]
+#            print p.node_tags[n][1]
+#            pp = pairings.get(p.nodes[n].fname)
+#            for ppp in pp:
+#                print ppp.l_f
+#                print ppp.r_f
+#                print '%s \n' % ppp.name
+    #print '\n'
 
     #'print pairing'
     #for ppp in pairings.keys():
@@ -147,10 +156,21 @@ def consider_inline1 (p, n, matched_funs, inline_tag,
 
     f_nm = node.fname
 
-    for m in matched_funs:
-        matched_funs.remove(m)
-        m = m.split('@')[0]
-        matched_funs.append(m)
+    print 'matched:'
+    print matched_funs
+    tmp_matched = []
+    for v in matched_funs:
+        tmp_matched.append(v.split('@')[0])
+
+    matched_funs = tmp_matched
+
+    # rv64_hack avoid to inline the inline assembly further
+    # since these functions do not have a real body
+#    if "r_impl" in f_nm and not functions[f_nm].entry and f_nm not in matched_funs:
+#        skip_underspec = True
+#        print 'blabla'
+#        print f_nm
+#        print matched_funs
 
     if skip_underspec and not functions[f_nm].entry:
         trace ('Skipping inlining underspecified %s' % f_nm)
@@ -335,7 +355,7 @@ def deserialise_inner (ss, i):
         n_bound = int (ss[i])
         (i, p1) = deserialise_inner (ss, i + 1)
         return (i, ProofNode ('SingleRevInduct', (point, (eqs, n),
-                (pred, n_bound)), [p1]))
+                                                  (pred, n_bound)), [p1]))
     elif ss[i] == 'Split':
         n = int (ss[i + 1])
         loop_r_max = int (ss[i + 2])
@@ -345,7 +365,7 @@ def deserialise_inner (ss, i):
         (i, p1) = deserialise_inner (ss, i)
         (i, p2) = deserialise_inner (ss, i)
         return (i, ProofNode ('Split', (l_details, r_details, eqs,
-                n, loop_r_max), [p1, p2]))
+                                        n, loop_r_max), [p1, p2]))
     elif ss[i] == 'CaseSplit':
         n = int (ss[i + 1])
         tag = ss[i + 2]
@@ -369,25 +389,25 @@ def proof_subproblems (p, kind, args, restrs, hyps, path):
         restr = get_proof_restr (args[0], args[1])
         hyps = hyps + [restr_trivial_hyp (p, args[0], args[1], restrs)]
         return [((restr,) + restrs, hyps,
-                '%s (%d limited)' % (path, args[0]))]
+                 '%s (%d limited)' % (path, args[0]))]
     elif kind == 'SingleRevInduct':
         hyp = single_induct_resulting_hyp (p, restrs, args)
         return [(restrs, hyps + [hyp], path)]
     elif kind == 'Split':
         split = args
         return [(restrs, hyps + split_no_loop_hyps (tags, split, restrs),
-                '%d init case in %s' % (split[0][0], path)),
+                 '%d init case in %s' % (split[0][0], path)),
                 (restrs, hyps + split_loop_hyps (tags, split, restrs, exit = True),
-                '%d loop case in %s' % (split[0][0], path))]
+                 '%d loop case in %s' % (split[0][0], path))]
     elif kind == 'CaseSplit':
         (point, tag) = args
         visit = ((point, restrs), tag)
         true_hyps = hyps + [pc_true_hyp (visit)]
         false_hyps = hyps + [pc_false_hyp (visit)]
         return [(restrs, true_hyps,
-                'true case (%d visited) in %s' % (point, path)),
+                 'true case (%d visited) in %s' % (point, path)),
                 (restrs, false_hyps,
-                'false case (%d not visited) in %s' % (point, path))]
+                 'false case (%d not visited) in %s' % (point, path))]
     else:
         assert not 'proof node kind understood', proof.kind
 
@@ -532,7 +552,7 @@ restr_bump = 0
 
 def get_proof_restr (n, (kind, (x, y))):
     return (n, mk_vc_opts ([VisitCount (kind, i)
-            for i in range (x, y + restr_bump)]))
+                            for i in range (x, y + restr_bump)]))
 
 def restr_trivial_hyp (p, n, (kind, (x, y)), restrs):
     restr = (n, VisitCount (kind, y - 1))
@@ -601,13 +621,13 @@ def split_induct_step_checks (p, restrs, hyps, split, tags = None):
     # the 'trivial' hyp here ensures the representation includes a loop
     # of the rhs when proving const equations on the lhs
     hyps = ([err_hyp, pc_true_hyp (cont),
-             rep_graph.pc_triv_hyp (r_cont)] + hyps
+            rep_graph.pc_triv_hyp (r_cont)] + hyps
             + split_loop_hyps (tags, split, restrs, exit = False))
 
     return [(hyps, hyp, 'Induct check (%s) at inductive step for %d'
-             % (desc, l_split))
+            % (desc, l_split))
             for (hyp, desc) in split_hyps_at_visit (tags, split,
-                                                    restrs, vc_offs (n))]
+            restrs, vc_offs (n))]
 
 def check_split_induct_step_group (rep, restrs, hyps, split, tags = None):
     checks = split_induct_step_checks (rep.p, restrs, hyps, split,
@@ -677,13 +697,13 @@ def single_loop_induct_step_checks (p, restrs, hyps, tag, split, n,
     cont = split_visit_one_visit (tag, details, restrs, vc_offs (n))
     hyps = ([pc_true_hyp (cont)] + hyps
             + [h for i in range (n)
-            for (h, _) in loop_eq_hyps_at_visit (tag, split,
-                                                 eqs_assume + eqs, restrs, vc_offs (i))])
+               for (h, _) in loop_eq_hyps_at_visit (tag, split,
+                                                    eqs_assume + eqs, restrs, vc_offs (i))])
 
     return [(hyps, hyp, 'Induct check (%s) at inductive step for %d'
-             % (desc, split))
+            % (desc, split))
             for (hyp, desc) in loop_eq_hyps_at_visit (tag, split, eqs,
-                                                      restrs, vc_offs (n))]
+            restrs, vc_offs (n))]
 
 def mk_loop_counter_eq_hyp (p, split, restrs, n):
     details = (split, (0, 1), [])
