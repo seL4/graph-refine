@@ -1,12 +1,10 @@
-# * Copyright 2014, NICTA
-# *
-# * This software may be distributed and modified according to the terms
-# of
-# * the BSD 2-Clause license. Note that NO WARRANTY is provided.
-# * See "LICENSE_BSD2.txt" for details.
-# *
-# * @TAG(NICTA_BSD)
 #!/usr/bin/env python
+#
+#
+# Copyright 2020, Data61, CSIRO (ABN 41 687 119 230)
+#
+# SPDX-License-Identifier: BSD-2-Clause
+#
 
 import os
 import re
@@ -130,7 +128,7 @@ def read_tcfg_map(input_filename):
         ctx_list = [ int(x, 16) for x in ctx_str if x <> '' ]
         #get rid of the loop_id
         ctx_list = ctx_list[1:]
-        id_to_context[bb_id] = ctx_list 
+        id_to_context[bb_id] = ctx_list
         bb_aux = bb_aux.split()
         loop_id = bb_aux[0]
         if loop_id == '0':
@@ -241,7 +239,7 @@ def grab_arcs(local_path_counts, start):
             stack = stack[:i]
             stack_set = set(stack)
             arcs.append (count_arc (local_path_counts, arc))
-        
+
             if stack == []:
                 return (arcs, decisions)
         else:
@@ -306,7 +304,7 @@ def dot():
         for j in path_counts[i]:
             if i != 'Sta' and type(j) != 'Sta':
               print '%s -> %s [label = \"%d %s -> %s\"];' % (i, j, path_counts[i][j], elfFile().addrs_to_f[id_to_bb_addr[i]], elfFile().addrs_to_f[id_to_bb_addr[j]])
-            else: 
+            else:
               print '%s -> %s [label = \"%d\"];' % (i, j, path_counts[i][j])
 
     print '}'
@@ -325,7 +323,7 @@ def local_loop_id(i):
 def refutable():
     print 'Refutable paths:'
     node_ids = set(list(path_counts)
-        + [j for i in path_counts for j in path_counts[i]]) 
+        + [j for i in path_counts for j in path_counts[i]])
     node_ids -= set (['Sta'])
     ctxts = dict_list([(tuple(tcfg_to_bb_map[i][2]), i) for i in node_ids])
     for (ctxt, nodes) in ctxts.iteritems():
@@ -453,7 +451,7 @@ def profile():
     i_bb = id_to_bb_addr[i]
     j_bb = id_to_bb_addr[j]
     print '         %x -> %x '% (i_bb,j_bb)
-    print '         %s -> %s ' %  (elfFile().addrs_to_f[i_bb],elfFile().addrs_to_f[j_bb]) 
+    print '         %s -> %s ' %  (elfFile().addrs_to_f[i_bb],elfFile().addrs_to_f[j_bb])
     print '         context:'
     print_context(id_to_context[i])
     maxi=0
@@ -466,13 +464,13 @@ def profile():
 	print 't: max_id b%d, count %d' % (max_id, maxi)
     print 'max_id b%d, count %d' % (max_id, maxi)
     print 'max_bb_addr: %x' % id_to_bb_addr[str(max_id)]
-    
+
     print_context(id_to_context[str(max_id)])
 
 if __name__ == '__main__':
 	argv = list(sys.argv)
 	opt = '--follow'
-	
+
 	if len(argv) != 6:
 		print 'len(argv): %d' % len(argv)
 		print "Usage: reconstruct [OPTION] <dir_name> sol_file map elf_file"
@@ -491,7 +489,7 @@ if __name__ == '__main__':
 	#print 'Reading tcfg'
 	read_tcfg_map(tcfg_map_f)
 	#print ' .. done reading'
-	#initialise elfFile and parse the objdump 
+	#initialise elfFile and parse the objdump
 	elfFile(dir_name=dir_name,elf_only=True)
 	elf_parser.parseTxt()
 	#print 'Simplifying'

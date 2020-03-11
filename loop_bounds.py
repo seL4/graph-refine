@@ -1,3 +1,9 @@
+#
+# Copyright 2020, Data61, CSIRO (ABN 41 687 119 230)
+#
+# SPDX-License-Identifier: BSD-2-Clause
+#
+
 import check,search,problem,syntax,solver,logic,rep_graph,re
 from rep_graph import vc_num, vc_offs, pc_true_hyp, Hyp, eq_hyp
 from target_objects import functions, trace
@@ -13,7 +19,7 @@ import time
 
 #tryFun must take exactly 1 argument
 def downBinSearch(minimum, maximum, tryFun):
-    upperBound = maximum 
+    upperBound = maximum
     lowerBound = minimum
     while upperBound > lowerBound:
       print 'searching in %d - %d' % (lowerBound,upperBound)
@@ -89,19 +95,19 @@ def findLoopBoundBS(p_n, p, restrs=None, hyps=None, try_seq=None):
     loop_bound = None
     p_loop_heads = [n for n in p.loop_data if p.loop_data[n][0] == 'Head']
     print 'p_loop_heads: %s' % p_loop_heads
-    
-    if restrs == None: 
+
+    if restrs == None:
         others = [x for x in p_loop_heads if not x == p_n]
         #vc_options([concrete numbers], [offsets])
         restrs = tuple( [(n2, rep_graph.vc_options([0],[1])) for n2 in others] )
-        
+
     print 'getting the initial bound'
     #try:
     index = tryLoopBound(p_n,p,bound_try_seq,rep,restrs = restrs, hyps=hyps)
     if index == -1:
         return None
     print 'got the initial bound %d' % bound_try_seq[index]
-    
+
     #do a downward binary search to find the concrete loop bound
     if index == 0:
       loop_bound = bound_try_seq[0]
@@ -157,15 +163,15 @@ def tryLoopBound(p_n, p, bounds,rep,restrs =None, hints =None,kind = 'Number',bi
                 print 'get_pc failed'
                 if bin_return:
                     return False
-                else: 
+                else:
                     return -1
             #print 'got rep_.get_pc'
             restrs3 = restr_others (p, restrs2, 2)
             epc = rep.get_pc (('Err', restrs3), tag = tag)
             hyp = mk_implies (mk_not (epc), mk_not (pc))
             hyps = hyps + noHaltHyps(p_n,p)
-            
-            #hyps = [] 
+
+            #hyps = []
             #print 'calling test_hyp_whyps'
             if rep.test_hyp_whyps (hyp, hyps):
                     print 'p_n %d: split limit found: %d' % (p_n, i)

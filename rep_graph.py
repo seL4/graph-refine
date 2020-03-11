@@ -1,10 +1,8 @@
-# * Copyright 2015, NICTA
-# *
-# * This software may be distributed and modified according to the terms of
-# * the BSD 2-Clause license. Note that NO WARRANTY is provided.
-# * See "LICENSE_BSD2.txt" for details.
-# *
-# * @TAG(NICTA_BSD)
+#
+# Copyright 2020, Data61, CSIRO (ABN 41 687 119 230)
+#
+# SPDX-License-Identifier: BSD-2-Clause
+#
 
 from solver import Solver, merge_envs_pcs, smt_expr, mk_smt_expr, to_smt_expr
 from syntax import (true_term, false_term, boolT, mk_and, mk_not, mk_implies,

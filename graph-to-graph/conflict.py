@@ -1,13 +1,10 @@
-# * Copyright 2016, NICTA
-# *
-# * This software may be distributed and modified according to the terms
-# of
-# * the BSD 2-Clause license. Note that NO WARRANTY is provided.
-# * See "LICENSE_BSD2.txt" for details.
-# *
-# * @TAG(NICTA_BSD)
-
 #!/usr/bin/env python
+#
+#
+# Copyright 2020, Data61, CSIRO (ABN 41 687 119 230)
+#
+# SPDX-License-Identifier: BSD-2-Clause
+#
 
 import os, re, sys, copy
 from subprocess import Popen, PIPE
@@ -176,7 +173,7 @@ def callstring_bbs(fs,cs_so_far = None):
           pA = lambda x: phyAddrP(x,p)
           #phy_rets =[phyAddrP(x,p) for x in cns]
           phy_rets =[callSitePA(x,p) for x in cns]
-          #print ' phy_rets: %s' % str(phy_rets) 
+          #print ' phy_rets: %s' % str(phy_rets)
           if len(fs) == 2:
                 return  [(cs_so_far +[bbAddr(x)]) for x in phy_rets]
 
@@ -189,7 +186,7 @@ def callstring_bbs(fs,cs_so_far = None):
 def bbs_context_match(context_targ, context_to_match):
         bbAddr = immFunc().bbAddr
         #print 'context: %s' % str(context)
-        #print 's: %s' % str(s) 
+        #print 's: %s' % str(s)
         #all of s must be in context to begin with, strip the 0 subfix
         bb_ctx = [bbAddr(x) for x in context_targ[:-1]]
         if len(bb_ctx) < len(context_to_match):
@@ -225,7 +222,7 @@ def idsMatchingContext(full_bb_context):
         break
     assert match_id != None
     ret.append(match_id)
-  return ret 
+  return ret
 
 #translate context in bin to a list of ids corresponding to the context
 #note: no tcfg_ids can have the exact same context
@@ -238,7 +235,7 @@ def bbAddrs(l):
   bbAddr = immFunc().bbAddr
   return [bbAddr(x) for x in l if x]
 
-#get the unique tid corresponding to addr that matches context[: -truncate], 
+#get the unique tid corresponding to addr that matches context[: -truncate],
 #given that context is in the from of contexts from id_to_context
 def addr_context_truncate_get_tid(addr, context, truncate):
   #note: r
@@ -309,7 +306,7 @@ def emitImpossible(fout,context):
   for tid in tids:
     s += 'b{0} = 0\n'.format(tid)
   fout.write(s)
-  return 
+  return
 
 #context addrs are bbAddrs
 #one_context is true iff all visits lie in context 0
@@ -333,7 +330,7 @@ def emitInconsistent(fout, context,visits):
     visits.append( (bbAddr(context[-1]),0) )
 
   print 'context: %r' % context
-  print 'visits: %r' % visits 
+  print 'visits: %r' % visits
 
   base_addr = [baddr for (baddr, l) in visits if l == 0][0]
   tids = bb_addr_to_ids[bbAddr(base_addr)]
@@ -373,7 +370,7 @@ def emit_f_conflicts (fout, line):
       #print 'final_callee_bb: %s'% str(final_callee_bb)
       assert final_callee_bb in bb_addr_to_ids
       ids = bb_addr_to_ids[final_callee_bb]
-      ids_ctx = [x for x in ids if bbs_context_match(id_to_context[x],s[:-1])] 
+      ids_ctx = [x for x in ids if bbs_context_match(id_to_context[x],s[:-1])]
       print 'ids: %d, ids_ctx: %d' % (len(ids),len(ids_ctx))
       #ok, now all of these are just unreachable.
       for tcfg_id in ids_ctx:
@@ -414,7 +411,7 @@ def process_conflict(fout, conflict_files):
                         addr = int(match.group('addr'),16)
                         times = int(match.group('times'))
                         print 'addr: %x' % addr
-                        print 'times: %d' % times  
+                        print 'times: %d' % times
                         times_limit(fout,[addr],times)
                 else:
                     bits = line.split(':')
@@ -433,7 +430,7 @@ def process_conflict(fout, conflict_files):
                     emitInconsistent(fout, stack,bb_visits)
             f.close()
     fout.write("\n");
-    return fake_preemption_points 
+    return fake_preemption_points
 
 def add_impossible_contexts(fout):
     fout.write('\ === excluded function constraints === \n\n')
@@ -525,7 +522,7 @@ if __name__ == '__main__':
                         --cx
                                 generate a new conflict file and call cplex directly'''
                 sys.exit(1)
-        
+
         tcfg_map = sys.argv[1]
         old_ilp = sys.argv[3]
         new_ilp = sys.argv[4]

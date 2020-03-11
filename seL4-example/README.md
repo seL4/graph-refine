@@ -1,3 +1,9 @@
+<!--
+     Copyright 2020, Data61, CSIRO (ABN 41 687 119 230)
+
+     SPDX-License-Identifier: BSD-2-Clause
+-->
+
 This example target can be used to run the seL4 binary verification. It
 assumes that the graph-refine repository has been placed along side the
 l4v and HOL4 repositories, as will be the case if checked out as part of

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: CC-BY-SA-3.0
 '''
 CC BY-SA 3.0
 Creative Commons Attribution-ShareAlike 3.0 Unported

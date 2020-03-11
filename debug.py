@@ -1,10 +1,8 @@
-# * Copyright 2015, NICTA
-# *
-# * This software may be distributed and modified according to the terms of
-# * the BSD 2-Clause license. Note that NO WARRANTY is provided.
-# * See "LICENSE_BSD2.txt" for details.
-# *
-# * @TAG(NICTA_BSD)
+#
+# Copyright 2020, Data61, CSIRO (ABN 41 687 119 230)
+#
+# SPDX-License-Identifier: BSD-2-Clause
+#
 
 from target_objects import functions, pairings
 import target_objects
@@ -740,7 +738,7 @@ def unfold_defs_sexpr (defs, sexpr, depthlimit = -1):
 		for s in sexpr[1:]])
 
 def unfold_defs (defs, hyp, depthlimit = -1):
-	return solver.flat_s_expression (unfold_defs_sexpr (defs, 
+	return solver.flat_s_expression (unfold_defs_sexpr (defs,
 		solver.parse_s_expression (hyp), depthlimit))
 
 def investigate_unsat (solv, hyps = None):

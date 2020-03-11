@@ -1,3 +1,9 @@
+#
+# Copyright 2020, Data61, CSIRO (ABN 41 687 119 230)
+#
+# SPDX-License-Identifier: BSD-2-Clause
+#
+
 cd $1
 echo "Summary of git repo in $1"
 PAGER= git log -1

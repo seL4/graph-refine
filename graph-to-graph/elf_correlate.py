@@ -1,11 +1,8 @@
-# * Copyright 2016, NICTA
-# *
-# * This software may be distributed and modified according to the terms
-# of
-# * the BSD 2-Clause license. Note that NO WARRANTY is provided.
-# * See "LICENSE_BSD2.txt" for details.
-# *
-# * @TAG(NICTA_BSD)
+#
+# Copyright 2020, Data61, CSIRO (ABN 41 687 119 230)
+#
+# SPDX-License-Identifier: BSD-2-Clause
+#
 
 import re
 import graph_refine.syntax as syntax
@@ -142,7 +139,7 @@ class immFunc (Borg):
               loopheads.append((x, f))
               #the 0 worker_id will get ignored by genLoopHeads.
               #FIXME: do this properly..
-              loops_by_fs[f][x] = (2**30,'dummy',0) 
+              loops_by_fs[f][x] = (2**30,'dummy',0)
         assert loopheads
         for p_nf in loopheads:
           p_n, f = p_nf
@@ -154,12 +151,12 @@ class immFunc (Borg):
             assert q not in self.imm_loopheads, 'one addr cannot have >1 loopcounts !'
             self.imm_loopheads[self.phyAddr((q,f))] = p_nf
 
-        return 
+        return
 
     def firstRealNodes(self,p_nf,visited = None,may_multi=False,may_call=False,skip_ret=False):
         """
-        Locate the first real node from, and including, p_addr, 
-            or branch targets if it hits a branch before that. 
+        Locate the first real node from, and including, p_addr,
+            or branch targets if it hits a branch before that.
             Returns a list of p_nf
         """
         elf_fun = self.elf_fun
@@ -260,7 +257,7 @@ class immFunc (Borg):
           if len(p_conts) == 1:
             return self.isStraightToRetToCaller((p_conts[0],f))
         return False
-    
+
     #All return except the root one
     def isImmRetToCaller(self,p_nf):
         g_n = self.phyAddr(p_nf)
@@ -269,7 +266,7 @@ class immFunc (Borg):
           return False
         p_node,pf_conts = self.pNodeConts(p_nf)
         p_conts = [x[0] for x in pf_conts]
-        
+
         conts = [x for x in p_conts if type(p_n) == int]
         #print '     p_n %s p_conts %s' % (p_n,p_conts)
         n_rtc = 0
@@ -286,7 +283,7 @@ class immFunc (Borg):
         if n_rtc > 0:
           return ret
         return False
-     
+
     def funName(self,p_nf):
         p_n,f = p_nf
         fname = self.f_problems[f].nodes[p_n].fname
@@ -306,14 +303,14 @@ class immFunc (Borg):
         p.add_entry_function(self.asm_fs[f], 'ASM')
         p.do_analysis()
         return p
-    
+
     def isSpecInsFunc(self,f):
         """
-        Returns whether f is the name of  a special function 
+        Returns whether f is the name of  a special function
         used to model special instruction
         """
         return f.startswith ("instruction'")
-    
+
     def makeBinGraph(self):
         """
         Prepare problems for all functions transitively called by self,
@@ -403,10 +400,10 @@ class immFunc (Borg):
         if type(p_n) == int and self.phyAddr(p_nf) == 'RetToCaller':
           return False
         g_n = self.phyAddr(p_nf)
-        
+
         if g_n in self.deadend_g_ns:
           return True
-        
+
         #note: pNodeConts ensures we stay in the same problem
         node,fconts = self.pNodeConts(p_nf)
         conts = [ x[0] for x in fconts]
@@ -454,7 +451,7 @@ class immFunc (Borg):
             p_conts = filter(lambda x: (x, p_i) not in pi_deadends, p_conts)
         pf_conts = [(x , f) for x in p_conts]
         return p_node,pf_conts
-    
+
     def isRealNode(self,p_nf):
         p_n,f = p_nf
         if p_n == 'Ret':
@@ -540,7 +537,7 @@ class immFunc (Borg):
         p_n,f,p = self.unpackPNF(call_p_nf)
         assert len(p.nodes[p_n].get_conts()) == 1
         return ( (p.nodes[p_n].get_conts())[0] , f)
-    
+
     def getCallTarg(self, p_nf):
         p_n,f,p = self.unpackPNF(p_nf)
         _, pf_conts = self.pNodeConts(p_nf)
@@ -561,7 +558,7 @@ class immFunc (Borg):
         """
         Returns (entry point to the called function, return addr, is_tailcall)
         """
-        call_pn = self.getCallTarg(p_nf) 
+        call_pn = self.getCallTarg(p_nf)
         assert call_pn != None
 
         p_n,f,p = self.unpackPNF(p_nf)

@@ -1,11 +1,8 @@
-# * Copyright 2016, NICTA
-# *
-# * This software may be distributed and modified according to the terms
-# of
-# * the BSD 2-Clause license. Note that NO WARRANTY is provided.
-# * See "LICENSE_BSD2.txt" for details.
-# *
-# * @TAG(NICTA_BSD)
+#
+# Copyright 2020, Data61, CSIRO (ABN 41 687 119 230)
+#
+# SPDX-License-Identifier: BSD-2-Clause
+#
 
 import sys
 import graph_refine.syntax as syntax
@@ -28,7 +25,7 @@ def printHelp():
       print '''flags: --l generate loop heads at dir_name/loop_counts.py NOTE: this will override an existing file
       --L use loop counts at the file dir_name/loop_counts.py to generate ILP problem
       --i interactive mode (for debugging)
-      --x automated WCET estimating, firstly generate the loop heads, then automatically deduce the loop bounds, and finally use the automatically determined loopbounds to estimate teh WCET. A conflict file specifying additional preemption points 
+      --x automated WCET estimating, firstly generate the loop heads, then automatically deduce the loop bounds, and finally use the automatically determined loopbounds to estimate teh WCET. A conflict file specifying additional preemption points
       --xL same as --x but do not generate (and thus overwrite) loop_counts.py
 
       '''

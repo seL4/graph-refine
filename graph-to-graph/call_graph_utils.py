@@ -1,11 +1,8 @@
-# * Copyright 2016, NICTA
-# *
-# * This software may be distributed and modified according to the terms
-# of
-# * the BSD 2-Clause license. Note that NO WARRANTY is provided.
-# * See "LICENSE_BSD2.txt" for details.
-# *
-# * @TAG(NICTA_BSD)
+#
+# Copyright 2020, Data61, CSIRO (ABN 41 687 119 230)
+#
+# SPDX-License-Identifier: BSD-2-Clause
+#
 
 import pydot
 import re
@@ -46,7 +43,7 @@ def dotCallGraph(fun,cg,dir_name):
     graph = pydot.Dot(graph_type='digraph')
     #graph.set_overlap('scale')
     nodes = {}
-    
+
     callers = []
     vs = [fun]
     seen = []
@@ -59,13 +56,13 @@ def dotCallGraph(fun,cg,dir_name):
         callers += cg[f]
         callers.append(f)
         vs += cg[f]
-    
+
     callers = set(callers)
-    
+
     for f in callers:
       nodes[f] = pydot.Node(f)
       graph.add_node(nodes[f])
- 
+
     n_edges = 0
     for f in callers:
         #now add edges
@@ -105,7 +102,7 @@ def transitivelyCalled(f,cg):
 def transitivelyCallsInterested(fun, cg, fs_interested):
     tc = transitivelyCalled(fun, cg)
     return (fun in fs_interested) or len([x for x in fs_interested if x in tc]) != 0
-        
+
 def drawFunCallGraph(f,funs,dn,ignore_funs,transitive=False, fs_interested=None):
     funs = {x: funs[x] for x in funs if not x.startswith("Kernel_C")}
     cg = funsCallGraph(funs,dn,ignore_funs)
@@ -119,7 +116,7 @@ def drawFunCallGraph(f,funs,dn,ignore_funs,transitive=False, fs_interested=None)
         cg_tc = {\
             caller: filter(lambda f: transitivelyCallsInterested(f, cg, fs_interested), cg_tc[caller]) \
         for caller in cg_tc if transitivelyCallsInterested(caller, cg, fs_interested)}
-    
+
     dotCallGraph(f,cg_tc,dn)
     return cg_tc
 

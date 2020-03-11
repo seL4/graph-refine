@@ -1,10 +1,8 @@
-# * Copyright 2015, NICTA
-# *
-# * This software may be distributed and modified according to the terms of
-# * the BSD 2-Clause license. Note that NO WARRANTY is provided.
-# * See "LICENSE_BSD2.txt" for details.
-# *
-# * @TAG(NICTA_BSD)
+#
+# Copyright 2020, Data61, CSIRO (ABN 41 687 119 230)
+#
+# SPDX-License-Identifier: BSD-2-Clause
+#
 
 # Syntax and simple operations for types, expressions, graph nodes
 # and graph functions (functions in graph-language format).
@@ -165,7 +163,7 @@ Dom type is a set of 32-bit values, used to encode the valid domain of memory
 operations. The heap type description HTD is used by pointer-validity
 operators. The phantom machine state type PMS is unspecified and used to
 represent unspecified aspects of the environment. The type Type is the type of
-Type expressions which are used in pointer-validity. 
+Type expressions which are used in pointer-validity.
 
 The <expression> clauses have one of these formats:
 Var "name" <type>
@@ -265,7 +263,7 @@ class Type:
 			self.el_typ = concrete_type (el_typ)
 		if kind in ['WordArray', 'FloatingPoint']:
 			self.nums = [int (name), int (el_typ)]
-	
+
 	def __repr__ (self):
 		if self.kind == 'Array':
 			return 'Type ("Array", %r, %r)' % (self.num,
@@ -414,7 +412,7 @@ class Expr:
 		else:
 			assert not 'expression understood for repr', self.kind
 		return binds
- 
+
 	def __repr__ (self):
 		bits = [repr(self.kind), repr(self.typ)]
 		bits.extend(['%s = %r' % b for b in self.binds()])
@@ -984,7 +982,7 @@ ops = {'Plus':2, 'Minus':2, 'Times':2, 'Modulus':2,
 	'TokenWordsAccess':2, 'TokenWordsUpdate':3,
 	'ROData':1, 'StackWrapper':2,
 	'ToFloatingPoint':1, 'ToFloatingPointSigned':2,
-	'ToFloatingPointUnsigned':2, 'FloatingPointCast':1, 
+	'ToFloatingPointUnsigned':2, 'FloatingPointCast':1,
 }
 
 ops_to_smt = {'Plus':'bvadd', 'Minus':'bvsub', 'Times':'bvmul', 'Modulus':'bvurem',

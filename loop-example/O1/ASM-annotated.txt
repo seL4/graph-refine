@@ -1,12 +1,10 @@
-# * Copyright 2015, NICTA
-# *
-# * This software may be distributed and modified according to the terms of
-# * the BSD 2-Clause license. Note that NO WARRANTY is provided.
-# * See "LICENSE_BSD2.txt" for details.
-# *
-# * @TAG(NICTA_BSD)
+#
+# Copyright 2020, Data61, CSIRO (ABN 41 687 119 230)
+#
+# SPDX-License-Identifier: BSD-2-Clause
+#
 
- 
+
 Function f 26 ret Word 32 r0 Word 32 r1 Word 32 r2 Word 32 r3 Word 32 r4 Word 32 r5 Word 32 r6 Word 32 r7 Word 32 r8 Word 32 r9 Word 32 r10 Word 32 r11 Word 32 r12 Word 32 r13 Word 32 r14 Word 32 mode Word 32 n Bool z Bool c Bool v Bool mem Mem dom Dom stack Mem dom_stack Dom clock Word 32 25 r0 Word 32 r1 Word 32 r2 Word 32 r3 Word 32 r4 Word 32 r5 Word 32 r6 Word 32 r7 Word 32 r8 Word 32 r9 Word 32 r10 Word 32 r11 Word 32 r12 Word 32 r13 Word 32 r14 Word 32 mode Word 32 n Bool z Bool c Bool v Bool mem Mem dom Dom stack Mem dom_stack Dom clock Word 32
 
 #    c:	e92d4038 	push	{r3, r4, r5, lr}

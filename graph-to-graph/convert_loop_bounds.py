@@ -1,11 +1,9 @@
-# * Copyright 2016, NICTA
-# *
-# * This software may be distributed and modified according to the terms
-# of
-# * the BSD 2-Clause license. Note that NO WARRANTY is provided.
-# * See "LICENSE_BSD2.txt" for details.
-# *
-# * @TAG(NICTA_BSD)
+#
+# Copyright 2020, Data61, CSIRO (ABN 41 687 119 230)
+#
+# SPDX-License-Identifier: BSD-2-Clause
+#
+
 import graph_refine.loop_bounds as loop_bounds
 import graph_refine.trace_refute as trace_refute
 import graph_refine.target_objects as target_objects

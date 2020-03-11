@@ -1,11 +1,9 @@
-# * Copyright 2016, NICTA
-# *
-# * This software may be distributed and modified according to the terms
-# of
-# * the BSD 2-Clause license. Note that NO WARRANTY is provided.
-# * See "LICENSE_BSD2.txt" for details.
-# *
-# * @TAG(NICTA_BSD)
+#
+# Copyright 2020, Data61, CSIRO (ABN 41 687 119 230)
+#
+# SPDX-License-Identifier: BSD-2-Clause
+#
+
 from elf_file import *
 import re
 
@@ -59,7 +57,7 @@ def parseTxt ():
          skip_next_line = True
          continue
 
-      #a function looks like f0000088 <create_it_frame_cap>: 
+      #a function looks like f0000088 <create_it_frame_cap>:
       r = re.search('(?P<f_addr>.*) <(?P<f_name>.*)>:$',line)
       if r != None:
         #we are creating a new function
@@ -79,7 +77,7 @@ def parseTxt ():
         #check if this is a literal line
         literal = re.search('(?P<addr>.*):\s*[a-f0-9]+\s*(?P<size>(\.word)|(\.short)|(\.byte))\s*(?P<value>0x[a-f0-9]+)$',line)
         if literal != None:
-           if literal.group('size') == '.word': 
+           if literal.group('size') == '.word':
                 size = 4
            else:
                 assert False, '%s size undefined' % literal.group('size')
@@ -87,7 +85,7 @@ def parseTxt ():
            ef.literals[line_addr] = (size,int(literal.group('value'),16))
            ef.addrs_to_f[line_addr] = curr_func_name
         else:
-           #This is an instruction, 
+           #This is an instruction,
             #extract the address, a line looks like f00000ac:>--e5801000 >--str>r1, [r0]
            match = re.search('(?P<line_addr>.*):.*',line)
            assert match !=None, line
@@ -105,12 +103,12 @@ def parseTxt ():
 def isDirectBranch(addr):
   inst = elfFile().lines[addr]
   match = re.search(r'[a-f0-9]+:\s*[a-f0-9]+\s+(b|bx)\s+.*',inst)
-  return match is not None 
+  return match is not None
 
 def parseElf(dir_name):
     ef = elfFile(dir_name)
     parseTxt()
     parseSymTab()
     return ef
-    
+
 

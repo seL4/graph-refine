@@ -1,3 +1,9 @@
+#
+# Copyright 2020, Data61, CSIRO (ABN 41 687 119 230)
+#
+# SPDX-License-Identifier: BSD-2-Clause
+#
+
 import re
 import parser
 import subprocess
@@ -64,7 +70,7 @@ class ChronosEmitter:
         print 'first - last addrs : %x-%x' % (first_addr,last_addr)
         size = 4
         to_emit = {}
-        
+
         #dict of complex loop "head"s to ( addrs in the loop, its bound)
         complex_loops = {}
         #we need to emit instructions in the order of addresses
@@ -93,7 +99,7 @@ class ChronosEmitter:
                 else:
                     loop_count = None
                 to_emit[addr] = (addr,addr == bb_start_addr,loop_count)
-        
+
         for loop_addr in complex_loops.keys():
             print "complex loop at 0x%x" % (addr)
             print "body: %s" % str(map(hex, body_addrs))
@@ -137,7 +143,7 @@ class ChronosEmitter:
 
     def emitLoopcount (self,addr,loop_count):
         self.imm_f.write('l 0x%x %s\n'% (addr,loop_count))
-        print 'l 0x%x %s\n'% (addr,loop_count) 
+        print 'l 0x%x %s\n'% (addr,loop_count)
         if self.debug_f:
             self.debug_f.write('l 0x%x %s\n'% (addr,loop_count))
 

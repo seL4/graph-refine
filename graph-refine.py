@@ -1,10 +1,8 @@
-# * Copyright 2015, NICTA
-# *
-# * This software may be distributed and modified according to the terms of
-# * the BSD 2-Clause license. Note that NO WARRANTY is provided.
-# * See "LICENSE_BSD2.txt" for details.
-# *
-# * @TAG(NICTA_BSD)
+#
+# Copyright 2020, Data61, CSIRO (ABN 41 687 119 230)
+#
+# SPDX-License-Identifier: BSD-2-Clause
+#
 
 # toplevel graph-refine script
 # usage: python graph-refine.py <target> <proofs>
@@ -39,7 +37,7 @@ def toplevel_check (pair, check_loops = True, report = False, count = None,
 	if count and not only_build_problem:
 		(i, n) = count
 		printout ('  (function pairing %d of %d)' % (i + 1, n))
-	
+
 	for (tag, fname) in pair.funs.iteritems ():
 		if not functions[fname].entry:
 			printout ('Skipping %s, underspecified %s' % (pair, tag))

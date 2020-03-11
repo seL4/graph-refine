@@ -1,3 +1,9 @@
+#
+# Copyright 2020, Data61, CSIRO (ABN 41 687 119 230)
+#
+# SPDX-License-Identifier: BSD-2-Clause
+#
+
 # a collection of commands that are useful to copy into
 # the python interpreter to diagnose issues
 
@@ -66,7 +72,7 @@ if search.last_failed_pairings:
 
 ind_fails = [pair for pair in fails if str (fails[pair][1]) == 'InductFailed']
 if ind_fails:
-  pair = ind_fails[0] 
+  pair = ind_fails[0]
   (_, _, eqs) = fails[pair]
   split = search.v_eqs_to_split (p, pair, eqs, (), check.init_point_hyps(p))
   check.check_split_induct_step_group (rep, (), check.init_point_hyps(p), split)

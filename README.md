@@ -1,3 +1,9 @@
+<!--
+     Copyright 2020, Data61, CSIRO (ABN 41 687 119 230)
+
+     SPDX-License-Identifier: BSD-2-Clause
+-->
+
 The NICTA Graph Refinement Toolset
 ==================================
 
@@ -43,7 +49,7 @@ The examples can be used to exercise the tool as follows:
 
     python graph-refine.py example f g rotate_right has_value
     python graph-refine.py loop-example/O1 all
-    
+
     # *much* slower
     python graph-refine.py loop-example/O2 all
 
@@ -85,7 +91,7 @@ There are various instructions available:
   - all: test all functions. this will usually be the last instruction.
   - no-loops: skip functions with loops
   - only-loops: skip functions without loops
-  - verbose: produce a lot of diagnostic output in subsequent instructions. 
+  - verbose: produce a lot of diagnostic output in subsequent instructions.
   - `function-name`: other instructions will be taken as the name of a single
 function to be tested.
 

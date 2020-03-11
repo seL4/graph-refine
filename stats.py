@@ -1,3 +1,9 @@
+#
+# Copyright 2020, Data61, CSIRO (ABN 41 687 119 230)
+#
+# SPDX-License-Identifier: BSD-2-Clause
+#
+
 # various attempts at gathering statistics
 
 from syntax import Expr, Type
@@ -178,7 +184,7 @@ def scan_times (res_f):
 			time = float (time[:-1])
 			times[pair] = time
 	res_f.close ()
-	return times 
+	return times
 
 def problem_difficult_estimate (p):
 	return (len (p.nodes), len (p.loop_heads ()),

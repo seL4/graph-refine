@@ -10,6 +10,7 @@ loop-example/O2/f-diagram.pdf
 loop-example/O2/report.txt
 loop-example/O2/loop-O2.elf.txt
 loop-example/O2/f-diagram.svg
+loop-example/O2/f-diagram.dot
 loop-example/O1/StackBounds.txt
 loop-example/O1/loop-O1.elf.txt
 loop-example/O1/f-diagram.pdf
@@ -17,3 +18,4 @@ loop-example/O1/loop-O1.elf.symtab
 loop-example/O1/report.txt
 loop-example/O1/loop-O1.sigs
 loop-example/O1/f-diagram.svg
+loop-example/O1/f-diagram.dot

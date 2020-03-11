@@ -1,11 +1,8 @@
-# * Copyright 2016, NICTA
-# *
-# * This software may be distributed and modified according to the terms
-# of
-# * the BSD 2-Clause license. Note that NO WARRANTY is provided.
-# * See "LICENSE_BSD2.txt" for details.
-# *
-# * @TAG(NICTA_BSD)
+#
+# Copyright 2020, Data61, CSIRO (ABN 41 687 119 230)
+#
+# SPDX-License-Identifier: BSD-2-Clause
+#
 
 import pydot
 from elf_file import *
@@ -34,7 +31,7 @@ def loopDot(head,p):
       else:
         nodes[n] = pydot.Node(n_cap)
     for n in nodes:
-      graph.add_node(nodes[n]) 
+      graph.add_node(nodes[n])
 
     for n in ns:
         conts = p.nodes[n].get_conts()
@@ -76,12 +73,12 @@ def toDotBB(imm_fun):
     graph = pydot.Dot(graph_type='digraph')
     nodes = {}
     #add all bbs
-    print 'generating dot graph...' 
+    print 'generating dot graph...'
     for bb_n in imm_fun.bbs:
       bb = imm_fun.bbs[bb_n]
       #print 'BB[%s]: %s' % (bb_n, bb)
       if len(bb) == 1:
-        n_cap = '0x%x\n' % bb[0] 
+        n_cap = '0x%x\n' % bb[0]
       else:
         n_cap = '0x%x - 0x%x\n' % (min(bb), max(bb))
       is_loophead = False
@@ -115,7 +112,7 @@ def toDotBB(imm_fun):
     #artificially insert the return node
     nodes['Ret'] = pydot.Node('Ret')
     for n in nodes:
-      graph.add_node(nodes[n]) 
+      graph.add_node(nodes[n])
 
     #print 'nodes added to graph'
     for bb in imm_fun.bbs:
@@ -129,7 +126,7 @@ def toDotBB(imm_fun):
     graph.write_svg('graphs/i_%s.svg' % imm_fun.g_f.name)
     #graph.write_png('/mnt/hgfs/imgs/i_%s.png' % imm_fun.g_f.name)
     print 'imm graph for %s generated' % imm_fun.g_f.name
-   
+
 def toGraph(p,f_name):
     p.save_graph('graphs/%s.dot' % f_name)
     p = subprocess.Popen(["dot","graphs/%s.dot"%f_name,"-Tsvg","-o","graphs/%s.svg" % f_name])

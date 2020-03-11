@@ -1,10 +1,8 @@
-# * Copyright 2015, NICTA
-# *
-# * This software may be distributed and modified according to the terms of
-# * the BSD 2-Clause license. Note that NO WARRANTY is provided.
-# * See "LICENSE_BSD2.txt" for details.
-# *
-# * @TAG(NICTA_BSD)
+#
+# Copyright 2020, Data61, CSIRO (ABN 41 687 119 230)
+#
+# SPDX-License-Identifier: BSD-2-Clause
+#
 
 from syntax import (Expr, mk_var, Node, true_term, false_term,
   fresh_name, word32T, word8T, mk_eq, mk_word32, builtinTs)
@@ -403,7 +401,7 @@ class Problem:
 			for pred in self.preds[n]
 			if (self.nodes[pred].kind != 'Basic'
 				or self.nodes[pred].upds != [])]
-		
+
 		for (pred, n) in arcs:
 			(tag, _) = self.node_tags[pred]
 			name = self.alloc_node (tag, 'MergePadding')
@@ -738,7 +736,7 @@ def inline_at_point (p, n, do_analysis = True):
 	p.nodes[ex] = Node ('Basic', node.cont, azip (node.rets, out_vs))
 
 	p.cached_analysis.clear ()
- 
+
 	if do_analysis:
 		p.do_analysis ()
 
@@ -833,7 +831,7 @@ def loop_var_analysis (p, head, tail):
 	final_pre_created = [created_vs_at[pr] for pr in p.preds[head]
 		if pr in nodes]
 	created = set.union (* final_pre_created)
-	
+
 	loop_vs = set.intersection (created, used_vs)
 	trace ('Loop vars at head: %s' % loop_vs)
 

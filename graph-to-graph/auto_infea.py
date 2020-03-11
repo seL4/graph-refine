@@ -1,11 +1,8 @@
-# * Copyright 2016, NICTA
-# *
-# * This software may be distributed and modified according to the terms
-# of
-# * the BSD 2-Clause license. Note that NO WARRANTY is provided.
-# * See "LICENSE_BSD2.txt" for details.
-# *
-# * @TAG(NICTA_BSD)
+#
+# Copyright 2020, Data61, CSIRO (ABN 41 687 119 230)
+#
+# SPDX-License-Identifier: BSD-2-Clause
+#
 
 import os, sys, time
 from subprocess import Popen, PIPE
@@ -44,7 +41,7 @@ def auto_infea(dir_name, entry_point_function, manual_conflicts_file, results_di
     tcfg_map = dir_name + '/%s.imm.map' % entry_point_function
     kernel_elf_file = dir_name+'/kernel.elf'
     ilp_nofooter = cplex.stripFooter(dir_name + '/%s.imm.ilp' % entry_point_function)
-    
+
     auto_refutes_file = results_dir+'/refutes.txt'
 
     p = Popen(['touch', auto_refutes_file])
@@ -80,7 +77,7 @@ def auto_infea(dir_name, entry_point_function, manual_conflicts_file, results_di
         results_f.write('   wcet: %s\n' % wcet)
 
 #reconstruct the worst case
-        refutables_fname = results_dir + '/refutables_%d' % case_i 
+        refutables_fname = results_dir + '/refutables_%d' % case_i
         f_refutables = open(refutables_fname,'w')
         print 'reconstructing the worst case for case %d' % case_i
         p = Popen(['python', 'reconstruct.py', '--refutable', dir_name, sol_file, tcfg_map, kernel_elf_file], stdout=f_refutables)
@@ -88,7 +85,7 @@ def auto_infea(dir_name, entry_point_function, manual_conflicts_file, results_di
         ret = p.returncode
         print 'ret: %d'% ret
         assert ret == 0
-        
+
         f_refutables.close()
         #now call trace_refute
         t = time.asctime()
@@ -123,7 +120,7 @@ def auto_infea(dir_name, entry_point_function, manual_conflicts_file, results_di
 
     results_f.close()
 
-if __name__ == '__main__':    
+if __name__ == '__main__':
     if len(sys.argv) != 5:
         print 'Usage: python auto_infea.py <dir_name> <entry point function> <results directory> <initial i>'
         print 'results direcotry should already exists and be empty'

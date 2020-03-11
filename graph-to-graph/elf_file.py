@@ -1,11 +1,9 @@
-# * Copyright 2016, NICTA
-# *
-# * This software may be distributed and modified according to the terms
-# of
-# * the BSD 2-Clause license. Note that NO WARRANTY is provided.
-# * See "LICENSE_BSD2.txt" for details.
-# *
-# * @TAG(NICTA_BSD)
+#
+# Copyright 2020, Data61, CSIRO (ABN 41 687 119 230)
+#
+# SPDX-License-Identifier: BSD-2-Clause
+#
+
 import re
 from graph_refine.target_objects import functions, functions_by_tag
 import graph_refine.problem as problem
@@ -48,7 +46,7 @@ class elfFile (Borg):
             assert 0
         self.elf_only = elf_only
         if not elf_only:
-            self.asm_fs = dict ([(x,functions[x]) for x in functions_by_tag['ASM']]) 
+            self.asm_fs = dict ([(x,functions[x]) for x in functions_by_tag['ASM']])
             asm_fs = self.asm_fs
             self.tcg = None
             #from original name to the cloned name
