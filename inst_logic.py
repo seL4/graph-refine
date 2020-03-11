@@ -86,7 +86,8 @@ def split_inst_name_regs_rv64(nm):
     print bits
     fin_bits = []
     regs = []
-
+    print 'bits:'
+    print bits
     for i in range(len(bits)):
         if bits[i] in reg_aliases_rv64.keys():
             if bits[i] == 'zero' and bits[0] == 'sfence':
@@ -97,8 +98,37 @@ def split_inst_name_regs_rv64(nm):
                 regs.append(reg_aliases_rv64.get(bits[i]))
                 fin_bits.append('-argv%d' % len(regs))
 
+        elif bits[0] == 'ecall':
+            fin_bits.append(bits[0])
+            regs.append('r10')
+
+            fin_bits.append('-argv%d' % len(regs))
+
+            regs.append('r11')
+
+            fin_bits.append('-argv%d' % len(regs))
+
+            regs.append('r12')
+
+            fin_bits.append('-argv%d' % len(regs))
+
+            regs.append('r13')
+
+            fin_bits.append('-argv%d' % len(regs))
+
+            regs.append('r10')
+            fin_bits.append('-ret%d' % len(regs))
+#            regs.append('r14')
+
+#            fin_bits.append('-argv%d' % len(regs))
+
+#            regs.append('r15')
+
+#            fin_bits.append('-argv%d' % len(regs))
+
         elif bits[i] == 'x0' and bits[0] == 'sfence.vma':
             fin_bits.append(bits[i])
+            print fin_bits
         elif bits[i] in reg_set_rv64:
             regs.append('r' + bits[i][1:])
             fin_bits.append('-argv%d' % len(regs))
@@ -198,7 +228,6 @@ instruction_fun_specs_rv64 = {
     'csrr_sepc':        ("impl'csrr_sepc", ["O"]),
     'csrr_scause':      ("impl'csrr_scause", ["O"]),
     'csrr_sstatus':     ("impl'csrr_sstatus", ["O"]),
-    'csrr_sbadaddr':    ("impl'csrr_sbadaddr", ["O"]),
     'csrr_sscratch':    ("impl'csrr_sscratch", ["O"]),
     'csrr_stval':       ("impl'csrr_stval", ["O"]),
     'csrw_sptbr':       ("impl'csrw_sptbr", ["I"]),
@@ -209,7 +238,8 @@ instruction_fun_specs_rv64 = {
     'csrrs_sie':	    ("impl'csrrs_sie", ["O", "I"]),
     'csrrw_sscratch':	("impl'csrrw_sscratch", ["O", "I"]),
     'wfi':		        ("impl'wfi", []),
-    'ecall': 	        ("impl'ecall", []),
+    #'ecall': 	        ("impl'ecall", []),
+    'ecall':            ("impl'ecall", ["I", "I", "I", "I", "O"]),
     'rdtime': 	        ("impl'rdtime", ["O"]),
     'unimp':	        ("unimp", []),
 }
@@ -349,7 +379,7 @@ def mk_bin_inst_spec (fname):
     (impl_fname, regspecs) = instruction_fun_specs[base_ident]
 
     print 'asmimpl %s' % impl_fname
-    impl_fname = impl_fname + '@' + str(hex(addr))
+    #impl_fname = impl_fname + '@' + str(hex(addr))
     add_impl_fun (impl_fname, regspecs)
 
     print impl_fname
@@ -400,12 +430,11 @@ def mk_asm_inst_spec (fname):
     print ident
     print args
 
-    if not all ([arg.startswith ('%') for arg in args]):
-        printout ('Warning: asm instruction name: formatting: %r'
-                  % fname)
-        #rv64_hack
-        assert False
-        return
+    if syntax.arch == 'armv7':
+        if not all ([arg.startswith ('%') for arg in args]):
+            printout ('Warning: asm instruction name: formatting: %r'
+                      % fname)
+            return
 
     if syntax.arch == 'armv7':
         base_ident = ident.split ("_")[0]
