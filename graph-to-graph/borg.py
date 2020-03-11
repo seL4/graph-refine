@@ -1,3 +1,4 @@
+# Copyright 2001 Alex Martelli
 # SPDX-License-Identifier: CC-BY-SA-3.0
 '''
 CC BY-SA 3.0

@@ -1,0 +1,24 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: graph-refine
+Upstream-Contact: seL4 teams <support@sel4.systems>
+Source: https://github.com/seL4proj/graph-refine
+
+Files:
+ loop-example/*/StackBounds.txt
+ loop-example/*/*.dot
+ loop-example/*/*.pdf
+ loop-example/*/*.svg
+ loop-example/*/report.txt
+Copyright: Copyright 2020, Data61, CSIRO (ABN 41 687 119 230)
+License: CC-BY-SA-4.0
+
+Files:
+ loop-example/O1/loop-O1.elf.symtab
+ loop-example/O1/loop-O1.elf.txt
+ loop-example/O1/loop-O1.sigs
+ loop-example/O2/loop-O2.elf.symtab
+ loop-example/O2/loop-O2.elf.txt
+ loop-example/O2/loop-O2.sigs
+ loop-example/O2/proof
+Copyright: Copyright 2020, Data61, CSIRO (ABN 41 687 119 230)
+License: BSD-2-Clause
