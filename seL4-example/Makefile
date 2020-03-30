@@ -146,7 +146,17 @@ ${TARGET_DIR}/report.txt: ${TARGET_DIR}/StackBounds.txt ${GRAPH_REFINE_INPUTS}
 	${GRAPH_REFINE} ${TARGET_DIR} trace-to:$@.partial all
 	mv $@.partial $@
 
-default: ${TARGET_DIR}/report.txt
+${TARGET_DIR}/coverage.txt: ${TARGET_DIR}/StackBounds.txt ${GRAPH_REFINE_INPUTS}
+	${GRAPH_REFINE} ${TARGET_DIR} trace-to:$@.partial coverage
+	mv $@.partial $@
+
+report: ${TARGET_DIR}/report.txt
+coverage: ${TARGET_DIR}/coverage.txt
+StackBounds: ${TARGET_DIR}/StackBounds.txt
+
+.PHONY: report coverage StackBounds
+
+default: report
 
 .PHONY: .FORCE
 .FORCE:
