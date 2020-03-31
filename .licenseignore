@@ -6,6 +6,8 @@
 
 *.pyc
 
+.reuse/dep5
+
 internal/*
 
 loop-example/O2/loop-O2.sigs
