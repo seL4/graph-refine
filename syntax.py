@@ -1484,6 +1484,9 @@ def mk_num (x, typ):
     assert logic.is_int (x), x
     return Expr ('Num', typ, val = x)
 
+def mk_word16(x):
+    return mk_num(x, word16T)
+
 def mk_word32 (x):
     return mk_num (x, word32T)
 
