@@ -1410,7 +1410,7 @@ def mk_bwand (x, y):
     return Expr ('Op', x.typ, name = 'BWAnd', vals = [x, y])
 
 def mk_eq (x, y):
-    #	assert x.typ == y.typ
+    assert x.typ == y.typ
     return Expr ('Op', boolT, name = 'Equals', vals = [x, y])
 
 def mk_less_eq (x, y, signed = False):
