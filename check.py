@@ -129,7 +129,7 @@ def inline_reachable_unmatched (p, inline_tag, compare_tag,
         try:
             heads = problem.loop_heads_including_inner (p)
             limits = [(n, opts) for n in heads]
-
+            print "pcenv1:"
             for n in p.nodes.keys ():
                 try:
                     r = rep.get_node_pc_env ((n, limits))
@@ -192,22 +192,36 @@ def inst_eqs (p, restrs, eqs, tag_map = {}):
     addr_map = {}
     if not tag_map:
         tag_map = dict ([(tag, tag) for tag in p.tags ()])
+    print 'tag_map:'
+    print tag_map
     for (pair_tag, p_tag) in tag_map.iteritems ():
         addr_map[pair_tag + '_IN'] = ((p.get_entry (p_tag), ()), p_tag)
         addr_map[pair_tag + '_OUT'] = (('Ret', restrs), p_tag)
+    print "addr_map:"
+    print addr_map
     renames = p.entry_exit_renames (tag_map.values ())
+    print 'renames:'
+    print renames
+
     for (pair_tag, p_tag) in tag_map.iteritems ():
         renames[pair_tag + '_IN'] = renames[p_tag + '_IN']
         renames[pair_tag + '_OUT'] = renames[p_tag + '_OUT']
     hyps = []
     for (lhs, rhs) in eqs:
+        print 'lhs:'
+        print lhs
+        print 'rhs:'
+        print rhs
         vals = [(rename_expr (x, renames[x_addr]), addr_map[x_addr])
                 for (x, x_addr) in (lhs, rhs)]
+        print 'vals:'
+        print vals
         hyps.append (eq_hyp (vals[0], vals[1]))
     return hyps
 
 def init_point_hyps (p):
-    #print p.pairing.eqs
+    print 'pairing eqs'
+    print p.pairing.eqs
     (inp_eqs, _) = p.pairing.eqs
     return inst_eqs (p, (), inp_eqs)
 
@@ -761,10 +775,14 @@ def all_rev_induct_checks (p, restrs, hyps, point, (eqs, n), (pred, n_bound)):
 def leaf_condition_checks (p, restrs, hyps):
     '''checks of the final refinement conditions'''
     nrerr_pc_hyp = non_r_err_pc_hyp (p.pairing.tags, restrs)
+    print 'nrerr_pc_hyp:'
+    print nrerr_pc_hyp
     hyps = [nrerr_pc_hyp] + hyps
     [l_tag, r_tag] = p.pairing.tags
 
     nlerr_pc = pc_false_hyp ((('Err', restrs), l_tag))
+    print 'nlerr_pc:'
+    print nlerr_pc
     # this 'hypothesis' ensures that the representation is built all
     # the way to Ret. in particular this ensures that function relations
     # are available to use in proving single-side equalities
@@ -957,6 +975,10 @@ def check_proof_report_rec (p, restrs, hyps, proof, step_num, ctxt, inducts,
                  % (step_num, v, n)]
     elif proof.kind == 'Leaf':
         printout ('  prove all verification conditions')
+        print "restrs:"
+        print restrs
+        print "hyps:"
+        print hyps
         checks = leaf_condition_checks (p, restrs, hyps)
         cases = []
     elif proof.kind == 'CaseSplit':
@@ -966,7 +988,12 @@ def check_proof_report_rec (p, restrs, hyps, proof, step_num, ctxt, inducts,
                  'case in (%d) where %d is not visited' % (step_num, proof.point)]
 
     if checks and do_check:
+
+        print 'checks:'
+        for c in checks:
+            print c
         groups = proof_check_groups (checks)
+
         for group in groups:
             rep = rep_graph.mk_graph_slice (p)
             detail = [0]
@@ -974,6 +1001,7 @@ def check_proof_report_rec (p, restrs, hyps, proof, step_num, ctxt, inducts,
             if not res:
                 printout ('    .. failed to prove this.')
                 printout ('      (failure kind: %r)' % detail[0])
+                print hyps
                 return
 
         printout ('    .. proven.')
