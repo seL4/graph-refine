@@ -1851,6 +1851,9 @@ class Solver:
     def check_hyp (self, hyp, env, model = None, force_solv = False,
                    hyp_name = None):
         hyp = smt_expr (hyp, env, self)
+        print 'check_hyp:'
+        print hyp
+        force_solv = 'Slow'
         return self.check_hyp_raw (hyp, model = model,
                                    force_solv = force_solv, hyp_name = hyp_name)
 
