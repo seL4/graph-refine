@@ -1187,8 +1187,16 @@ class Solver:
         [rodata_data, rodata_ranges, rodata_ptrs] = rodata
 
         if syntax.is_64bit:
-            bits = 64
-            wordT = word64T
+            #bits = 64
+            #wordT = word64T
+            #and_mask = '#x0000000000000003'
+            #cmp_val = '#x0000000000000000'
+
+            pbits = 64
+            vbits = 16
+            pwordT = word64T
+            vwordT = word16T
+            #wordT = word16T
             and_mask = '#x0000000000000003'
             cmp_val = '#x0000000000000000'
         else:
@@ -1202,28 +1210,35 @@ class Solver:
             ro_def = 'true'
             imp_ro_def = 'true'
         else:
-            ro_witness = self.add_var ('rodata-witness', wordT)
-            ro_witness_val = self.add_var ('rodata-witness-val', wordT)
+            ro_witness = self.add_var ('rodata-witness', pwordT)
+            ro_witness_val = self.add_var ('rodata-witness-val', vwordT)
             assert ro_witness == 'rodata-witness'
             assert ro_witness_val == 'rodata-witness-val'
-            eq_vs = [(smt_num (p, bits), smt_num (v, bits))
+            eq_vs = [(smt_num (p, pbits), smt_num (v, vbits))
                      for (p, v) in rodata_data.iteritems ()]
             eq_vs.append ((ro_witness, ro_witness_val))
+            print ro_witness
+            print ro_witness_val
+            print eq_vs
             if syntax.is_64bit:
-                eqs = ['(= (load-word64 m %s) %s)' % v for v in eq_vs]
+                eqs = ['(= (load-word16 m %s) %s)' % v for v in eq_vs]
             else:
                 eqs = ['(= (load-word32 m %s) %s)' % v for v in eq_vs]
-
+            print eqs
             ro_def = '(and %s)' % ' \n  '.join (eqs)
             ro_ineqs = ['(and (bvule %s %s) (bvule %s %s))'
-                        % (smt_num (start, bits), ro_witness,
-                           ro_witness, smt_num (end, bits))
+                        % (smt_num (start, pbits), ro_witness,
+                           ro_witness, smt_num (end, pbits))
                         for (start, end) in rodata_ranges]
             assns = ['(or %s)' % ' '.join (ro_ineqs),
                      '(= (bvand rodata-witness %s) %s)' % (and_mask, cmp_val)]
             for assn in assns:
                 self.assert_fact_smt (assn)
             imp_ro_def = eqs[-1]
+
+        print ro_def
+        print imp_ro_def
+        #assert False
         self.send ('(define-fun rodata ((m %s)) Bool %s)' % (
             smt_typ (builtinTs['Mem']), ro_def))
         self.send ('(define-fun implies-rodata ((m %s)) Bool %s)' % (
@@ -1231,7 +1246,8 @@ class Solver:
 
     def get_eq_rodata_witness (self, v):
         # depends on assertion above, should probably fix this
-        ro_witness = mk_smt_expr ('rodata-witness', word32T)
+        #rv64 hack: word32T -> word64T
+        ro_witness = mk_smt_expr ('rodata-witness', word64T)
         return syntax.mk_eq (ro_witness, v)
 
     def check_hyp_raw (self, hyp, model = None, force_solv = False,
@@ -1979,6 +1995,8 @@ class Solver:
             if not rodata_ptrs:
                 rodata_ptrs = []
             for (r_addr, r_typ) in rodata_ptrs:
+                #rv64_hack
+                r_addr.typ = syntax.word64T
                 r_addr_s = smt_expr (r_addr, {}, None)
                 print 'raddr:'
                 print type(r_addr)
