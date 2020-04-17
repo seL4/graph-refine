@@ -625,8 +625,12 @@ def split_hyp (hyp):
 mem_word8_preamble = [
     '''(define-fun load-word32 ((m {MemSort}) (p (_ BitVec 32)))
 	(_ BitVec 32)
-(concat (concat (select m (bvadd p #x00000003)) (select m (bvadd p #x00000002)))
-  (concat (select m (bvadd p #x00000001)) (select m p))))
+(concat
+	(concat (select m (bvadd p #x00000003))
+	        (select m (bvadd p #x00000002)))
+    (concat (select m (bvadd p #x00000001))
+            (select m p)))
+)
 ''',
     '''(define-fun load-word64 ((m {MemSort}) (p (_ BitVec 32)))
 	(_ BitVec 64)
@@ -730,12 +734,11 @@ mem_word64_preamble = [
     '''
 (define-fun load-word32 ((m {MemSort}) (p (_ BitVec 64)))
 	(_ BitVec 32)
-	(concat (select m (bvadd p #x0000000000000003))
-		(concat (select m (bvadd p #x0000000000000002))
-			(concat (select m (bvadd p #x0000000000000001))
-					(select m p)
-			)
-		)
+	(concat
+		(concat (select m (bvadd p #x0000000000000003))
+				(select m (bvadd p #x0000000000000002)))
+		(concat (select m (bvadd p #x0000000000000001))
+				(select m p))
 	)
 )
 ''',
@@ -743,8 +746,8 @@ mem_word64_preamble = [
     '''
 (define-fun load-word64 ((m {MemSort}) (p (_ BitVec 64)))
 	(_ BitVec 64)
-	(concat (load-word32 m p)
-			(load-word32 m (bvadd p #x0000000000000004))
+	(concat (load-word32 m (bvadd p #x0000000000000004))
+			(load-word32 m p)
 	)
 )
 '''
