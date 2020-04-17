@@ -92,6 +92,8 @@ class Problem:
         vs = syntax.get_vars (fun)
         vs = dict ([(v, fresh_name (v, self.vs, vs[v])) for v in vs])
         ns = fun.reachable_nodes ()
+        print fun.name
+        print ns
         check_no_symbols ([fun.nodes[n] for n in ns])
         for n in ns:
             assert n not in node_renames
@@ -106,10 +108,14 @@ class Problem:
 
     def add_entry_function (self, fun, tag):
         (ns, vs) = self.add_function (fun, tag, {})
-        #print 'add func\n'
-        #print fun
-        #print tag
+        print 'add func\n'
+        print fun
+        print fun.name
+        print fun.nodes
+        print tag
         entry = ns[fun.entry]
+        print entry
+        print fun.entry
         args = [(vs[v], typ) for (v, typ) in fun.inputs]
         rets = [(vs[v], typ) for (v, typ) in fun.outputs]
         self.entries.append((entry, tag, fun.name, args))
