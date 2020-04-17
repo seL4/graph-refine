@@ -1121,7 +1121,11 @@ class Solver:
             return name
         name = self.smt_name (name, kind = (kind, typ),
                               ignore_external_names = ignore_external_names)
-        self.send ('(declare-fun %s () %s)' % (name, smt_typ(typ)))
+        # r0 or x0 for riscv is always 0. writes to the reg do not have effects
+        if syntax.arch == 'rv64' and name.startswith('r0'):
+            self.send('(define-fun %s () %s #x0000000000000000)' % (name, smt_typ(typ)))
+        else:
+            self.send ('(declare-fun %s () %s)' % (name, smt_typ(typ)))
         if typ_representable (typ) and kind != 'Aux':
             self.model_vars.add (name)
         if typ == builtinTs['Mem'] and mem_name != None:
