@@ -1378,8 +1378,8 @@ class Solver:
         self.write_solv_script (tmpfile_write, input_msgs,
                                 solver = solver)
         tmpfile_write.close ()
-        shutil.copyfile(name, '/home/yshen' + name)
         print name
+        shutil.copyfile(name, './logs' + name)
         print 'solver inputs:\n'
         print input_msgs
         print 'done\n'
