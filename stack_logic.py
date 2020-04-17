@@ -1232,7 +1232,7 @@ def get_asm_calling_convention_inner (num_c_args, num_c_rets, const_mem):
         #assert False
     elif syntax.arch == 'rv64':
         callee_saved_vars = ([mk_var(v, word64T)
-                              for v in 'r18 r19 r20 r21 r22 r23 r24 r25 r26 r27'.split()]
+                              for v in 'r2 r8 r9 r18 r19 r20 r21 r22 r23 r24 r25 r26 r27'.split()]
                              + [dom, dom_stack])
         print callee_saved_vars
         #assert False
