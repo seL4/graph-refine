@@ -366,6 +366,9 @@ def smt_expr (expr, env, solv):
         assert htd.kind == 'Var'
         htd_s = env[(htd.name, htd.typ)]
         p_s = smt_expr (p, env, solv)
+        print 'hhhh:'
+        print p_s
+        print env
         var = solv.add_pvalids (htd_s, typ, p_s, expr.name)
         return var
     elif expr.is_op ('MemDom'):
@@ -423,6 +426,24 @@ def smt_expr (expr, env, solv):
         eq = solv.add_implies_stack_eq (sp1, st1, st2, env)
         sp1 = smt_expr (sp1, env, solv)
         sp2 = smt_expr (sp2, env, solv)
+        print "ImpliesStackEquals:"
+        print sp1
+        print st1
+        print sp2
+        print st2
+        print eq
+        #rv64_hack
+        # for functions that do not touch stack at all,
+        # something like
+        # (assert (not (and (= r2_init r2_init) stack-eq)))
+        # is generated. This assert cannot be satifisfied, and
+        # thus an 'unsat' result. A hack here to avoid the
+        # always 'unsat' result.
+        if sp1 == sp2 and sp1 == 'r2_init':
+            #return '(not false)'
+            #return '(and (not false) false)'
+            pass
+
         return '(and (= %s %s) %s)' % (sp1, sp2, eq)
     elif expr.is_op ('IfThenElse'):
         (sw, x, y) = [smt_expr (e, env, solv) for e in expr.vals]
@@ -974,6 +995,8 @@ class Solver:
         for msg in self.preamble (solver):
             self.send (msg, replay=False)
         for (msg, _) in self.replayable:
+            #print 'replay:'
+            #print msg
             self.send (msg, replay=False)
 
     def close (self, reason = '?'):
@@ -1075,8 +1098,13 @@ class Solver:
         ucs = []
         if response == 'sat' and model:
             all_ok = self.fetch_model (m)
+            print 'sat:'
+            print all_ok
         if response == 'unsat' and unsat_core:
+            #if response == 'unsat':
             ucs = self.get_unsat_core ()
+            print 'ucs:'
+            print ucs
             all_ok = ucs != None
 
         self.send_inner ('(pop 1)', replay = False)
@@ -1139,9 +1167,13 @@ class Solver:
             trace ('WARNING: redef of var %r to name %s' % (val, name))
 
         typ = smt_typ (val.typ)
+        print typ
+        print name
+        print smt
         self.send ('(define-fun %s () %s %s)' % (name, typ, smt))
 
         self.defs[name] = parse_s_expression (smt)
+        print self.defs[name]
         if typ_representable (val.typ):
             self.model_vars.add (name)
 
@@ -1220,6 +1252,9 @@ class Solver:
         assert self.unsat_cores or unsat_core == None
 
         hyp_dict = {}
+        print hyps
+        print 'kk'
+        print type(hyps)
         raw_hyps = [(hyp2, tag) for (hyp, tag) in hyps
                     for hyp2 in split_hyp (hyp)]
         last_hyps[0] = list (raw_hyps)
@@ -1521,6 +1556,10 @@ class Solver:
         """test a series of keyed hypotheses [(k1, h1), (k2, h2) ..etc]
         either returns (True, -) all hypotheses true
         or (False, ki) i-th hypothesis unprovable"""
+
+        print 'chk:'
+        print hyps
+
         hyps = [(k, hyp) for (k, hyp) in hyps
                 if not self.test_hyp (hyp, env, force_solv = 'Fast',
                                       catch = True, hyp_name = "('hyp', %s)" % k)]
@@ -1528,6 +1567,7 @@ class Solver:
         if not hyps:
             return ('unsat', None)
         all_hyps = foldr1 (syntax.mk_and, [h for (k, h) in hyps])
+        print 'all_hyps: %s' % all_hyps
         def spawn ((k, hyp), stratkey):
             goal = smt_expr (syntax.mk_not (hyp), env, self)
             [self.add_parallel_solver ((solver.name, strat, k),
@@ -1913,11 +1953,16 @@ class Solver:
                 wordT = syntax.word64T
             else:
                 wordT = syntax.word32T
+
+            print 'here:'
+            print p_s
             p = self.add_def ('ptr', mk_smt_expr (p_s, wordT), {})
             self.ptrs[p_s] = p
         return p
 
     def add_pvalids (self, htd_s, typ, p_s, kind, recursion = False):
+        print 'pvalids:'
+        print p_s
         htd_sexp = parse_s_expression (htd_s)
         if htd_sexp[0] == 'ite':
             [cond, l, r] = map (flat_s_expression, htd_sexp[1:])
@@ -1932,11 +1977,23 @@ class Solver:
                 rodata_ptrs = []
             for (r_addr, r_typ) in rodata_ptrs:
                 r_addr_s = smt_expr (r_addr, {}, None)
+                print 'raddr:'
+                print type(r_addr)
+                print r_addr
+                print r_typ
+                print r_addr_s
                 var = self.add_pvalids (htd_s, ('Type', r_typ),
                                         r_addr_s, 'PGlobalValid',
                                         recursion = True)
                 self.assert_fact_smt (var)
 
+        print 'nodeptr:'
+        print p_s
+        if p_s == '#x7b38':
+            assert False
+
+        #print r_addr
+        #print r_typ
         p = self.note_ptr (p_s)
 
         trace ('adding pvalid with type %s' % (typ, ))
@@ -1990,7 +2047,7 @@ class Solver:
         elif m[0] in ['store-word32', 'store-word8', 'store-word64']:
             (_, m, p, v) = m
             print m
-            assert False
+            #assert False
             self.get_imm_basis_mems (m, accum)
         elif type (m) == tuple:
             assert not 'mem construction understood', m
@@ -2042,9 +2099,17 @@ class Solver:
         sp_smt = smt_expr (sp, env, self)
         self.assert_fact_smt ('(bvule %s %s)' % (sp_smt, addr))
         ptr = mk_smt_expr (addr, wordT)
+        print "stackeq:"
+        print sp
+        print s1
+        print s2
+        print ptr
         eq = syntax.mk_eq (syntax.mk_memacc (s1, ptr, wordT),
                            syntax.mk_memacc (s2, ptr, wordT))
+        print 'eq:'
+        print eq
         stack_eq = self.add_def ('stack-eq', eq, env)
+        print stack_eq
         self.stack_eqs[k] = stack_eq
         return stack_eq
 
@@ -2103,6 +2168,9 @@ class Solver:
                 for (start, end) in sections.itervalues ()]
 
         pvalid_doms = (pvs, set (self.doms))
+        print pvalid_doms
+        assert False
+
         if self.pvalid_doms == pvalid_doms:
             return
 
