@@ -443,8 +443,10 @@ def stack_virtualise_expr (expr, sp_offs):
     #	print '\n'
     #	print expr
 
+        mod = 4
         if syntax.is_64bit:
             mk_word = syntax.mk_word64
+            mod = 8
         else:
             mk_word = syntax.mk_word32
 
@@ -463,17 +465,22 @@ def stack_virtualise_expr (expr, sp_offs):
         if sp_offs == None:
             return (ptrs, None)
         # FIXME: very 32-bit specific
-        assert False
+        #assert False
 
         ps = [(p, n) for (p, n) in ps if p in sp_offs
-              if sp_offs[p][1] % 4 == 0]
+              if sp_offs[p][1] % mod == 0]
         if not ps:
             return (ptrs, expr)
         [(p, n)] = ps
         if p not in sp_offs:
             raise StackOffsMissing ()
         (k, offs) = sp_offs[p]
-        v = mk_var (('Fake', k, offs), syntax.word32T)
+
+        if syntax.arch == 'rv64':
+            v = mk_var(('Fake', k, offs), syntax.word64T)
+        else:
+            v = mk_var (('Fake', k, offs), syntax.word32T)
+
         if n != 0:
             v = syntax.mk_shiftr (v, n * 8)
         v = syntax.mk_cast (v, expr.typ)
@@ -602,7 +609,7 @@ def adjust_ret_ptr (ptr):
     if syntax.is_64bit:
         return logic.var_subst(ptr,
                                {('ret_addr_inpt', syntax.word64T):
-                                syntax.mk_var('r10', syntax.word32T)},
+                                syntax.mk_var('r10', syntax.word64T)},
                                must_subst = False)
     else:
         return logic.var_subst (ptr, {('ret_addr_input', syntax.word32T):
