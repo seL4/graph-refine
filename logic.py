@@ -168,9 +168,12 @@ def mk_eqs_arm_none_eabi_gnu (var_c_args, var_c_rets, c_imem, c_omem,
     sregs = mk_stack_sequence (sp, 4, st, word32T, len (var_c_args) + 1)
 
     ret = mk_var ('ret', word32T)
-    preconds = [mk_aligned (sp, 2), mk_eq (ret, mk_var ('r14', word32T)),
-                mk_aligned (ret, 2), mk_eq (r0_input, r0),
+    preconds = [mk_aligned (sp, 2),
+                mk_eq (ret, mk_var ('r14', word32T)),
+                mk_aligned (ret, 2),
+                mk_eq (r0_input, r0),
                 mk_less_eq (min_stack_size, sp)]
+
     post_eqs = [(x, x) for x in mk_var_list (['r4', 'r5', 'r6', 'r7', 'r8',
                                               'r9', 'r10', 'r11', 'r13'], word32T)]
 
@@ -201,7 +204,7 @@ def mk_eqs_arm_none_eabi_gnu (var_c_args, var_c_rets, c_imem, c_omem,
                      if addr != None]
     swrap = mk_stack_wrapper (sp, st, arg_seq_addrs)
     swrap2 = mk_stack_wrapper (sp, st, save_addrs)
-    #post_eqs += [(swrap, swrap2)]
+    post_eqs += [(swrap, swrap2)]
 
     mem = mk_var ('mem', builtinTs['Mem'])
     (mem_ieqs, mem_oeqs) = mk_mem_eqs ([mem], c_imem, [mem], c_omem,
@@ -224,13 +227,13 @@ def mk_eqs_arm_none_eabi_gnu (var_c_args, var_c_rets, c_imem, c_omem,
 def mk_eqs_riscv64_unknown_linux_gnu(var_c_args, var_c_rets, c_imem, c_omem,
                                      min_stack_size):
 
-    #print var_c_args
+    print var_c_args
     #print '\n'
-    #print var_c_rets
+    print var_c_rets
     #print'\n'
-    #print c_imem
+    print c_imem
     #print '\n'
-    #print c_omem
+    print c_omem
     # it looks lik
     arg_regs = mk_var_list(['r10', 'r11', 'r12', 'r13', 'r15', 'r16', 'r17'], word64T)
     #print arg_regs
@@ -245,12 +248,15 @@ def mk_eqs_riscv64_unknown_linux_gnu(var_c_args, var_c_rets, c_imem, c_omem,
     r10_input = mk_var('ret_addr_input', word64T)
     sregs = mk_stack_sequence(sp, 8, st, word64T, len(var_c_args) + 1)
     ret = mk_var('ret', word64T)
+    #r1 = mk_var('r1', word64T)
+    r2 = mk_var('r2', word64T)
 
     preconds = [
-        #for RV64, assume the stack is 8-byte aligned
-        mk_aligned(sp, 3),
+        #for RV64, assume the stack is 16-byte aligned
+        mk_aligned(sp, 4),
         mk_eq(ret, mk_var('r1', word64T)),
-        mk_eq(sp, mk_var('r2', word64T)),
+
+        #mk_eq(sp, mk_var('r2', word64T)),
         # precondition; ret address is 2-byte aligned for
         # compress insturction or 4-byte aligned for
         # normal instruction
@@ -263,8 +269,8 @@ def mk_eqs_riscv64_unknown_linux_gnu(var_c_args, var_c_rets, c_imem, c_omem,
 
     post_eqs = [
         (x, x) for x in mk_var_list(
-            ['r18', 'r19', 'r20', 'r21', 'r22', 'r23',
-             'r24', 'r25', 'r26', 'r27', 'r28'],
+            ['r2', 'r8', 'r9', 'r18', 'r19', 'r20', 'r21',
+             'r22', 'r23', 'r24', 'r25', 'r26', 'r27'],
             word64T)
     ]
 
@@ -282,6 +288,7 @@ def mk_eqs_riscv64_unknown_linux_gnu(var_c_args, var_c_rets, c_imem, c_omem,
         print var_c_args
         print var_c_rets
         print '\n'
+
     #	print 'b_arg_seq\n'
     #	print arg_seq
         arg_seq.pop (0)
@@ -300,7 +307,7 @@ def mk_eqs_riscv64_unknown_linux_gnu(var_c_args, var_c_rets, c_imem, c_omem,
         out_eqs = zip (var_c_rets, [x for (x, _) in save_seq])
         out_eqs = [(c, mk_cast (a, c.typ)) for (c, a) in out_eqs]
         init_save_seq = mk_stack_sequence (r10, 8, st, word64T,
-                                           len (var_c_rets))
+                                           (var_c_rets))
         (_, last_arg_addr) = arg_seq[len (var_c_args) - 1]
         preconds += [mk_less_eq (sp, addr)
                      for (_, addr) in init_save_seq[-1:]]
@@ -313,23 +320,33 @@ def mk_eqs_riscv64_unknown_linux_gnu(var_c_args, var_c_rets, c_imem, c_omem,
         out_eqs = zip (var_c_rets, [r10])
         save_addrs = []
 
+    print 'bla'
+    print out_eqs
+    print var_c_rets
+
+    print out_eqs
+    #assert False
     arg_seq_addrs = [addr for ((_, addr), _) in zip (arg_seq, var_c_args)
                      if addr != None]
     #print arg_seq_addrs
-    #print 'kkjk'
+    print 'kkjk'
     swrap = mk_stack_wrapper (sp, st, arg_seq_addrs)
     swrap2 = mk_stack_wrapper (sp, st, save_addrs)
-    #print swrap
-    #print swrap2
+    print swrap
+    print swrap2
 
-#	post_eqs += [(swrap, swrap2)]
+    post_eqs += [(swrap, swrap2)]
 
     mem = mk_var ('mem', builtinTs['Mem'])
     (mem_ieqs, mem_oeqs) = mk_mem_eqs ([mem], c_imem, [mem], c_omem,
                                        ['ASM', 'C'])
 
-    #print mem_ieqs
-    #print mem_oeqs
+    print 'memory:'
+    print c_imem
+    print c_omem
+    print mem_ieqs
+    print mem_oeqs
+
     #assert None
     addr = None
     arg_eqs = [cast_pair (((a_x, 'ASM_IN'), (c_x, 'C_IN')))
@@ -338,12 +355,15 @@ def mk_eqs_riscv64_unknown_linux_gnu(var_c_args, var_c_rets, c_imem, c_omem,
     #print var_c_args
     #print arg_seq
     #print 'bla'
+
     if addr:
         preconds += [mk_less_eq (sp, addr)]
+
     ret_eqs = [cast_pair (((a_x, 'ASM_OUT'), (c_x, 'C_OUT')))
                for (c_x, a_x) in out_eqs]
-    #print 'kk'
-    #print ret_eqs
+
+    print 'kk'
+    print ret_eqs
 
     preconds = [((a_x, 'ASM_IN'), (true_term, 'ASM_IN')) for a_x in preconds]
     asm_invs = [((vin, 'ASM_IN'), (vout, 'ASM_OUT')) for (vin, vout) in post_eqs]
@@ -357,6 +377,7 @@ def mk_eqs_riscv64_unknown_linux_gnu(var_c_args, var_c_rets, c_imem, c_omem,
     #return (arg_eqs + preconds, ret_eqs)
     #return (arg_eqs + preconds, ret_eqs + asm_invs)
     #return (arg_eqs +  preconds, ret_eqs + asm_invs)
+
     return (arg_eqs + mem_ieqs + preconds, ret_eqs + mem_oeqs + asm_invs)
 
 known_CPUs = {
@@ -1794,10 +1815,20 @@ def apply_rel_wrapper (lhs, rhs):
     if ops == set (['StackWrapper']):
         [sp1, st1] = lhs.vals[:2]
         [sp2, st2] = rhs.vals[:2]
+        print 'stackwrapper:'
+        print sp1
+        print st1
+        print sp2
+        print st2
         excepts = list (set (lhs.vals[2:] + rhs.vals[2:]))
+        print excepts
         for p in excepts:
             st1 = syntax.mk_memupd (st1, p, mk_word(0))
             st2 = syntax.mk_memupd (st2, p, mk_word(0))
+
+        print 'st:'
+        print st1
+        print st2
         return syntax.Expr ('Op', boolT, name = 'StackEquals',
                             vals = [sp1, st1, sp2, st2])
     elif ops == set (['MemAccWrapper', 'MemWrapper']):
