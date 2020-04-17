@@ -314,7 +314,6 @@ def smt_expr (expr, env, solv):
             return '((_ extract %d 0) %s)' % (expr.typ.num - 1, ex)
         else:
             if expr.name == 'WordCast':
-                #print 'HERHEHEH'
                 return '((_ zero_extend %d) %s)' % (
                     expr.typ.num - v.typ.num, ex)
             else:
