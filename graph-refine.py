@@ -337,6 +337,13 @@ def main(args):
                 excluding = True
             elif arg == '-end-exclude':
                 excluding = False
+            elif arg == '-include-only':
+                excluding = True
+                excludes = set ()
+            elif arg == '-end-include-only': # simulate include using exclude
+                excluding = False
+                includes = set ([f for e in excludes for p in pairings[e] for f in p.funs.values()])
+                excludes = set ([f for f in pairings]).difference(includes)
             elif arg.startswith('t:'):
                 tags.add(arg[2:])
             elif arg.startswith('target:'):
