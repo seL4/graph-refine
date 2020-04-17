@@ -44,12 +44,13 @@ def install_syms (symtab):
 is_rodata_line = re.compile('^\s*[0-9a-fA-F]+:\s+[0-9a-fA-F]+\s+')
 
 def build_rodata (rodata_stream, rodata_ranges = [('Section', '.rodata')]):
-    from syntax import structs, fresh_name, Struct, mk_word64, mk_word32
+    from syntax import structs, fresh_name, Struct, mk_word64, mk_word32, mk_word16
     import syntax
     from target_objects import symbols, sections, trace
 
     act_rodata_ranges = []
     for (kind, nm) in rodata_ranges:
+        print "kind %s nm %s" % (kind, nm)
         if kind == 'Symbol':
             (addr, size, _) = symbols[nm]
             act_rodata_ranges.append ((addr, addr + size - 1))
@@ -72,6 +73,12 @@ def build_rodata (rodata_stream, rodata_ranges = [('Section', '.rodata')]):
             comb_ranges.append ((start, end))
 
     rodata = {}
+    print 'FIXME LOADING RODATA'
+    print rodata_ranges
+    print sections
+    print symbols
+    for (s, e) in act_rodata_ranges:
+        print "%s -- %s" % (hex(s), hex(e))
     for line in rodata_stream:
         if not is_rodata_line.match (line):
             continue
@@ -79,12 +86,23 @@ def build_rodata (rodata_stream, rodata_ranges = [('Section', '.rodata')]):
         (addr, v) = (int (bits[0][:-1], 16), int (bits[1], 16))
         if [1 for (start, end) in comb_ranges
                 if start <= addr and addr <= end]:
-            # hack
-            if not addr % 4 == 0:
-                print 'waring %s not aligned' % addr
+            # rv64_hack
+            #if not addr % 4 == 0:
+            #print 'waring %s not aligned' % addr
             #assert addr % 4 == 0, addr
-            rodata[addr] = v
 
+            #rv64_hack
+            if len(bits[1]) > 4:
+                rodata[addr] = v
+                print 'addr %s val %s' % (hex(addr), hex(v))
+                rodata[addr + 2] = 0
+                print 'addr %s val %s' % (hex(addr + 2), rodata[addr + 2])
+            else:
+                print 'addr %s val %s' % (hex(addr), hex(v))
+                rodata[addr] = v
+
+    print comb_ranges
+    print len(comb_ranges)
     if len (comb_ranges) == 1:
         rodata_names = ['rodata_struct']
     else:
@@ -98,7 +116,7 @@ def build_rodata (rodata_stream, rodata_ranges = [('Section', '.rodata')]):
         structs[struct_name] = struct
         typ = syntax.get_global_wrapper (struct.typ)
         if syntax.is_64bit:
-            mk_word = mk_word64
+            mk_word = mk_word16
         else:
             mk_word = mk_word32
         rodata_ptrs.append ((mk_word(start), typ))
