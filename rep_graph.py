@@ -525,6 +525,9 @@ class GraphSlice:
         return False
 
     def get_node_pc_env_raw (self, (n, vcount), tag):
+        #print 'getnode:'
+        #print n
+        #print tag
         if n in self.inp_envs:
             return (true_term, self.inp_envs[n])
 
@@ -547,6 +550,8 @@ class GraphSlice:
             # so we save a lot of merge effort
             pc_envs = [(to_smt_expr (pc, env, self.solv), {})
                        for (pc, env) in pc_envs]
+            print 'Err:'
+            print pc_envs
 
         (pc, env, large) = merge_envs_pcs (pc_envs, self.solv)
 
@@ -686,11 +691,20 @@ class GraphSlice:
                 if v.kind == 'Var':
                     upds.append ((lv, env[(v.name, v.typ)]))
                 else:
+                    print 'node:'
+                    print v.kind
+                    print v
+                    print lv
                     name = self.local_name (lv[0], n)
+
+                    print 'name %s ' % name
                     v = app_eqs (v)
                     vname = self.add_local_def (n,
                                                 ('Var', lv), name, v, env)
                     upds.append ((lv, vname))
+                    print v
+                    print vname
+                    print upds
             for (lv, v) in upds:
                 env[lv] = v
             return [(node.cont, pc, env)]
@@ -980,6 +994,10 @@ class GraphSlice:
     # note these names are designed to be unique by suffix
     # (so that smt names are independent of order of requests)
     def local_name (self, s, n_vc):
+        if s == 'stack':
+            print s
+            print n_vc
+            #assert None
         return '%s_after_%s' % (s, self.node_count_name (n_vc))
 
     def local_name_before (self, s, n_vc):
@@ -1163,6 +1181,8 @@ class GraphSlice:
         interp_imps = list (enumerate ([self.interpret_hyp_imps (hyps,
                                                                  self.interpret_hyp (hyp))
                                         for (hyps, hyp) in imps]))
+        print 'interp:'
+        print interp_imps
         reqs = list (self.pc_env_requests)
         last_test[0] = (self.interpret_hyp (hyp), hyps, reqs)
         self.solv.add_pvalid_dom_assertions ()
