@@ -608,7 +608,7 @@ def adjust_ret_ptr (ptr):
     #assert False
     if syntax.is_64bit:
         return logic.var_subst(ptr,
-                               {('ret_addr_inpt', syntax.word64T):
+                               {('ret_addr_input', syntax.word64T):
                                 syntax.mk_var('r10', syntax.word64T)},
                                must_subst = False)
     else:
@@ -1182,17 +1182,14 @@ def get_asm_calling_convention_inner (num_c_args, num_c_rets, const_mem):
         sp = mk_var ('r13', word32T)
         st = mk_var ('stack', builtinTs['Mem'])
         r0_input = mk_var ('ret_addr_input', word32T)
-        #assert False
     elif syntax.arch == 'rv64':
         arg_regs = mk_var_list(['r10', 'r11', 'r12', 'r13', 'r14',
                                 'r15', 'r16', 'r17'], word64T)
-
         r0 = arg_regs[0]
         r1 = arg_regs[1]
         sp = mk_var('r2', word64T)
         st = mk_var('stack', builtinTs['Mem'])
-        r0_input = mk_var('r10_input', word64T)
-        #assert False
+        r10_input = mk_var('ret_addr_input', word64T)
     else:
         print 'Unsupported arch %s' % syntax.arch
         assert False
@@ -1218,7 +1215,14 @@ def get_asm_calling_convention_inner (num_c_args, num_c_rets, const_mem):
         # instead r0 is a save-returns-here pointer
         arg_seq.pop (0)
         #rv64_hack
-        rets = mk_stack_sequence (r0_input, 8, st, word64T, num_c_rets)
+        if syntax.arch == 'rv64':
+            rets = mk_stack_sequence (r10_input, 8, st, word64T, num_c_rets)
+        elif syntax.arch == 'armv7':
+            rets = mk_stack_sequence(r0_input, 4, st, word32T, num_c_rets)
+        else:
+            print 'unsupported arch %s' % syntax.arch
+            assert False
+
         rets = [r for (r, _) in rets]
         # need to handle multiple return value case
         assert False
