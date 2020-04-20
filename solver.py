@@ -4,6 +4,8 @@
 # SPDX-License-Identifier: BSD-2-Clause
 #
 
+import syntax
+
 # code and classes for controlling SMT solvers, including 'fast' solvers,
 # which support SMTLIB2 push/pop and are controlled by pipe, and heavyweight
 # 'slow' solvers which are run once per problem on static input files.
