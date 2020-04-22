@@ -1401,7 +1401,7 @@ class Solver:
                                 solver = solver)
         tmpfile_write.close ()
         print name
-        shutil.copyfile(name, './logs' + name)
+        shutil.copyfile(name, './logs' + name + '.smt2')
         print 'solver inputs:\n'
         print input_msgs
         print 'done\n'
