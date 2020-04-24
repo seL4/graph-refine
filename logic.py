@@ -239,6 +239,7 @@ def mk_eqs_riscv64_unknown_linux_gnu(var_c_args, var_c_rets, c_imem, c_omem,
     #print arg_regs
 
     r10 = arg_regs[0]
+    r11 = arg_regs[1]
 #	print r10
 #	print type(r10)
 
@@ -280,7 +281,7 @@ def mk_eqs_riscv64_unknown_linux_gnu(var_c_args, var_c_rets, c_imem, c_omem,
 
 #	print 'seq'
 
-    if len (var_c_rets) > 1:
+    if len (var_c_rets) > 2:
         # the 'return-too-much' issue.
         # instead r0 is a save-returns-here pointer
         print len(var_c_rets)
@@ -316,6 +317,12 @@ def mk_eqs_riscv64_unknown_linux_gnu(var_c_args, var_c_rets, c_imem, c_omem,
                          for (_, addr) in init_save_seq[:1]]
 
         #assert False
+    elif len(var_c_rets) == 2:
+        print "2rets:"
+        print var_c_args
+        print var_c_rets
+        out_eqs = zip(var_c_rets, [r10, r11])
+        save_addrs = []
     else:
         out_eqs = zip (var_c_rets, [r10])
         save_addrs = []
