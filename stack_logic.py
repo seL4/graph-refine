@@ -545,12 +545,12 @@ def stack_virtualise_node (node, sp_offs):
                     node.get_conts (), cond))
     elif node.kind == 'Call':
         print node.fname
-        assert False
+        #assert False
         if is_instruction (node.fname):
             return ([], node)
         cc = get_asm_calling_convention_at_node (node)
         print cc
-        assert False
+        #assert False
         assert cc != None, node.fname
         args = [arg for arg in cc['args'] if not is_stack (arg)]
         args = [stack_virtualise_expr (arg, sp_offs) for arg in args]
@@ -629,7 +629,7 @@ def get_loop_virtual_stack_analysis (p, tag):
                        for (ptr, _) in stack_virtualise_expr (arg, None)[0]]))
     print cc
     print rets
-    assert None
+    #assert None
     rets = [adjust_ret_ptr (ret) for ret in rets]
     renames = p.entry_exit_renames (tags = [tag])
     r = renames[tag + '_OUT']
