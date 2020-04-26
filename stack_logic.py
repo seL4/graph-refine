@@ -1210,7 +1210,7 @@ def get_asm_calling_convention_inner (num_c_args, num_c_rets, const_mem):
         assert False
 
     arg_seq = [r for r in arg_regs] + [s for (s, _) in sregs]
-    if num_c_rets > 1:
+    if num_c_rets > 2:
         # the 'return-too-much' issue.
         # instead r0 is a save-returns-here pointer
         arg_seq.pop (0)
@@ -1225,7 +1225,9 @@ def get_asm_calling_convention_inner (num_c_args, num_c_rets, const_mem):
 
         rets = [r for (r, _) in rets]
         # need to handle multiple return value case
-        assert False
+        #assert False
+    elif num_c_rets == 2:
+        rets = [r0, r1]
     else:
         rets = [r0]
 
