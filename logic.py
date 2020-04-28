@@ -293,8 +293,7 @@ def mk_eqs_riscv64_unknown_linux_gnu(var_c_args, var_c_rets, c_imem, c_omem,
     #	print 'b_arg_seq\n'
     #	print arg_seq
         arg_seq.pop (0)
-        #preconds += [mk_aligned (r0, 2), mk_less_eq (sp, r0)]
-        #preconds += [mk_less_]
+        preconds += [mk_aligned (r10, 3), mk_less_eq (sp, r10)]
         save_seq = mk_stack_sequence (r10_input, 8, st, word64T,
                                       len (var_c_rets))
         save_addrs = [addr for (_, addr) in save_seq]
