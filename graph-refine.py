@@ -235,8 +235,7 @@ def check_all(omit_set=set(), loops=True, tags=None,
     r = check_pairs(pairs, loops=loops, report_mode=report_mode,
                     only_build_problem=only_build_problem)
     if omitted:
-        printout('  - %d pairings omitted: %s'
-                 % (len(omitted), [pair.name for pair in omitted]))
+        printout('  - %d pairings omitted' % (len(omitted)) )
     return r
 
 
@@ -371,6 +370,7 @@ def main(args):
             print 'EXCEPTION in syscall arg %s:' % arg
             print traceback.format_exc()
             r = 'ProofEXCEPT'
+            sys.exit(1)
         result = comb_results(r, result)
     if pairs_to_check:
         r = check_pairs(pairs_to_check, loops=loops,
