@@ -380,6 +380,7 @@ def main(args):
 
 
 if __name__ == '__main__':
+    sys.setrecursionlimit(5000)
     result = main(args)
     (code, category) = result_codes[result]
     sys.exit (0)
