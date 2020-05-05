@@ -235,11 +235,12 @@ def mk_eqs_riscv64_unknown_linux_gnu(var_c_args, var_c_rets, c_imem, c_omem,
     #print '\n'
     print c_omem
     # it looks lik
-    arg_regs = mk_var_list(['r10', 'r11', 'r12', 'r13', 'r15', 'r16', 'r17'], word64T)
+    arg_regs = mk_var_list(['r10', 'r11', 'r12', 'r13', 'r14', 'r15', 'r16', 'r17'], word64T)
     #print arg_regs
 
     r10 = arg_regs[0]
     r11 = arg_regs[1]
+
 #	print r10
 #	print type(r10)
 
