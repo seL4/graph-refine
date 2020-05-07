@@ -90,10 +90,9 @@ def split_inst_name_regs_rv64(nm):
     print bits
     for i in range(len(bits)):
         if bits[i] in reg_aliases_rv64.keys():
-            if bits[i] == 'zero' and bits[0] == 'sfence':
+            if bits[i] == 'zero' and bits[0] == 'sfence.vma':
                 print bits[i]
-                fin_bits.append(bits[i])
-                #assert False
+                fin_bits.append('x0')
             else:
                 regs.append(reg_aliases_rv64.get(bits[i]))
                 fin_bits.append('-argv%d' % len(regs))
@@ -220,10 +219,8 @@ instruction_fun_specs_armv7 = {
 instruction_fun_specs_rv64 = {
 
     'fence_i': 	        ("impl'fence_i", []),
-    'sfence_vma': 	    ("impl'sfence_vma", []),
-    'sfence_vma_zero':  ("impl'sfence_vma_zero", ["I"]),
     'sfence.vma':       ("impl'sfence_vma", []),
-    'sfence.vma_x0':    ("impl'sfence_vma_zero", ["I"]),
+    'sfence.vma_x0':    ("impl'sfence.vma_x0", ["I"]),
     'csrr_sip': 	    ("impl'csrr_sip", ["O"]),
     'csrr_sepc':        ("impl'csrr_sepc", ["O"]),
     'csrr_scause':      ("impl'csrr_scause", ["O"]),
