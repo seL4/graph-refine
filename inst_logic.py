@@ -221,6 +221,7 @@ instruction_fun_specs_rv64 = {
     'fence_i': 	        ("impl'fence_i", []),
     'sfence.vma':       ("impl'sfence_vma", []),
     'sfence.vma_x0':    ("impl'sfence.vma_x0", ["I"]),
+    'csrc_sstatus':     ("impl'csrc_sstatus", ["I"]),
     'csrr_sip': 	    ("impl'csrr_sip", ["O"]),
     'csrr_sepc':        ("impl'csrr_sepc", ["O"]),
     'csrr_scause':      ("impl'csrr_scause", ["O"]),
