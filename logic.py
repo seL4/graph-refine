@@ -824,8 +824,10 @@ def var_not_in_expr (var, expr):
 def mk_array_size_ineq (typ, num, p):
     if syntax.is_64bit:
         mk_word = syntax.mk_word64
+        size_lim = ((2 ** 64) - 8) / typ.size()
     else:
         mk_word = syntax.mk_word32
+        size_lim = ((2 ** 32) - 4) / typ.size ()
 
     align = typ.align ()
     size = mk_times (mk_word(typ.size ()), num)
