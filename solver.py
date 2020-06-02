@@ -2182,6 +2182,11 @@ class Solver:
             self.model_exprs[psexpr] = (v, typ)
 
     def add_pvalid_dom_assertions (self):
+        if syntax.is_64bit:
+            bits = 64
+        else:
+            bits = 32
+
         if not self.doms:
             return
         if cheat_mem_doms:
@@ -2191,7 +2196,7 @@ class Solver:
         pvs = [(var, (p, typ.size ()))
                for env in self.pvalids.itervalues ()
                for ((typ, p, kind), var) in env.iteritems ()]
-        pvs += [('true', (smt_num (start, 32), (end - start) + 1))
+        pvs += [('true', (smt_num (start, bits), (end - start) + 1))
                 for (start, end) in sections.itervalues ()]
 
         pvalid_doms = (pvs, set (self.doms))
@@ -2204,17 +2209,17 @@ class Solver:
         trace ('PValid/Dom complexity: %d, %d' % (len (pvalid_doms[0]),
                                                   len (pvalid_doms[1])))
         for (var, (p, sz)) in pvs:
-            if sz > len (self.doms) * 4:
+            if sz > len (self.doms) * (bits / 8):
                 for (q, _, md) in self.doms:
                     left = '(bvule %s %s)' % (p, q)
                     right = ('(bvule %s (bvadd %s %s))'
-                             % (q, p, smt_num (sz - 1, 32)))
+                             % (q, p, smt_num (sz - 1, bits)))
                     lhs = '(and %s %s)' % (left, right)
                     self.assert_fact_smt ('(=> %s %s)'
                                           % (lhs, md))
             else:
                 vs = ['(mem-dom (bvadd %s %s) %s)'
-                      % (p, smt_num (i, 32), dom)
+                      % (p, smt_num (i, bits), dom)
                       for i in range (sz)]
                 self.assert_fact_smt ('(=> %s (and %s))'
                                       % (var, ' '.join (vs)))
