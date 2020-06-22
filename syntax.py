@@ -7,7 +7,7 @@
 # Syntax and simple operations for types, expressions, graph nodes
 # and graph functions (functions in graph-language format).
 
-from target_objects import structs, trace
+from target_objects import structs, trace, printout
 import target_objects
 
 quick_reference = """
@@ -1138,11 +1138,11 @@ unspecified_precond_term = Expr ('Op', boolT, name = 'UnspecifiedPrecond', vals 
 def parse_all(lines):
     '''Toplevel parser for input information. Accepts an iterator over
 lines. See syntax.quick_reference for an explanation.'''
-
+    sourcename = "(an anonymous source)"
     if hasattr (lines, 'name'):
-        trace ('Loading syntax from %s' % lines.name)
-    else:
-        trace ('Loading syntax (from anonymous source).')
+        sourcename = lines.name
+
+    trace ('Loading syntax from %s' % sourcename)
 
     structs = {}
     functions = {}
@@ -1199,7 +1199,6 @@ lines. See syntax.quick_reference for an explanation.'''
             name = node_name(bits[0])
             assert name not in current_function.nodes, (name, bits)
             current_function.nodes[name] = parse_node (bits, 1)
-
     print_cfg_warnings (cfg_warnings)
     trace ('Loaded %d functions, %d structs, %d globals.'
            % (len (functions), len (structs), len (const_globals)))

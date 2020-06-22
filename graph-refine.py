@@ -23,12 +23,9 @@ import re
 import random
 import traceback
 import time
-# import diagnostic
 
 import sys
 
-if __name__ == '__main__':
-    args = target_objects.load_target_args()
 
 
 def toplevel_check(pair, check_loops=True, report=False, count=None,
@@ -286,8 +283,36 @@ def rerun_set(vs):
     strs = [pair.funs[pair.tags[0]] for pair in pairs if pair]
     return ' '.join(strs)
 
+def exitWithUsage():
+    import os.path
+    objname = os.path.basename (args[0])
+    dirname = os.path.dirname (args[0])
+    exname = os.path.join (dirname, 'example')
+    print 'Usage: python %s <target> <instructions>' % objname
+    print 'Target should be a directory.'
+    if os.path.isdir (exname):
+        print 'See example target (in %s)' % exname
+    else:
+        print 'See example target in graph-refine dir.'
+    assert not 'Target specified'
 
-def main(args):
+def main():
+    args = list (sys.argv)
+    # we have to set up tracing (logging) so we can write reports even if the rest fails
+    trace_to_arguments = [ arg[9:] for arg in args if arg.startswith('trace-to:') ]
+    for filename in trace_to_arguments:
+        f = open(filename, 'w')
+        target_objects.trace_files.append(f)
+
+    # then we need to load all syntax from target
+    if len(args) <= 1:
+        exitWithUsage()
+    target = args[1]
+    target_arguments = [ arg[7:] for arg in args if arg.startswith('target:') ]
+    target_objects.load_target(target, target_arguments)
+
+    # finally we can parse and execute all other arguments
+    args = args[2:]
     excluding = False
     excludes = set()
     loops = True
@@ -301,9 +326,7 @@ def main(args):
             if arg == 'verbose':
                 report = False
             elif arg.startswith('trace-to:'):
-                (_, s) = arg.split(':', 1)
-                f = open(s, 'w')
-                target_objects.trace_files.append(f)
+                pass
             elif arg == 'all':
                 r = check_all(excludes, loops=loops,
                               tags=tags, report_mode=report)
@@ -381,6 +404,6 @@ def main(args):
 
 if __name__ == '__main__':
     sys.setrecursionlimit(5000)
-    result = main(args)
+    result = main()
     (code, category) = result_codes[result]
     sys.exit (0)
