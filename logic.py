@@ -304,7 +304,7 @@ def mk_eqs_riscv64_unknown_linux_gnu(var_c_args, var_c_rets, c_imem, c_omem,
     #	print save_seq
     #	print save_addrs
         #save_addrs = []
-        #post_eqs += [(r10_input, r10_input)]
+        post_eqs += [(r10_input, r10_input)]
         out_eqs = zip (var_c_rets, [x for (x, _) in save_seq])
         out_eqs = [(c, mk_cast (a, c.typ)) for (c, a) in out_eqs]
         init_save_seq = mk_stack_sequence (r10, 8, st, word64T,
