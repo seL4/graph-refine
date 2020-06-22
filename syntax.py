@@ -1148,7 +1148,10 @@ lines. See syntax.quick_reference for an explanation.'''
     functions = {}
     const_globals = {}
     cfg_warnings = []
+    import hashlib
+    hasher = hashlib.sha256()
     for line in lines:
+        hasher.update(line)
         bits = line.split()
         # empty lines and #-comments ignored
         if not bits or bits[0][0] == '#':
@@ -1199,6 +1202,7 @@ lines. See syntax.quick_reference for an explanation.'''
             name = node_name(bits[0])
             assert name not in current_function.nodes, (name, bits)
             current_function.nodes[name] = parse_node (bits, 1)
+    printout( 'VERSION_INFO SHA256SUM %s - %s' % (hasher.hexdigest(),sourcename) )
     print_cfg_warnings (cfg_warnings)
     trace ('Loaded %d functions, %d structs, %d globals.'
            % (len (functions), len (structs), len (const_globals)))

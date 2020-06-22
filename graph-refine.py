@@ -25,7 +25,7 @@ import traceback
 import time
 
 import sys
-
+import os.path
 
 
 def toplevel_check(pair, check_loops=True, report=False, count=None,
@@ -284,7 +284,6 @@ def rerun_set(vs):
     return ' '.join(strs)
 
 def exitWithUsage():
-    import os.path
     objname = os.path.basename (args[0])
     dirname = os.path.dirname (args[0])
     exname = os.path.join (dirname, 'example')
@@ -303,6 +302,27 @@ def main():
     for filename in trace_to_arguments:
         f = open(filename, 'w')
         target_objects.trace_files.append(f)
+
+    # we determine and log the current commit version (the report has to contain this)
+    graph_refine_dir = os.path.abspath(os.path.dirname(sys.argv[0]))
+    import subprocess
+    git_process = subprocess.Popen(['git', 'rev-parse', 'HEAD'],
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=graph_refine_dir)
+    git_out , git_err = git_process.communicate()
+    if len(git_err) > 0:
+        printout( 'VERSION_INFO GITSTATUS error' )
+        printout( 'VERSION_INFO GITCOMMIT error - %s' % git_err )
+    else:
+        # we refresh the index in case we have files with new timestamps but no changes
+        subprocess.call(['git','update-index','--refresh'],
+                        stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=graph_refine_dir)
+        git_status = subprocess.call(['git','diff-index','--quiet','HEAD','--'],
+                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=graph_refine_dir)
+        if git_status:
+            printout( 'VERSION_INFO GITSTATUS dirty - There are uncommitted changes!' )
+        else:
+            printout( 'VERSION_INFO GITSTATUS clean - There are no uncommitted changes.' )
+        printout( 'VERSION_INFO GITCOMMIT %s' % git_out )
 
     # then we need to load all syntax from target
     if len(args) <= 1:

@@ -1414,7 +1414,10 @@ def serialise_stack_bounds (stack_bounds):
 
 def deserialise_stack_bounds (lines):
     bounds = {}
+    import hashlib
+    hasher = hashlib.sha256()
     for line in lines:
+        hasher.update(line)
         bits = line.split ()
         if not bits:
             continue
@@ -1428,6 +1431,7 @@ def deserialise_stack_bounds (lines):
         #print bits[2]
         #assert False
         bounds[fname] = bound
+    printout( 'VERSION_INFO SHA256SUM %s - %s' % (hasher.hexdigest(),"StackBounds.txt") )
     return bounds
 
 funs_with_tag = {}
