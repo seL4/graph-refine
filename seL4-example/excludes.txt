@@ -10,7 +10,6 @@ create_it_address_space
 create_untypeds_for_region
 cteDelete
 cteDeleteOne
-decodeBindNotification
 decodeCNodeInvocation
 decodeCopyRegisters
 decodeDomainInvocation
@@ -29,16 +28,13 @@ decodeTCBInvocation
 decodeUntypedInvocation
 decodeWriteRegisters
 deleteASID
-deriveCap
 doNormalTransfer
 finaliseCap
 getNewActiveIRQ
 getObjectSize
-getReceiveSlots
 handleFaultReply
 handleInterrupt
 handleInvocation
-handleRecv
 handleSyscall
 handleVMFault
 init_freemem
@@ -46,8 +42,6 @@ init_kernel
 invokeTCB_ReadRegisters
 invokeTCB_ThreadControl
 invokeTCB_WriteRegisters
-lookupSlot
-lookupSlotForCNodeOp
 map_kernel_devices
 maskCapRights
 merge_regions
