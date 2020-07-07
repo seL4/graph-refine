@@ -94,7 +94,7 @@ class Problem:
         ns = fun.reachable_nodes ()
         print fun.name
         print ns
-        check_no_symbols ([fun.nodes[n] for n in ns])
+        check_no_symbols (self.name, [fun.nodes[n] for n in ns])
         for n in ns:
             assert n not in node_renames
             node_renames[n] = self.alloc_node (tag, (fun.name, n),
@@ -561,12 +561,12 @@ def deserialise (name, lines):
 
 # trivia
 
-def check_no_symbols (nodes):
+def check_no_symbols (name, nodes):
     import pseudo_compile
     symbs = pseudo_compile.nodes_symbols (nodes)
     if not symbs:
         return
-    printout ('Aborting %s: undefined symbols %s' % (self.name, symbs))
+    printout ('Aborting %s: undefined symbols %s' % (name, symbs))
     raise Abort ()
 
 # printing of problem graphs
