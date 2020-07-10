@@ -4,6 +4,9 @@
 # SPDX-License-Identifier: BSD-2-Clause
 #
 
+import hashlib
+import os.path
+
 import syntax
 import solver
 import problem
@@ -1412,27 +1415,33 @@ def serialise_stack_bounds (stack_bounds):
         lines.append (' '.join (ss) + '\n')
     return lines
 
-def deserialise_stack_bounds (lines):
+
+# If the StackBounds file exists, return a pair of:
+# - the value of the FunctionHash, if present, otherwise None.
+# - a dictionary mapping function names to stack bounds expressions.
+# If the file doesn't exist, return (None, None).
+# If it exists, but can't be parsed, raise an exception.
+def deserialise_stack_bounds(stack_bounds_fname):
+    if not os.path.exists(stack_bounds_fname):
+        return None, None
     bounds = {}
-    import hashlib
+    fn_hash = None
     hasher = hashlib.sha256()
-    for line in lines:
-        hasher.update(line)
-        bits = line.split ()
-        if not bits:
-            continue
-        assert bits[0] == 'StackBound'
-        fname = bits[1]
-        (_, bound) = syntax.parse_expr (bits, 2)
-        #print 'bound: '
-        #print bound
-        #print 'bits: '
-        #print bits
-        #print bits[2]
-        #assert False
-        bounds[fname] = bound
-    printout( 'VERSION_INFO SHA256SUM %s - %s' % (hasher.hexdigest(),"StackBounds.txt") )
-    return bounds
+    with open(stack_bounds_fname) as stack_bounds_f:
+        for line in stack_bounds_f:
+            hasher.update(line)
+            bits = line.split()
+            if not bits:
+                continue
+            if bits[0] == 'FunctionHash':
+                fn_hash = int(bits[1])
+                continue
+            assert bits[0] == 'StackBound'
+            fname = bits[1]
+            (_, bound) = syntax.parse_expr(bits, 2)
+            bounds[fname] = bound
+    printout('VERSION_INFO SHA256SUM %s - %s' % (hasher.hexdigest(), "StackBounds.txt"))
+    return fn_hash, bounds
 
 funs_with_tag = {}
 
@@ -1474,22 +1483,6 @@ def compute_stack_bounds (quiet = False):
         target_objects.tracer[0] = prev_tracer
     return bounds
 
-def read_fn_hash (fname):
-    try:
-        assert fname != None
-        #print fname
-        f = open (fname)
-        s = f.readline ()
-        bits = s.split ()
-        if bits[0] != 'FunctionHash' or len (bits) != 2:
-            return None
-        return int (bits[1])
-    except ValueError, e:
-        return None
-    except IndexError, e:
-        return None
-    except IOError, e:
-        return None
 
 def add_pairings(pairing_tups):
     pre_pairings.clear()
@@ -1499,8 +1492,7 @@ def add_pairings(pairing_tups):
         pre_pairings[asm_f] = pair
 
 
-def mk_stack_pairings (pairing_tups, stack_bounds_fname = None,
-                       quiet = True):
+def mk_stack_pairings (pairing_tups, stack_bounds_fname, quiet = True):
     """build the stack-aware calling-convention-aware logical pairings
     once a collection of function pairs have been read."""
 
@@ -1514,31 +1506,29 @@ def mk_stack_pairings (pairing_tups, stack_bounds_fname = None,
         pre_pairings[c_f] = pair
         pre_pairings[asm_f] = pair
 
-    fn_hash = hash (tuple (sorted ([(f, hash (functions[f]))
-                                    for f in functions])))
-    prev_hash = read_fn_hash (stack_bounds_fname)
-    #rv64_hack to use the old stack bounds
-    print "stack"
-    print prev_hash
-    print fn_hash
-    #if not (prev_hash == None) and (prev_hash == fn_hash):
-    if prev_hash:
-        f = open (stack_bounds_fname)
-        f.readline ()
-        stack_bounds = deserialise_stack_bounds (f)
-        f.close ()
-    else:
-        printout ('Computing stack bounds.')
-        stack_bounds = compute_stack_bounds (quiet = quiet)
-        f = open (stack_bounds_fname, 'w')
-        f.write ('FunctionHash %s\n' % fn_hash)
-        for line in serialise_stack_bounds (stack_bounds):
-            f.write(line)
-        f.close ()
+    fn_hash = hash(tuple(sorted([(f, hash(functions[f])) for f in functions])))
 
-    problematic_synthetic ()
+    # Will return (None, None) if the StackBounds file does not exist,
+    # but will raise an exception if it exists, but we can't parse it.
+    prev_hash, stack_bounds = deserialise_stack_bounds(stack_bounds_fname)
 
-    return mk_pairings (stack_bounds)
+    print("Stack bounds hash: %s" % prev_hash)
+    print("Functions hash: %s" % fn_hash)
+
+    # If there was no hash in the StackBounds file, we assume the StackBounds file
+    # was generated elsewhere, and that something else is keeping it up-to-date.
+    if prev_hash is not None and prev_hash != fn_hash:
+        printout('Computing stack bounds.')
+        stack_bounds = compute_stack_bounds(quiet=quiet)
+        with open (stack_bounds_fname, 'w') as f:
+            f.write('FunctionHash %s\n' % fn_hash)
+            for line in serialise_stack_bounds(stack_bounds):
+                f.write(line)
+
+    problematic_synthetic()
+
+    return mk_pairings(stack_bounds)
+
 
 def asm_stack_rep_hook (p, (nm, typ), kind, n):
     if not is_asm_node (p, n):

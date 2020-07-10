@@ -621,7 +621,6 @@ def render_stack_usages(usages: Map[str, StackUsage],
 
 def main(asm_functions: TextIO, elf_txt: TextIO):
     usages = stack_usage(sel4_recurse_spec('RISCV64'), asm_functions, elf_txt)
-    print('FunctionHash 0')
     for usage_line in render_stack_usages(usages, render_stack_usage(bits=64)):
         print(usage_line)
 
