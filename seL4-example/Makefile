@@ -25,7 +25,8 @@ ifndef HOL4_ROOT
   HOL4_ROOT := $(realpath ${GREF_ROOT}/../HOL4)
 endif
 
-TARGET_NAME := ${L4V_ARCH}${CONFIG_OPTIMISATION_LEVEL}
+L4V_CONFIG := ${L4V_ARCH}$(if ${L4V_FEATURES},-${L4V_FEATURES},)
+TARGET_NAME := ${L4V_CONFIG}${CONFIG_OPTIMISATION_LEVEL}
 TARGET_DIR := target/${TARGET_NAME}
 
 # We build our own kernel locally, so we can store builds
@@ -35,6 +36,7 @@ KERNEL_CMAKE_EXTRA_OPTIONS := -DKernelOptimisation=${CONFIG_OPTIMISATION_LEVEL}
 include ${GREF_ROOT}/../l4v/spec/cspec/c/kernel.mk
 
 # However, CFunctions.txt depends on l4v's kernel build.
+# FIXME: the l4v build directory should really depend on L4V_FEATURES.
 L4V_KERNEL_BUILD_DIR := build/${L4V_ARCH}
 L4V_KERNEL_BUILD_PATH := ${CSPEC_DIR}/c/${L4V_KERNEL_BUILD_DIR}
 
@@ -113,12 +115,13 @@ ${L4V_KERNEL_BUILD_PATH}/kernel_all.c_pp: ${KERNEL_DEPS} ${CONFIG_DOMAIN_SCHEDUL
 	MAKEFILES= make -C ${CSPEC_DIR}/c ${L4V_KERNEL_BUILD_DIR}/kernel_all.c_pp
 
 ${TARGET_DIR}/ASMFunctions.txt: ${TARGET_DIR}/kernel.elf.txt ${TARGET_DIR}/kernel.sigs
-	cd ${TARGET_DIR} && PATH=${H4PATH} ${DECOMP_SCRIPT} --fast ./kernel --ignore=${IGNORES_${L4V_ARCH}}
+	cd ${TARGET_DIR} && PATH=${H4PATH} ${DECOMP_SCRIPT} --fast ./kernel --ignore=${IGNORES_${L4V_CONFIG}}
 	mv ${TARGET_DIR}/kernel_mc_graph.txt ${TARGET_DIR}/ASMFunctions.txt
 
 ${TARGET_DIR}/CFunctions.txt: ${L4V_KERNEL_BUILD_PATH}/kernel_all.c_pp ${L4V_REPO_PATH}/tools/asmrefine/*.thy
 	@mkdir -p ${TARGET_DIR}
 	MAKEFILES= make -C ${L4V_REPO_PATH}/proof/ SimplExportOnly
+	# FIXME: the following path should really depend on L4V_FEATURES.
 	cp ${L4V_REPO_PATH}/proof/asmrefine/${L4V_ARCH}/CFunDump.txt $@
 
 ${TARGET_DIR}/target.py: target.py
