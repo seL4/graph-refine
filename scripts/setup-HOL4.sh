@@ -16,16 +16,16 @@ function report_err {
   exit 1
 }
 
-
-HOL4_DIR=$(ls -d HOL4 ../HOL4 ../../HOL4 2> /dev/null | head -n 1)
-if [[ -e $HOL4_DIR ]]
-then
-  HOL4_DIR=$(readlink -f $HOL4_DIR)
-  echo "Setting up HOL4 in $HOL4_DIR"
-else
+HOL4_SEARCH="$PWD"
+while [ "$HOL4_SEARCH" != "/" -a ! -d "$HOL4_SEARCH/HOL4" ]; do
+  HOL4_SEARCH=$(dirname "$HOL4_SEARCH")
+done
+HOL4_DIR=$(readlink -f "$HOL4_SEARCH/HOL4")
+if [ ! -d "$HOL4_DIR" ]; then
   echo "No HOL4 found"
   exit 1
 fi
+echo "Setting up HOL4 in $HOL4_DIR"
 
 POLY_DIR=$HOL4_DIR/polyml
 POLY=$POLY_DIR/deploy/bin/poly
