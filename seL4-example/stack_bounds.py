@@ -115,10 +115,10 @@ def mapping(pairs: Iterable[Tuple[K, V]]) -> Map[K, V]:
     return Map({k: v for k, v in pairs})
 
 
-# For a functions which does not recurse, the node is simply identified
+# For a function which does not recurse, the node is simply identified
 # by the function name. A function which may recurse is given two nodes,
 # each identified by a pair of the function name with one of the two
-# possible values of the # controlling argument.
+# possible values of the controlling argument.
 Node = Union[str, Tuple[str, int]]
 MapSet = Map[K, FrozenSet[V]]
 Edge = Tuple[Node, Node]
@@ -285,8 +285,8 @@ def parse_elf_txt(elf_txt: TextIO) -> ElfFunctions:
         add_current_fn()
 
     def clean_lines(lines: Iterable[str]) -> Iterator[Tuple[int, str]]:
-        numbered_lines = ((num, line.strip()) for num, line in enumerate(lines))
-        return ((num, line) for num, line in numbered_lines if line != '')
+        stripped_lines = (line.strip() for line in lines)
+        return ((num, line) for num, line in enumerate(stripped_lines) if line != '')
 
     try:
         parse_file(clean_lines(elf_txt))
