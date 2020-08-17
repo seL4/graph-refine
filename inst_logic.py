@@ -111,7 +111,7 @@ def split_inst_name_regs_rv64(nm):
 
             fin_bits.append('-argv%d' % len(regs))
 
-            regs.append('r13')
+            regs.append('r17')
 
             fin_bits.append('-argv%d' % len(regs))
 
