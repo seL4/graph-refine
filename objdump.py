@@ -93,9 +93,10 @@ def build_rodata (rodata_stream, rodata_ranges = [('Section', '.rodata')]):
 
             #rv64_hack
             if len(bits[1]) > 4:
-                rodata[addr] = v
+                # RISC-V rodata is little-endian
+                rodata[addr] = v & 0xffff
                 print 'addr %s val %s' % (hex(addr), hex(v))
-                rodata[addr + 2] = 0
+                rodata[addr + 2] = v >> 16
                 print 'addr %s val %s' % (hex(addr + 2), rodata[addr + 2])
             else:
                 print 'addr %s val %s' % (hex(addr), hex(v))
