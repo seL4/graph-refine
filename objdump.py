@@ -95,12 +95,12 @@ def build_rodata (rodata_stream, rodata_ranges = [('Section', '.rodata')]):
             if len(bits[1]) > 4:
                 # RISC-V rodata is little-endian
                 rodata[addr] = v & 0xffff
-                print 'addr %s val %s' % (hex(addr), hex(v))
                 rodata[addr + 2] = v >> 16
-                print 'addr %s val %s' % (hex(addr + 2), rodata[addr + 2])
+                print 'addr %s val %s' % (hex(addr), hex(rodata[addr]))
+                print 'addr %s val %s' % (hex(addr + 2), hex(rodata[addr + 2]))
             else:
-                print 'addr %s val %s' % (hex(addr), hex(v))
                 rodata[addr] = v
+                print 'addr %s val %s' % (hex(addr), hex(rodata[addr]))
 
     print comb_ranges
     print len(comb_ranges)
