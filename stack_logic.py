@@ -36,12 +36,6 @@ def split_sum_s_expr (expr, solv, extra_defs, typ):
     """divides up a linear expression 'a - b - 1 + a'
     into ({'a':2, 'b': -1}, -1) i.e. 'a' times 2 etc and constant
     value of -1."""
-    #print 'expr:'
-    print expr
-#	print 'solvdefs:'
-    #for ss in solv.defs:
-    #	print ss
-    #print solv.defs
     def rec (expr):
         return split_sum_s_expr (expr, solv, extra_defs, typ)
     if expr[0] == 'bvadd':
@@ -63,16 +57,11 @@ def split_sum_s_expr (expr, solv, extra_defs, typ):
                      for v in set.union (set (lvar), set (rvar))])
         return (var, const)
     elif expr in solv.defs:
-        print 'in_solvdefs:'
         return rec (solv.defs[expr])
     elif expr in extra_defs:
-        print 'extra_defs:'
-        print extra_defs
         return rec (extra_defs[expr])
     elif expr[:2] in ['#x', '#b']:
         val = solver.smt_to_val (expr)
-        print 'val:'
-        print val
         assert val.kind == 'Num'
         return ({}, val.val)
     else:
@@ -130,21 +119,13 @@ def offs_expr_const (addr_expr, sp_expr, rep, hyps, extra_defs = {},
     is a constant offset, try to compute it."""
     if syntax.is_64bit:
         typ = syntax.word64T
-    print 'bla:'
-    print typ
     addr_x = solver.parse_s_expression (addr_expr)
     sp_x = solver.parse_s_expression (sp_expr)
-    print addr_x
-    print sp_x
     vs = [(addr_x, 1), (sp_x, -1)]
     const = 0
 
     while True:
         start_vs = list (vs)
-        print 'vs:'
-        print vs
-        print 'start_vs:'
-        print start_vs
         new_vs = {}
         for (x, mult) in vs:
             (var, c) = split_sum_s_expr (x, rep.solv, extra_defs,
@@ -153,13 +134,9 @@ def offs_expr_const (addr_expr, sp_expr, rep, hyps, extra_defs = {},
                 new_vs.setdefault (v, 0)
                 new_vs[v] += var[v] * mult
             const += c * mult
-        print 'new_vs:'
-        print new_vs
 
         vs = [(x, n) for (x, n) in new_vs.iteritems ()
               if n % (2 ** typ.num) != 0]
-        print 'vs:'
-        print vs
         if not vs:
             return const
         vs = [(simplify_expr_whyps (x, rep, hyps,
@@ -214,14 +191,6 @@ def get_ptr_offsets (p, n_ptrs, bases, hyps = [], cache = None,
     for (n, ptr, k) in bases:
         n_vc = default_n_vc (p, n)
         (_, env) = rep.get_node_pc_env (n_vc)
-        print 'ptr\n'
-        print ptr
-        print '\n'
-        print 'env\n'
-        print env
-
-        print '\n'
-        #print rep.solv
         smt = solver.smt_expr (ptr, env, rep.solv)
 
         smt_bases.append ((smt, k))
@@ -247,31 +216,21 @@ def get_ptr_offsets (p, n_ptrs, bases, hyps = [], cache = None,
 
     offs = []
 
-    print 'smt_bases:'
-    print smt_bases
-    print 'smt_ptrs:'
-    print smt_ptrs
-
     for (v, ptr, hyp) in smt_ptrs:
         off = None
         for (ptr2, k) in smt_bases:
             off = offs_expr_const (ptr, ptr2, rep, [hyp] + hyps,
                                    cache = cache, extra_defs = ex_defs,
                                    typ = ptr_typ)
-            print ptr_typ
             if off != None:
                 offs.append ((v, off, k))
                 break
         if off == None:
             trace ('get_ptr_offs fallthrough at %d: %s' % v)
             trace (str ([hyp] + hyps))
-            #print v
-            #print ptr
             #rv64_hack
             # it is possible that rv64 function does not change stack at all
             #assert not fail_early, (v, ptr)
-        print 'get_ptr_offs:'
-        print off
 
     return offs
 
@@ -302,7 +261,6 @@ def preserves_sp (fname):
     pairing partners or not."""
     assume_sp_equal = bool (target_objects.hooks ('assume_sp_equal'))
     print assume_sp_equal
-    #assert False
     if not extra_symbols:
         for fname2 in target_objects.symbols:
             extra_symbols.add(fname2)
@@ -317,14 +275,10 @@ def get_extra_sp_defs (rep, tag):
     # FIXME how to parametrise this?
     if syntax.arch == 'armv7':
         sp = mk_var ('r13', syntax.word32T)
-        #assert False
     elif syntax.arch == 'rv64':
         sp = mk_var('r2', syntax.word64T)
-        #print sp
-        #assert False
     else:
-        print 'unsupported arch %s' % syntax.arch
-        assert False
+        assert not 'arch supported', syntax.arch
 
 
     defs = {}
@@ -348,27 +302,18 @@ def get_extra_sp_defs (rep, tag):
 def get_stack_sp (p, tag):
     """get stack and stack-pointer variables"""
     entry = p.get_entry (tag)
-    #print 'entry'
-    #print entry
     renames = p.entry_exit_renames (tags = [tag])
     r = renames[tag + '_IN']
-    #print renames
-    #print r
-    #assert False
 
     if syntax.arch == 'armv7':
         sp = syntax.rename_expr (mk_var ('r13', syntax.word32T), r)
-        #assert False
     elif syntax.arch == 'rv64':
         sp = syntax.rename_expr(mk_var('r2', syntax.word64T), r)
-        #print sp
     else:
-        print "Unsupported arch %s" % syntax.arch
-        assert False
+        assert not 'arch supported', syntax.arch
 
     stack = syntax.rename_expr (mk_var ('stack',
                                         syntax.builtinTs['Mem']), r)
-    #print stack
     return (stack, sp)
 
 def pseudo_node_lvals_rvals (node):
@@ -435,16 +380,8 @@ class StackOffsMissing (Exception):
     pass
 
 def stack_virtualise_expr (expr, sp_offs):
-    #print expr.kind
-    #print 'kk \n'
-
     if expr.is_op ('MemAcc') and is_stack (expr.vals[0]):
-        #	print 'here \n'
         [m, p] = expr.vals
-    #	print 'type'
-    #	print expr.typ
-    #	print '\n'
-    #	print expr
 
         mod = 4
         if syntax.is_64bit:
@@ -461,14 +398,12 @@ def stack_virtualise_expr (expr, sp_offs):
             assert False
         elif expr.typ == syntax.word64T:
             ps = [(p, 0)]
-            #assert False
         else:
             assert expr.typ == syntax.word32T, expr
         ptrs = [(p, 'MemAcc') for (p, _) in ps]
         if sp_offs == None:
             return (ptrs, None)
         # FIXME: very 32-bit specific
-        #assert False
 
         ps = [(p, n) for (p, n) in ps if p in sp_offs
               if sp_offs[p][1] % mod == 0]
@@ -496,7 +431,6 @@ def stack_virtualise_expr (expr, sp_offs):
         return ([], expr)
 
 def stack_virtualise_upd (((nm, typ), expr), sp_offs):
-    #assert False
     if 'stack' in nm:
         upds = []
         ptrs = []
@@ -538,7 +472,6 @@ def stack_virtualise_ret (expr, sp_offs):
         assert not 'ret expr understood', expr
 
 def stack_virtualise_node (node, sp_offs):
-    #assert False
     if node.kind == 'Cond':
         (ptrs, cond) = stack_virtualise_expr (node.cond, sp_offs)
         if sp_offs == None:
@@ -548,12 +481,10 @@ def stack_virtualise_node (node, sp_offs):
                     node.get_conts (), cond))
     elif node.kind == 'Call':
         print node.fname
-        #assert False
         if is_instruction (node.fname):
             return ([], node)
         cc = get_asm_calling_convention_at_node (node)
         print cc
-        #assert False
         assert cc != None, node.fname
         args = [arg for arg in cc['args'] if not is_stack (arg)]
         args = [stack_virtualise_expr (arg, sp_offs) for arg in args]
@@ -608,7 +539,6 @@ def adjust_ret_ptr (ptr):
     which is handy, but we really want to be talking about r0, which will
     produce meaningful offsets against the pointers actually used in the
     program."""
-    #assert False
     if syntax.is_64bit:
         return logic.var_subst(ptr,
                                {('ret_addr_input', syntax.word64T):
@@ -632,7 +562,6 @@ def get_loop_virtual_stack_analysis (p, tag):
                        for (ptr, _) in stack_virtualise_expr (arg, None)[0]]))
     print cc
     print rets
-    #assert None
     rets = [adjust_ret_ptr (ret) for ret in rets]
     renames = p.entry_exit_renames (tags = [tag])
     r = renames[tag + '_OUT']
@@ -711,9 +640,6 @@ def loop_var_analysis (p, split):
     head = p.loop_id (split)
     tag = p.node_tags[split][0]
     assert head
-
-    #print 'aa\n'
-    #print p
 
     key = ('loop_stack_virtual_var_cycle_analysis', split)
     if key in p.cached_analysis:
@@ -806,23 +732,10 @@ def guess_asm_stack_depth (fun):
     last_asm_stack_depth_fun[0] = fun.name
 
     entry = p.get_entry ('Target')
-    print 'entry: '
-    print entry
     (_, sp) = get_stack_sp (p, 'Target')
-    print 'sp:'
-    print sp
     nodes = get_asm_reachable_nodes (p, tag_set = ['Target'])
-    print "nodes:"
-    print map(hex, list(nodes))
     offs = get_ptr_offsets (p, [(n, sp) for n in nodes],
                             [(entry, sp, 'InitSP')], fail_early = True)
-
-    #rv64_hack
-    if not len(offs) == len(nodes):
-        print len(offs)
-        print offs
-        print len(nodes)
-        print nodes
 
     #rv64 hack
     #assert len (offs) == len (nodes), map (hex, set (nodes)
@@ -969,8 +882,6 @@ def stack_bounds_to_closed_form (bounds, names, idents):
         mk_word = syntax.mk_word64
     else:
         mk_word = syntax.mk_word32
-    #print mk_word
-    #assert False
 
     for fname in names:
         #res = syntax.mk_word32 (bounds[(fname, syntax.true_term)])
@@ -1133,14 +1044,7 @@ def is_instruction (fname):
     return bits[1:] and bits[:1] in [["l_impl"], ["instruction"]]
 
 def get_asm_calling_convention (fname):
-    print fname
-    print "callcon:"
-    #assert False
     if fname in asm_cc_cache:
-        print fname
-        print asm_cc_cache[fname]
-        #assert False
-        print 'cachedcc:'
         return asm_cc_cache[fname]
     if fname not in pre_pairings:
         bits = fname.split ("'")
@@ -1157,14 +1061,8 @@ def get_asm_calling_convention (fname):
 
     num_args = len (var_c_args)
     num_rets = len (var_c_rets)
-    print num_args
-    print num_rets
 
-    #assert False
     const_mem = not (c_omem)
-    #print 'const_mem\n'
-    #print const_mem
-    #print c_omem
 
     cc = get_asm_calling_convention_inner (num_args, num_rets, const_mem)
     asm_cc_cache[fname] = cc
@@ -1173,7 +1071,6 @@ def get_asm_calling_convention (fname):
 def get_asm_calling_convention_inner (num_c_args, num_c_rets, const_mem):
     key = ('Inner', num_c_args, num_c_rets, const_mem)
     if key in asm_cc_cache:
-        #assert False
         return asm_cc_cache[key]
 
     from logic import mk_var_list, mk_stack_sequence
@@ -1206,9 +1103,6 @@ def get_asm_calling_convention_inner (num_c_args, num_c_rets, const_mem):
     elif syntax.arch == 'rv64':
         global_args = [mem, dom, st, dom_stack, sp, mk_var('ret', word64T)]
         sregs = mk_stack_sequence(sp, 8, st, word64T, num_c_args + 1)
-        print global_args
-        print num_c_args
-        print num_c_rets
     else:
         assert False
 
@@ -1227,8 +1121,7 @@ def get_asm_calling_convention_inner (num_c_args, num_c_rets, const_mem):
             assert False
 
         rets = [r for (r, _) in rets]
-        # need to handle multiple return value case
-        #assert False
+        # FIXME: need to handle multiple return value case
     elif num_c_rets == 2:
         rets = [r0, r1]
     else:
@@ -1238,13 +1131,11 @@ def get_asm_calling_convention_inner (num_c_args, num_c_rets, const_mem):
         callee_saved_vars = ([mk_var (v, word32T)
                               for v in 'r4 r5 r6 r7 r8 r9 r10 r11 r13'.split ()]
                              + [dom, dom_stack])
-        #assert False
     elif syntax.arch == 'rv64':
         callee_saved_vars = ([mk_var(v, word64T)
                               for v in 'r2 r8 r9 r18 r19 r20 r21 r22 r23 r24 r25 r26 r27'.split()]
                              + [dom, dom_stack])
         print callee_saved_vars
-        #assert False
     else:
         assert False
 
@@ -1255,41 +1146,21 @@ def get_asm_calling_convention_inner (num_c_args, num_c_rets, const_mem):
 
     rets += [st]
 
-    #rets += [mem]
-    print 'rets:'
-    print const_mem
-    print rets
-    print st
-    #assert False
     cc = {'args': arg_seq[: num_c_args] + global_args,
           'rets': rets, 'callee_saved': callee_saved_vars}
 
-    print 'printcc:'
-    print cc
-    #assert None
     asm_cc_cache[key] = cc
     return cc
 
 def get_asm_calling_convention_at_node (node):
-    print 'node:'
-    print node
     cc = get_asm_calling_convention (node.fname)
-    print 'cc:'
-    print cc
-    print 'done cc'
     if not cc:
         return None
-
 
     fun = functions[node.fname]
     arg_input_map = dict (azip (fun.inputs, node.args))
     ret_output_map = dict (azip (fun.outputs,
                                  [mk_var (nm, typ) for (nm, typ) in node.rets]))
-    print 'arg\n'
-    print arg_input_map
-    print 'ret\n'
-    print ret_output_map
-    print node.fname
     args = [logic.var_subst (arg, arg_input_map) for arg in cc['args']]
     rets = [logic.var_subst (ret, ret_output_map) for ret in cc['rets']]
     # these are useful because they happen to map ret r0_input back to
@@ -1297,15 +1168,6 @@ def get_asm_calling_convention_at_node (node):
     rets_inp = [logic.var_subst (ret, arg_input_map) for ret in cc['rets']]
     saved = [logic.var_subst (v, ret_output_map)
              for v in cc['callee_saved']]
-    print 'args:'
-    print args
-    print "rets:"
-    print rets
-    print "rets_inp"
-    print rets_inp
-    print "saved"
-    print saved
-    #assert None
     return {'args': args, 'rets': rets,
             'rets_inp': rets_inp, 'callee_saved': saved}
 
@@ -1371,7 +1233,6 @@ def convert_recursion_idents (idents):
 def mk_pairing (pre_pair, stack_bounds):
     asm_f = pre_pair['ASM']
     sz = stack_bounds[asm_f]
-    #print sz
     c_fun = functions[pre_pair['C']]
 
     from logic import split_scalar_pairs
@@ -1387,15 +1248,7 @@ def mk_pairing (pre_pair, stack_bounds):
     else:
         assert False
 
-    print 'eqs\n'
-    for e in eqs:
-        print type(e)
-        for ee in e:
-            print  ee
-
-    #assert False
-    return logic.Pairing (['ASM', 'C'],
-                          {'ASM': asm_f, 'C': c_fun.name}, eqs)
+    return logic.Pairing (['ASM', 'C'], {'ASM': asm_f, 'C': c_fun.name}, eqs)
 
 def mk_pairings (stack_bounds):
     new_pairings = {}
@@ -1568,8 +1421,6 @@ def inst_const_rets (node):
     def is_const (nm, typ):
         if typ in [builtinTs['Mem'], builtinTs['Dom']]:
             return True
-        #print typ
-        #assert False
         if typ != word32T or typ != word64T:
             return False
         return not (nm in bits or [al for al in reg_aliases.get (nm, [])

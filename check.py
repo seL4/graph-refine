@@ -64,11 +64,6 @@ def inline_completely_unmatched (p, ref_tags = None, skip_underspec = False):
         [trace ('Skipped inlining underspecified %s.'
                 % p.nodes[n].fname) for (n, skip) in ns if skip]
 
-#        for zz in p.nodes:
-#            if p.nodes[zz].kind == 'Call':
-#                print p.nodes[zz]
-#                print '\n'
-
         ns = [n for (n, skip) in ns if not skip]
 
         for n in ns:
@@ -81,7 +76,6 @@ def inline_completely_unmatched (p, ref_tags = None, skip_underspec = False):
 
 def inline_reachable_unmatched_C (p, force_inline = None,
                                   skip_underspec = False):
-    print 'inline_c %s' % p.pairing.tags
     if 'C' not in p.pairing.tags:
         return
     [compare_tag] = [tag for tag in p.pairing.tags if tag != 'C']
@@ -90,7 +84,6 @@ def inline_reachable_unmatched_C (p, force_inline = None,
 
 def inline_reachable_unmatched (p, inline_tag, compare_tag,
                                 force_inline = None, skip_underspec = False):
-    print 'inline_tag %s cmp %s' % (inline_tag, compare_tag)
     funs = [pair.funs[inline_tag]
             for n in p.nodes
             if p.nodes[n].kind == 'Call'
@@ -99,28 +92,6 @@ def inline_reachable_unmatched (p, inline_tag, compare_tag,
             for pair in pairings.get (p.nodes[n].fname, [])
             if inline_tag in pair.tags]
 
-    #print pair.funs[inline_tag]
-    #print 'inline %s' % inline_tag
-    #print 'pari.tags %s\n' % pair.tags
-#    for n in p.nodes:
-#        if p.nodes[n].kind == 'Call':
-#            print 'call:'
-#            print p.nodes[n].fname
-#            print p.node_tags[n][0]
-#            print p.node_tags[n][1]
-#            pp = pairings.get(p.nodes[n].fname)
-#            for ppp in pp:
-#                print ppp.l_f
-#                print ppp.r_f
-#                print '%s \n' % ppp.name
-    #print '\n'
-
-    #'print pairing'
-    #for ppp in pairings.keys():
-    #	print ppp
-
-    print 'fnma'
-    print funs
     rep = mk_graph_slice (p,
                           consider_inline (funs, inline_tag, force_inline,
                                            skip_underspec))
@@ -129,7 +100,6 @@ def inline_reachable_unmatched (p, inline_tag, compare_tag,
         try:
             heads = problem.loop_heads_including_inner (p)
             limits = [(n, opts) for n in heads]
-            print "pcenv1:"
             for n in p.nodes.keys ():
                 try:
                     r = rep.get_node_pc_env ((n, limits))
@@ -148,40 +118,16 @@ def consider_inline1 (p, n, matched_funs, inline_tag,
     assert node.kind == 'Call'
 
     if p.node_tags[n][0] != inline_tag:
-        print 'inline_tag'
-        print p.node_tags[n][0]
-        print p.node_tags[n][1]
-        print inline_tag
         return False
 
     f_nm = node.fname
-
-    print 'matched:'
-    print matched_funs
-    tmp_matched = []
-    for v in matched_funs:
-        tmp_matched.append(v.split('@')[0])
-
-    matched_funs = tmp_matched
-
-    # rv64_hack avoid to inline the inline assembly further
-    # since these functions do not have a real body
-#    if "r_impl" in f_nm and not functions[f_nm].entry and f_nm not in matched_funs:
-#        skip_underspec = True
-#        print 'blabla'
-#        print f_nm
-#        print matched_funs
 
     if skip_underspec and not functions[f_nm].entry:
         trace ('Skipping inlining underspecified %s' % f_nm)
         return False
     if f_nm not in matched_funs or (force_inline and force_inline (f_nm)):
-        print 'not_matched:'
-        print f_nm
-        print matched_funs
         return lambda: inline_at_point (p, n)
     else:
-        print 'bla'
         return False
 
 def consider_inline (matched_funs, tag, force_inline, skip_underspec = False):
@@ -189,39 +135,27 @@ def consider_inline (matched_funs, tag, force_inline, skip_underspec = False):
                                             force_inline, skip_underspec)
 
 def inst_eqs (p, restrs, eqs, tag_map = {}):
+    syntax.context_trace()
     addr_map = {}
     if not tag_map:
         tag_map = dict ([(tag, tag) for tag in p.tags ()])
-    print 'tag_map:'
-    print tag_map
     for (pair_tag, p_tag) in tag_map.iteritems ():
         addr_map[pair_tag + '_IN'] = ((p.get_entry (p_tag), ()), p_tag)
         addr_map[pair_tag + '_OUT'] = (('Ret', restrs), p_tag)
-    print "addr_map:"
-    print addr_map
     renames = p.entry_exit_renames (tag_map.values ())
-    print 'renames:'
-    print renames
 
     for (pair_tag, p_tag) in tag_map.iteritems ():
         renames[pair_tag + '_IN'] = renames[p_tag + '_IN']
         renames[pair_tag + '_OUT'] = renames[p_tag + '_OUT']
     hyps = []
     for (lhs, rhs) in eqs:
-        print 'lhs:'
-        print lhs
-        print 'rhs:'
-        print rhs
         vals = [(rename_expr (x, renames[x_addr]), addr_map[x_addr])
                 for (x, x_addr) in (lhs, rhs)]
-        print 'vals:'
-        print vals
         hyps.append (eq_hyp (vals[0], vals[1]))
     return hyps
 
 def init_point_hyps (p):
-    print 'pairing eqs'
-    print p.pairing.eqs
+    syntax.context_trace()
     (inp_eqs, _) = p.pairing.eqs
     return inst_eqs (p, (), inp_eqs)
 
@@ -250,11 +184,6 @@ class ProofNode:
             assert not 'proof node kind understood', kind
 
     def __repr__ (self):
-        #print 'args:'
-        #print self.args
-        #print "subproofs:"
-        #for s in self.subproofs:
-        #	print s
         return 'ProofNode (%r, %r, %r)' % (self.kind,
                                            self.args, self.subproofs)
 
@@ -485,16 +414,9 @@ def split_hyps_at_visit (tags, split, restrs, visit):
         # hack rv64
         lsub = mksub (mk_word64 (visit.n))
     else:
-        #print 'bla:'
-        #print visit
-        #print visit.n
-        #print visit.kind
-        # rv64_hack rv64
         lsub = mksub (mk_plus (mk_var ('%n', word64T),
                                mk_word64 (visit.n)))
 
-    #print 'lsub:'
-    #print lsub
     hyps = [(Hyp ('PCImp', l_visit, r_visit), 'pc imp'),
             (Hyp ('PCImp', l_visit, l_start), '%s pc imp' % l_tag),
             (Hyp ('PCImp', r_visit, r_start), '%s pc imp' % r_tag)]
@@ -509,8 +431,6 @@ def split_hyps_at_visit (tags, split, restrs, visit):
              for (l_exp, r_exp) in eqs
              if inst (l_exp) and inst (r_exp)]
 
-    #print 'hyps:'
-    #print hyps
     return hyps
 
 def split_loop_hyps (tags, split, restrs, exit):
@@ -774,15 +694,12 @@ def all_rev_induct_checks (p, restrs, hyps, point, (eqs, n), (pred, n_bound)):
 
 def leaf_condition_checks (p, restrs, hyps):
     '''checks of the final refinement conditions'''
+    syntax.context_trace()
     nrerr_pc_hyp = non_r_err_pc_hyp (p.pairing.tags, restrs)
-    print 'nrerr_pc_hyp:'
-    print nrerr_pc_hyp
     hyps = [nrerr_pc_hyp] + hyps
     [l_tag, r_tag] = p.pairing.tags
 
     nlerr_pc = pc_false_hyp ((('Err', restrs), l_tag))
-    print 'nlerr_pc:'
-    print nlerr_pc
     # this 'hypothesis' ensures that the representation is built all
     # the way to Ret. in particular this ensures that function relations
     # are available to use in proving single-side equalities
@@ -975,10 +892,6 @@ def check_proof_report_rec (p, restrs, hyps, proof, step_num, ctxt, inducts,
                  % (step_num, v, n)]
     elif proof.kind == 'Leaf':
         printout ('  prove all verification conditions')
-        print "restrs:"
-        print restrs
-        print "hyps:"
-        print hyps
         checks = leaf_condition_checks (p, restrs, hyps)
         cases = []
     elif proof.kind == 'CaseSplit':
@@ -987,11 +900,10 @@ def check_proof_report_rec (p, restrs, hyps, proof, step_num, ctxt, inducts,
         cases = ['case in (%d) where %d is visited' % (step_num, proof.point),
                  'case in (%d) where %d is not visited' % (step_num, proof.point)]
 
-    if checks and do_check:
+    syntax.context_trace('p', 'restrs', 'hyps', 'proof', 'step_num', 'ctxt',
+                         'inducts', 'checks', 'do_check')
 
-        print 'checks:'
-        for c in checks:
-            print c
+    if checks and do_check:
         groups = proof_check_groups (checks)
 
         for group in groups:
@@ -1001,7 +913,6 @@ def check_proof_report_rec (p, restrs, hyps, proof, step_num, ctxt, inducts,
             if not res:
                 printout ('    .. failed to prove this.')
                 printout ('      (failure kind: %r)' % detail[0])
-                print hyps
                 return
 
         printout ('    .. proven.')

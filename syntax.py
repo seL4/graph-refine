@@ -7,6 +7,11 @@
 # Syntax and simple operations for types, expressions, graph nodes
 # and graph functions (functions in graph-language format).
 
+import inspect
+import pprint
+import os.path
+import sys
+
 from target_objects import structs, trace, printout
 import target_objects
 
@@ -287,8 +292,6 @@ class Type:
         if not other:
             return False
         if self.kind != other.kind:
-            #	print self.kind
-            #	print other.kind
             return False
         if self.kind in ['Array', 'Word', 'TokenWords']:
             if self.num != other.num:
@@ -525,14 +528,6 @@ class Expr:
             return [('MemAcc', p, self, m)]
         elif self.is_op ('MemUpdate'):
             [m, p, v] = self.vals
-            #print 'memacc:\n'
-            #print m
-            #print '\n'
-            #print p
-            #print '\n'
-            #print v
-            #print '\n'
-            #assert False
             return [('MemUpdate', p, v, m)]
         else:
             return []
@@ -1235,10 +1230,7 @@ def visit_rval (vs):
             vs[v] = expr.typ
         if expr.is_op ('MemAcc'):
             [m, p] = expr.vals
-            #print arch
             if is_64bit:
-                if not p.typ == word64T:
-                    print expr
                 #rv64_hack
                 assert p.typ == word64T or p.typ == word32T, expr
             else:
@@ -1337,7 +1329,7 @@ def check_funs (functions, verbose = False):
 
                     c = functions[node.fname]
                     if 'ecall' in node.fname:
-                        print 'skip %s', node.fname
+                        print 'skip ecall %s', node.fname
                         continue
                     assert map(get_expr_typ, node.args) == \
                         map (get_lval_typ, c.inputs), (
@@ -1375,10 +1367,7 @@ def mk_token (nm):
     return Expr ('Token', builtinTs['Token'], name = nm)
 
 def mk_plus (x, y):
-    if x.typ != y.typ:
-        print x.typ
-        print y.typ
-    assert x.typ == y.typ
+    assert x.typ == y.typ, (x.typ, y.typ)
     return Expr ('Op', x.typ, name = 'Plus', vals = [x, y])
 
 def mk_uminus (x):
@@ -1386,45 +1375,37 @@ def mk_uminus (x):
     return mk_minus (zero, x)
 
 def mk_minus (x, y):
-    if x.typ != y.typ:
-        print x.typ
-        print y.typ
-    assert x.typ == y.typ
+    assert x.typ == y.typ, (x.typ, y.typ)
     return Expr ('Op', x.typ, name = 'Minus', vals = [x, y])
 
 def mk_times (x, y):
-    if not x.typ == y.typ:
-        print x.typ
-        print y.typ
-    assert x.typ == y.typ
+    assert x.typ == y.typ, (x.typ, y.typ)
     return Expr ('Op', x.typ, name = 'Times', vals = [x, y])
 
 def mk_divide (x, y):
-    assert x.typ == y.typ
+    assert x.typ == y.typ, (x.typ, y.typ)
     return Expr ('Op', x.typ, name = 'DividedBy', vals = [x, y])
 
 def mk_modulus (x, y):
-    assert x.typ == y.typ
+    assert x.typ == y.typ, (x.typ, y.typ)
     return Expr ('Op', x.typ, name = 'Modulus', vals = [x, y])
 
 def mk_bwand (x, y):
-    #assert x.typ == y.typ
+    assert x.typ == y.typ, (x.typ, y.typ)
     assert x.typ.kind == 'Word'
     return Expr ('Op', x.typ, name = 'BWAnd', vals = [x, y])
 
 def mk_eq (x, y):
-    assert x.typ == y.typ
+    assert x.typ == y.typ, (x.typ, y.typ)
     return Expr ('Op', boolT, name = 'Equals', vals = [x, y])
 
 def mk_less_eq (x, y, signed = False):
-    if x.typ != y.typ:
-        print x.typ
-        print y.typ
-    #assert x.typ == y.typ
+    assert x.typ == y.typ, (x.typ, y.typ)
     name = {False: 'LessEquals', True: 'SignedLessEquals'}[signed]
     return Expr ('Op', boolT, name = name, vals = [x, y])
 
 def mk_less (x, y, signed = False):
+    assert x.typ == y.typ, (x.typ, y.typ)
     #assert x.typ == y.typ
     name = {False: 'Less', True: 'SignedLess'}[signed]
     return Expr ('Op', boolT, name = name, vals = [x, y])
@@ -1479,8 +1460,6 @@ def foldr1 (f, xs):
 
 def mk_num (x, typ):
     import logic
-    #if typ == word32T and is_64bit:
-    #	assert False
     if logic.is_int (typ):
         typ = Type ('Word', typ)
     assert typ.kind == 'Word', typ
@@ -1513,23 +1492,12 @@ def mk_cast (x, typ):
     else:
         assert x.typ.kind == 'Word', x.typ
         assert typ.kind == 'Word', typ
+        context_trace()
         return Expr ('Op', typ, name = 'WordCast', vals = [x])
 
 def mk_memacc(m, p, typ):
     assert m.typ == builtinTs['Mem']
-    if is_64bit:
-        #print p
-        #print '\n'
-        #print p.typ
-        #print '\n'
-        #print typ
-        #print '\n'
-        #print type(typ)
-        #assert p.typ == word64T or p.typ == word32T
-        #assert p.type == word64T
-        pass
-    else:
-        assert p.typ == word32T
+    assert is_64bit or p.typ == word32T
     return Expr ('Op', typ, name = 'MemAcc', vals = [m, p])
 
 def mk_memupd(m, p, v):
@@ -1672,3 +1640,35 @@ def set_arch(a = 'armv7'):
     else:
         is_64bit = False
 
+
+def context_trace(*local_vars, **fun_vars):
+    frames = [frame[0] for frame in inspect.stack()[1:]]
+    caller = frames.pop(0)
+
+    def v_info(locals_dict, var_names):
+        values = []
+        for v in var_names:
+            if v in locals_dict:
+                indent = len(v) + 6
+                val_lines = pprint.pformat(locals_dict[v], width=110).splitlines()
+                first_line = "    %s: %s\n" % (v, val_lines.pop(0))
+                val_lines = first_line + ''.join(["%s%s\n" % (' ' * indent, line) for line in val_lines])
+                values.append(''.join(val_lines))
+        return ''.join(values)
+
+    def frame_info(frame, is_first=False):
+        info = inspect.getframeinfo(frame)
+        args = inspect.getargvalues(frame)
+        trace = "%s, in %s, line %d\n" % (info.function, os.path.basename(info.filename), info.lineno)
+        if info.code_context:
+            trace += "    %s\n" % (info.code_context[0].strip())
+        trace = ("context_trace: " if is_first else "  called from: ") + trace
+        v_names = (local_vars or args.args) if is_first else fun_vars.get(info.function, ())
+        trace += v_info(args.locals, v_names)
+        return trace
+
+    frames_info = [frame_info(frame) for frame in frames]
+    frames_info.insert(0, frame_info(caller, True))
+
+    sys.stdout.write(''.join(frames_info))
+    sys.stdout.flush()
