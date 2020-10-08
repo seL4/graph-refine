@@ -271,7 +271,7 @@ def mk_eqs_riscv64_unknown_linux_gnu(var_c_args, var_c_rets, c_imem, c_omem,
 
     post_eqs = [
         (x, x) for x in mk_var_list(
-            ['r2', 'r8', 'r9', 'r18', 'r19', 'r20', 'r21',
+            ['r2', 'r3', 'r4', 'r8', 'r9', 'r18', 'r19', 'r20', 'r21',
              'r22', 'r23', 'r24', 'r25', 'r26', 'r27'],
             word64T)
     ]
