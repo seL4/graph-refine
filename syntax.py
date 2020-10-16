@@ -1486,14 +1486,15 @@ def mk_word32_maybe(x):
         assert x.typ == word32T
         return x
 
-def mk_cast (x, typ):
+def mk_cast(x, typ, signed=False):
     if x.typ == typ:
         return x
     else:
+        cast_op = 'WordCastSigned' if signed else 'WordCast'
+        context_trace(mk_pairing=('asm_f', 'c_fun'))
         assert x.typ.kind == 'Word', x.typ
         assert typ.kind == 'Word', typ
-        context_trace()
-        return Expr ('Op', typ, name = 'WordCast', vals = [x])
+        return Expr ('Op', typ, name=cast_op, vals=[x])
 
 def mk_memacc(m, p, typ):
     assert m.typ == builtinTs['Mem']

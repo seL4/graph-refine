@@ -27,11 +27,22 @@ def mk_rodata (m):
     assert m.typ == builtinTs['Mem']
     return Expr ('Op', boolT, name = 'ROData', vals = [m])
 
-def cast_pair (((a, a_addr), (c, c_addr))):
+def cast_pair (pair, mk_cast=mk_cast):
+    (a, a_addr), (c, c_addr) = pair
     if a.typ != c.typ and c.typ == boolT:
         assert False
         c = mk_if (c, mk_word32 (1), mk_word32 (0))
-    return ((a, a_addr), (mk_cast (c, a.typ), c_addr))
+    return ((a, a_addr), (mk_cast(c, a.typ), c_addr))
+
+# The RISC-V calling convention requires some special handling for
+# 32-bit values stored in 64-bit registers. These are presumed to
+# be stored in sign-extended form, even if the C type is unsigned.
+def mk_cast_rv64(x, typ):
+    signed = x.typ.num == 32 and typ.num == 64
+    return mk_cast(x, typ, signed=signed)
+
+def cast_pair_rv64(pair):
+    return cast_pair(pair, mk_cast_rv64)
 
 ghost_assertion_armv7_type = syntax.Type ('WordArray', 50, 32)
 ghost_assertion_rv64_type = syntax.Type('WordArray', 50, 64)
@@ -250,7 +261,7 @@ def mk_eqs_riscv64_unknown_linux_gnu(var_c_args, var_c_rets, c_imem, c_omem, min
         save_addrs = [addr for (_, addr) in save_seq]
         post_eqs += [(r10_input, r10_input)]
         out_eqs = zip (var_c_rets, [x for (x, _) in save_seq])
-        out_eqs = [(c, mk_cast (a, c.typ)) for (c, a) in out_eqs]
+        out_eqs = [(c, mk_cast_rv64(a, c.typ)) for (c, a) in out_eqs]
         init_save_seq = mk_stack_sequence (r10, 8, st, word64T,
                                            len(var_c_rets))
         (_, last_arg_addr) = arg_seq[len (var_c_args) - 1]
@@ -279,13 +290,13 @@ def mk_eqs_riscv64_unknown_linux_gnu(var_c_args, var_c_rets, c_imem, c_omem, min
                                        ['ASM', 'C'])
 
     addr = None
-    arg_eqs = [cast_pair (((a_x, 'ASM_IN'), (c_x, 'C_IN')))
+    arg_eqs = [cast_pair_rv64(((a_x, 'ASM_IN'), (c_x, 'C_IN')))
                for (c_x, (a_x, addr)) in zip (var_c_args, arg_seq)]
 
     if addr:
         preconds += [mk_less_eq (sp, addr)]
 
-    ret_eqs = [cast_pair (((a_x, 'ASM_OUT'), (c_x, 'C_OUT')))
+    ret_eqs = [cast_pair_rv64(((a_x, 'ASM_OUT'), (c_x, 'C_OUT')))
                for (c_x, a_x) in out_eqs]
 
     preconds = [((a_x, 'ASM_IN'), (true_term, 'ASM_IN')) for a_x in preconds]
