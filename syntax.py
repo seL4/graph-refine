@@ -263,11 +263,17 @@ class Arch:
             self.ptr_size = 4
             self.is_64bit = False
             self.ghost_assertion_type = Type('WordArray', 50, 32)
+            self.mk_word = mk_word32
+            self.word_type = word32T
+            self.word_size = 32
         elif name == 'rv64':
             self.name = 'rv64'
             self.ptr_size = 8
             self.is_64bit = True
             self.ghost_assertion_type = Type('WordArray', 50, 64)
+            self.mk_word = mk_word64
+            self.word_type = word64T
+            self.word_size = 64
         else:
             raise ValueError('unsupported architecture: %r' % name)
     def __repr__ (self):

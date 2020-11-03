@@ -549,19 +549,14 @@ def mk_bwand_mask (expr, n):
     return mk_bwand (expr, mk_num (((1 << n) - 1), expr.typ))
 
 def end_addr (p, typ):
-    if syntax.arch.is_64bit:
-        mk_word = syntax.mk_word64
-    else:
-        mk_word = syntax.mk_word32
-
     if typ[0] == 'Array':
         (_, typ, n) = typ
-        sz = mk_times (mk_word(typ.size ()), n)
+        sz = mk_times (syntax.arch.mk_word(typ.size ()), n)
     else:
         assert typ[0] == 'Type', typ
         (_, typ) = typ
-        sz = mk_word(typ.size ())
-    return mk_plus (p, mk_minus (sz, mk_word(1)))
+        sz = syntax.arch.mk_word(typ.size ())
+    return mk_plus (p, mk_minus (sz, syntax.arch.mk_word(1)))
 
 def pvalid_assertion1 ((typ, k, p, pv), (typ2, k2, p2, pv2)):
     """first pointer validity assertion: incompatibility.
@@ -595,24 +590,14 @@ def pvalid_assertion2 ((typ, k, p, pv), (typ2, k2, p2, pv2)):
     return mk_and (imp1, imp2)
 
 def sym_distinct_assertion ((typ, p, pv), (start, end)):
-    if syntax.arch.is_64bit:
-        mk_word = syntax.mk_word64
-    else:
-        mk_word = syntax.mk_word32
-
-    out1 = mk_less (mk_plus (p, mk_word(typ.size () - 1)), mk_word(start))
-    out2 = mk_less (mk_word(end), p)
+    out1 = mk_less (mk_plus (p, syntax.arch.mk_word(typ.size () - 1)), syntax.arch.mk_word(start))
+    out2 = mk_less (syntax.arch.mk_word(end), p)
     return mk_implies (pv, mk_or (out1, out2))
 
 def norm_array_type (t):
-    if syntax.arch.is_64bit:
-        mk_word = syntax.mk_word64
-    else:
-        mk_word = syntax.mk_word32
-
     if t[0] == 'Type' and t[1].kind == 'Array':
         (_, atyp) = t
-        return ('Array', atyp.el_typ_symb, mk_word(atyp.num), 'Strong')
+        return ('Array', atyp.el_typ_symb, syntax.arch.mk_word(atyp.num), 'Strong')
     elif t[0] == 'Array' and len (t) == 3:
         (_, typ, l) = t
         # these derive from PArrayValid assertions. we know the array is
@@ -641,21 +626,10 @@ def get_styp_condition_inner1 (inner_typ, outer_typ):
     return r
 
 def array_typ_size ((kind, el_typ, num, _)):
-    if syntax.arch.is_64bit:
-        mk_word = syntax.mk_word64
-    else:
-        mk_word = syntax.mk_word32
-    el_size = mk_word(el_typ.size ())
+    el_size = syntax.arch.mk_word(el_typ.size ())
     return mk_times (num, el_size)
 
 def get_styp_condition_inner2 (inner_typ, outer_typ):
-    if syntax.arch.is_64bit:
-        wordT = syntax.word64T
-        mk_word = syntax.mk_word64
-    else:
-        wordT = syntax.word32T
-        mk_word = syntax.mk_word32
-
     if inner_typ[0] == 'Array' and outer_typ[0] == 'Array':
         (_, ityp, inum, _) = inner_typ
         (_, otyp, onum, outer_bound) = outer_typ
@@ -671,10 +645,10 @@ def get_styp_condition_inner2 (inner_typ, outer_typ):
         else:
             return cond
     elif inner_typ == outer_typ:
-        return lambda offs: mk_eq (offs, mk_word(0))
+        return lambda offs: mk_eq (offs, syntax.arch.mk_word(0))
     elif outer_typ[0] == 'Type' and outer_typ[1].kind == 'Struct':
         conds = [(get_styp_condition_inner1 (inner_typ,
-                                             ('Type', sf_typ)), mk_word(offs2))
+                                             ('Type', sf_typ)), syntax.arch.mk_word(offs2))
                  for (_, offs2, sf_typ)
                  in structs[outer_typ[1].name].fields.itervalues()]
         conds = [cond for cond in conds if cond[0]]
@@ -687,7 +661,7 @@ def get_styp_condition_inner2 (inner_typ, outer_typ):
     elif outer_typ[0] == 'Array':
         (_, el_typ, n, bound) = outer_typ
         cond = get_styp_condition_inner1 (inner_typ, ('Type', el_typ))
-        el_size = mk_word(el_typ.size ())
+        el_size = syntax.arch.mk_word(el_typ.size ())
         size = mk_times (n, el_size)
         if bound == 'Strong' and cond:
             return lambda offs: mk_and (mk_less (offs, size),
@@ -722,41 +696,27 @@ def var_not_in_expr (var, expr):
     return all_vars_have_prop (expr, lambda v: v != v2)
 
 def mk_array_size_ineq (typ, num, p):
-    if syntax.arch.is_64bit:
-        mk_word = syntax.mk_word64
-        size_lim = ((2 ** 64) - 8) / typ.size()
-    else:
-        mk_word = syntax.mk_word32
-        size_lim = ((2 ** 32) - 4) / typ.size ()
-
     align = typ.align ()
-    size = mk_times (mk_word(typ.size ()), num)
-    size_lim = ((2 ** 32) - 4) / typ.size ()
-    return mk_less_eq (num, mk_word(size_lim))
+    size = mk_times (syntax.arch.mk_word(typ.size ()), num)
+    size_lim = ((2 ** syntax.arch.word_size) - syntax.arch.ptr_size) / typ.size()
+    return mk_less_eq (num, syntax.arch.mk_word(size_lim))
 
 def mk_align_valid_ineq (typ, p):
-    if syntax.arch.is_64bit:
-        mk_word = syntax.mk_word64
-        wordT = syntax.word64T
-    else:
-        mk_word = syntax.mk_word32
-        wordT = syntax.word32T
-
     if typ[0] == 'Type':
         (_, typ) = typ
         align = typ.align ()
-        size = mk_word(typ.size ())
+        size = syntax.arch.mk_word(typ.size ())
         size_req = []
     else:
         assert typ[0] == 'Array', typ
         (kind, typ, num) = typ
         align = typ.align ()
-        size = mk_times (mk_word(typ.size ()), num)
+        size = mk_times (syntax.arch.mk_word(typ.size ()), num)
         size_req = [mk_array_size_ineq (typ, num, p)]
     assert align in [1, 4, 8]
-    w0 = mk_word(0)
+    w0 = syntax.arch.mk_word(0)
     if align > 1:
-        align_req = [mk_eq (mk_bwand (p, mk_word(align - 1)), w0)]
+        align_req = [mk_eq (mk_bwand (p, syntax.arch.mk_word(align - 1)), w0)]
     else:
         align_req = []
     return foldr1 (mk_and, align_req + size_req + [mk_not (mk_eq (p, w0)),
@@ -1683,15 +1643,10 @@ def word64_list_from_tm (t):
     return xs
 
 def tm_with_word_list(xs):
-    if syntax.arch.is_64bit:
-        mk_word = syntax.mk_word64
-    else:
-        mk_word = syntax.mk_word32
-
     if xs:
-        return foldr1(mk_plus, map(mk_word, xs))
+        return foldr1(mk_plus, map(syntax.arch.mk_word, xs))
     else:
-        return mk_uminus(mk_word(0))
+        return mk_uminus(syntax.arch.mk_word(0))
 
 def mk_eq_selective_wrapper (v, (xs, ys)):
     # this is a huge hack, but we need to put these lists somewhere
@@ -1701,12 +1656,6 @@ def mk_eq_selective_wrapper (v, (xs, ys)):
 
 def apply_rel_wrapper (lhs, rhs):
     syntax.context_trace()
-    if syntax.arch.is_64bit:
-        mk_word = syntax.mk_word64
-        wordT = syntax.word64T
-    else:
-        mk_word = syntax.mk_word32
-        wordT = syntax.word32T
 
     assert lhs.typ == syntax.builtinTs['RelWrapper']
     assert rhs.typ == syntax.builtinTs['RelWrapper']
@@ -1718,15 +1667,15 @@ def apply_rel_wrapper (lhs, rhs):
         [sp2, st2] = rhs.vals[:2]
         excepts = list (set (lhs.vals[2:] + rhs.vals[2:]))
         for p in excepts:
-            st1 = syntax.mk_memupd (st1, p, mk_word(0))
-            st2 = syntax.mk_memupd (st2, p, mk_word(0))
+            st1 = syntax.mk_memupd (st1, p, syntax.arch.mk_word(0))
+            st2 = syntax.mk_memupd (st2, p, syntax.arch.mk_word(0))
 
         return syntax.Expr ('Op', boolT, name = 'StackEquals',
                             vals = [sp1, st1, sp2, st2])
     elif ops == set (['MemAccWrapper', 'MemWrapper']):
         [acc] = [v for v in [lhs, rhs] if v.is_op ('MemAccWrapper')]
         [addr, val] = acc.vals
-        assert addr.typ == wordT
+        assert addr.typ == syntax.arch.wordT
         [m] = [v for v in [lhs, rhs] if v.is_op ('MemWrapper')]
         [m] = m.vals
         assert m.typ == builtinTs['Mem']
