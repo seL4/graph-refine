@@ -256,11 +256,6 @@ and FloatingPointCast (FP to FP) represent the variants of to_fp in the SMTLIB2
 standard.
 """
 
-arch = 'rv64'
-
-is_64bit = True  # type: bool
-
-
 class Type:
     def __init__ (self, kind, name, el_typ=None):
         self.kind = kind
