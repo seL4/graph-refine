@@ -44,9 +44,6 @@ def mk_cast_rv64(x, typ):
 def cast_pair_rv64(pair):
     return cast_pair(pair, mk_cast_rv64)
 
-ghost_assertion_armv7_type = syntax.Type ('WordArray', 50, 32)
-ghost_assertion_rv64_type = syntax.Type('WordArray', 50, 64)
-
 def split_scalar_globals (vs):
     for i in range (len (vs)):
         if vs[i].typ.kind != 'Word' and vs[i].typ != boolT:
@@ -55,17 +52,11 @@ def split_scalar_globals (vs):
         i = len (vs)
     scalars = vs[:i]
     global_vars = vs[i:]
-    if syntax.arch.name == 'armv7':
-        ghost_assertion_type = ghost_assertion_armv7_type
-    elif syntax.arch.name == 'rv64':
-        ghost_assertion_type = ghost_assertion_rv64_type
-    else:
-        assert False
 
     for v in global_vars:
         if v.typ not in [builtinTs['Mem'], builtinTs['Dom'],
                          builtinTs['HTD'], builtinTs['PMS'],
-                         ghost_assertion_type]:
+                         syntax.arch.ghost_assertion_type]:
             assert not "scalar_global split expected", vs
 
     memT = builtinTs['Mem']
