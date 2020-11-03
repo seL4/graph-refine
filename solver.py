@@ -146,11 +146,8 @@ def parse_config_change (config, solver):
         lhs = lhs.strip ().lower ()
         rhs = rhs.strip ().lower ()
         if lhs == 'mem_mode':
-            assert rhs in ['8', '32']
+            assert rhs in ['8', '32', '64']
             solver.mem_mode = rhs
-            # hack set the mem_mode to 64
-            if syntax.arch == 'rv64':
-                solver.mem_mode = '64'
         else:
             assert not 'config understood', assign
 
@@ -737,7 +734,7 @@ we model the memory as byte-addressable. This requires shifting and adding
 when we need to read and write half-words, words, and double words.
 '''
 
-mem_word64_preamble = [
+mem_word8_riscv_preamble = [
     '''
 (define-fun load-word8 ((m {MemSort}) (p (_ BitVec 64)))
 	(_ BitVec 8)
@@ -862,8 +859,10 @@ word32_smt_convs = {'MemSort': '(Array (_ BitVec 30) (_ BitVec 32))',
                     'MemDomSort': '(Array (_ BitVec 32) (_ BitVec 1))'}
 word8_smt_convs = {'MemSort': '(Array (_ BitVec 32) (_ BitVec 8))',
                    'MemDomSort': '(Array (_ BitVec 32) (_ BitVec 1))'}
-word64_smt_convs = {'MemSort': '(Array (_ BitVec 64) (_ BitVec 8))',
-                    'MemDomSort': '(Array (_ BitVec 64) (_ BitVec 1))'}
+word64_riscv_smt_convs = {'MemSort': '(Array (_ BitVec 61) (_ BitVec 64))',
+                          'MemDomSort': '(Array (_ BitVec 64) (_ BitVec 1))'}
+word8_riscv_smt_convs = {'MemSort': '(Array (_ BitVec 64) (_ BitVec 8))',
+                         'MemDomSort': '(Array (_ BitVec 64) (_ BitVec 1))'}
 
 def preexec (timeout):
     def ret ():
@@ -968,10 +967,14 @@ class Solver:
             preamble += ['(set-option :produce-unsat-cores true)']
 
         if solver_impl.mem_mode == '8':
-            preamble.extend (mem_word8_preamble)
+            if syntax.arch == 'rv64':
+                preamble.extend(mem_word8_riscv_preamble)
+                print preamble
+            else:
+                preamble.extend (mem_word8_preamble)
         else:
-            if syntax.is_64bit:
-                preamble.extend(mem_word64_preamble)
+            if syntax.arch == 'rv64':
+                preamble.extend(mem_word64_riscv_preamble)
                 print preamble
             else:
                 preamble.extend (mem_word32_preamble)
@@ -1033,7 +1036,7 @@ class Solver:
             self.startup_solver ()
 
         if syntax.is_64bit:
-            msg = msg.format(** word64_smt_convs)
+            msg = msg.format(** word8_riscv_smt_convs)
         else:
             msg = msg.format (** word32_smt_convs)
 
@@ -1362,12 +1365,13 @@ class Solver:
 
     def write_solv_script (self, f, input_msgs, solver = slow_solver,
                            only_if_is_model = False):
-        if solver.mem_mode == '8':
-            assert False
+        if solver.mem_mode == '8' and syntax.arch == 'rv64':
+            smt_convs = word8_riscv_smt_convs
+        elif solver.mem_mode == '8':
             smt_convs = word8_smt_convs
         else:
             if syntax.is_64bit:
-                smt_convs = word64_smt_convs
+                smt_convs = word8_riscv_smt_convs
             else:
                 smt_convs = word32_smt_convs
         for msg in self.preamble (solver):
