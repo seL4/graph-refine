@@ -488,7 +488,7 @@ def smt_expr (expr, env, solv):
         assert not 'handled expr', expr
 
 def smt_expr_memacc (m, p, typ, solv):
-    if syntax.is_64bit:
+    if syntax.arch.is_64bit:
         wordT = syntax.word64T
     else:
         wordT = syntax.word32T
@@ -508,7 +508,7 @@ def smt_expr_memacc (m, p, typ, solv):
     return sexp
 
 def smt_expr_memupd (m, p, v, typ, solv):
-    if syntax.is_64bit:
+    if syntax.arch.is_64bit:
         wordT = syntax.word64T
     else:
         wordT = syntax.word32T
@@ -530,7 +530,7 @@ def smt_expr_memupd (m, p, v, typ, solv):
         p = solv.cache_large_expr (p, 'memupd_pointer', wordT)
 
         # Note hack for RV64
-        if syntax.is_64bit:
+        if syntax.arch.is_64bit:
             p_align = '(bvand %s #xfffffffffffffffd)' % p
         else:
             p_align = '(bvand %s #xfffffffd)' % p
@@ -538,7 +538,7 @@ def smt_expr_memupd (m, p, v, typ, solv):
         solv.note_model_expr (p_align, wordT)
         # note hack for rv64
 
-        if syntax.is_64bit:
+        if syntax.arch.is_64bit:
             solv.note_model_expr('(load-word64 %s %s)' % (m, p_align),
                                  syntax.word64T)
         else:
@@ -564,7 +564,7 @@ def smt_expr_memupd (m, p, v, typ, solv):
 def smt_ifthenelse (sw, x, y, solv):
     if x[0] != 'SplitMem' and y[0] != 'SplitMem':
         return '(ite %s %s %s)' % (sw, x, y)
-    if syntax.is_64bit:
+    if syntax.arch.is_64bit:
         zero = '#x0000000000000000'
     else:
         zero = '#x00000000'
@@ -967,13 +967,13 @@ class Solver:
             preamble += ['(set-option :produce-unsat-cores true)']
 
         if solver_impl.mem_mode == '8':
-            if syntax.arch == 'rv64':
+            if syntax.arch.name == 'rv64':
                 preamble.extend(mem_word8_riscv_preamble)
                 print preamble
             else:
                 preamble.extend (mem_word8_preamble)
         else:
-            if syntax.arch == 'rv64':
+            if syntax.arch.name == 'rv64':
                 preamble.extend(mem_word64_riscv_preamble)
                 print preamble
             else:
@@ -1035,7 +1035,7 @@ class Solver:
         if self.online_solver == None:
             self.startup_solver ()
 
-        if syntax.is_64bit:
+        if syntax.arch.is_64bit:
             msg = msg.format(** word8_riscv_smt_convs)
         else:
             msg = msg.format (** word32_smt_convs)
@@ -1127,7 +1127,7 @@ class Solver:
         name = self.smt_name (name, kind = (kind, typ),
                               ignore_external_names = ignore_external_names)
         # r0 or x0 for riscv is always 0. writes to the reg do not have effects
-        if syntax.arch == 'rv64' and name.startswith('r0'):
+        if syntax.arch.name == 'rv64' and name.startswith('r0'):
             self.send('(define-fun %s () %s #x0000000000000000)' % (name, smt_typ(typ)))
         else:
             self.send ('(declare-fun %s () %s)' % (name, smt_typ(typ)))
@@ -1159,7 +1159,7 @@ class Solver:
                 val = mk_smt_expr (smt, typ)
                 return self.add_def (name + '_' + nm, val, {},
                                      ignore_external_names = ignore_external_names)
-            if syntax.is_64bit:
+            if syntax.arch.is_64bit:
                 split = add('split', syntax.word64T, split)
             else:
                 split = add ('split', syntax.word32T, split)
@@ -1195,7 +1195,7 @@ class Solver:
         assert imp_ro_name == 'implies-rodata', repr (imp_ro_name)
         [rodata_data, rodata_ranges, rodata_ptrs] = rodata
 
-        if syntax.is_64bit:
+        if syntax.arch.is_64bit:
             #bits = 64
             #wordT = word64T
             #and_mask = '#x0000000000000003'
@@ -1229,7 +1229,7 @@ class Solver:
             print ro_witness
             print ro_witness_val
             print eq_vs
-            if syntax.is_64bit:
+            if syntax.arch.is_64bit:
                 eqs = ['(= (load-word16 m %s) %s)' % v for v in eq_vs]
             else:
                 eqs = ['(= (load-word32 m %s) %s)' % v for v in eq_vs]
@@ -1365,12 +1365,12 @@ class Solver:
 
     def write_solv_script (self, f, input_msgs, solver = slow_solver,
                            only_if_is_model = False):
-        if solver.mem_mode == '8' and syntax.arch == 'rv64':
+        if solver.mem_mode == '8' and syntax.arch.name == 'rv64':
             smt_convs = word8_riscv_smt_convs
         elif solver.mem_mode == '8':
             smt_convs = word8_smt_convs
         else:
-            if syntax.is_64bit:
+            if syntax.arch.is_64bit:
                 smt_convs = word8_riscv_smt_convs
             else:
                 smt_convs = word32_smt_convs
@@ -1978,7 +1978,7 @@ class Solver:
         if p_s in self.ptrs:
             p = self.ptrs[p_s]
         else:
-            if syntax.is_64bit:
+            if syntax.arch.is_64bit:
                 wordT = syntax.word64T
             else:
                 wordT = syntax.word32T
@@ -2038,7 +2038,7 @@ class Solver:
             pvalids[htd_s][(typ, p, kind)] = var
 
             def smtify (((typ, p, kind), var)):
-                if syntax.is_64bit:
+                if syntax.arch.is_64bit:
                     wordT = syntax.word64T
                 else:
                     wordT = syntax.word32T
@@ -2116,13 +2116,13 @@ class Solver:
         if k in self.stack_eqs:
             return self.stack_eqs[k]
 
-        if syntax.is_64bit:
+        if syntax.arch.is_64bit:
             wordT = word64T
         else:
             wordT = word32T
 
         addr = self.add_var ('stack-eq-witness', wordT)
-        if syntax.is_64bit:
+        if syntax.arch.is_64bit:
             #print addr
             self.assert_fact_smt('(= (bvand %s #x0000000000000007) #x0000000000000000)' % addr)
         else:
@@ -2186,7 +2186,7 @@ class Solver:
             self.model_exprs[psexpr] = (v, typ)
 
     def add_pvalid_dom_assertions (self):
-        if syntax.is_64bit:
+        if syntax.arch.is_64bit:
             bits = 64
         else:
             bits = 32

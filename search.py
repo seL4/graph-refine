@@ -46,7 +46,7 @@ def get_loop_var_analysis_at (p, n):
     return res
 
 def get_loop_vars_at (p, n):
-    if syntax.is_64bit:
+    if syntax.arch.is_64bit:
         mk_word = mk_word64
     else:
         mk_word = mk_word32
@@ -363,7 +363,7 @@ def update_v_ids_for_model (knowledge, pairs, vs, m):
             k_counter += 1
     # then figure out which pairings are still viable
     needed_ks = set ()
-    if syntax.is_64bit:
+    if syntax.arch.is_64bit:
         zero = syntax.mk_word64(0)
     else:
         zero = syntax.mk_word32 (0)
@@ -656,7 +656,7 @@ def split_group (knowledge, m, group):
 def mk_pairing_v_eqs (knowledge, pair, endorsed = True):
     v_eqs = []
     (lvs, rvs) = knowledge.pairs[pair]
-    if syntax.is_64bit:
+    if syntax.arch.is_64bit:
         zero = mk_word64(0)
     else:
         zero = mk_word32 (0)
@@ -1413,7 +1413,7 @@ def v_eqs_to_split (p, pair, v_eqs, restrs, hyps, tags = None):
     r_details = (r_n, (r_init, r_step), mk_seq_eqs (p, r_n, r_step, False)
                  + c_memory_loop_invariant (p, r_n, l_n))
 
-    if syntax.is_64bit:
+    if syntax.arch.is_64bit:
         mk_word = syntax.mk_word64
     else:
         mk_word = syntax.mk_word32

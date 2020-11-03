@@ -256,6 +256,26 @@ and FloatingPointCast (FP to FP) represent the variants of to_fp in the SMTLIB2
 standard.
 """
 
+class Arch:
+    def __init__(self, name = 'armv7'):
+        if name == 'armv7':
+            self.name = 'armv7'
+            self.ptr_size = 4
+            self.is_64bit = False
+        elif name == 'rv64':
+            self.name = 'rv64'
+            self.ptr_size = 8
+            self.is_64bit = True
+        else:
+            raise ValueError('unsupported architecture: %r' % name)
+    def __repr__ (self):
+        return 'Arch (%r)' % self.name
+
+arch = None
+def set_arch(name = 'armv7'):
+    global arch
+    arch = Arch(name)
+
 class Type:
     def __init__ (self, kind, name, el_typ=None):
         self.kind = kind
@@ -336,7 +356,7 @@ class Type:
             assert sz % 8 == 0, self
             return sz / 8
         elif self.kind == 'Ptr':
-            if is_64bit:
+            if arch.is_64bit:
                 return 8
             else:
                 return 4
@@ -351,7 +371,7 @@ class Type:
         elif self.kind in ('Word', 'FloatingPoint'):
             return self.size ()
         elif self.kind == 'Ptr':
-            if is_64bit:
+            if arch.is_64bit:
                 return 8
             else:
                 return 4
@@ -900,7 +920,7 @@ phantom_types = set ([builtinTs[t] for t
 
 def concrete_type (typ):
     if typ.kind == 'Ptr':
-        if is_64bit:
+        if arch.is_64bit:
             return word64T
         else:
             return word32T
@@ -948,7 +968,7 @@ def parse_typ(bits, n, symbolic_types = False):
         if symbolic_types:
             return (n, Type ('Ptr', '', typ))
         else:
-            if is_64bit:
+            if arch.is_64bit:
                 return (n, word64T)
             else:
                 return (n, word32T)
@@ -1110,7 +1130,7 @@ def parse_node (bits, n):
         # hack for Call RV64, not sure Ret is used
         # instead of the address of next instruction
         # after the call is used in the decompiled file
-        if arch == 'rv64' and cont == 'Ret':
+        if arch.name == 'rv64' and cont == 'Ret':
             try:
                 cont = parse_int(bits[n + 13])
             except:
@@ -1225,7 +1245,7 @@ def visit_rval (vs):
             vs[v] = expr.typ
         if expr.is_op ('MemAcc'):
             [m, p] = expr.vals
-            if is_64bit:
+            if arch.is_64bit:
                 #rv64_hack
                 assert p.typ == word64T or p.typ == word32T, expr
             else:
@@ -1493,12 +1513,12 @@ def mk_cast(x, typ, signed=False):
 
 def mk_memacc(m, p, typ):
     assert m.typ == builtinTs['Mem']
-    assert is_64bit or p.typ == word32T
+    assert arch.is_64bit or p.typ == word32T
     return Expr ('Op', typ, name = 'MemAcc', vals = [m, p])
 
 def mk_memupd(m, p, v):
     assert m.typ == builtinTs['Mem']
-    if is_64bit:
+    if arch.is_64bit:
         assert p.typ == word64T
     else:
         assert p.typ == word32T
@@ -1627,14 +1647,6 @@ def fresh_node (ns, hint = 1):
         n += 16
     return n
 
-def set_arch(a = 'armv7'):
-    global arch
-    global is_64bit
-    arch = a
-    if arch == 'rv64':
-        is_64bit = True
-    else:
-        is_64bit = False
 
 
 def context_trace(*local_vars, **fun_vars):

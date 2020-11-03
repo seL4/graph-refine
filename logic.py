@@ -55,9 +55,9 @@ def split_scalar_globals (vs):
         i = len (vs)
     scalars = vs[:i]
     global_vars = vs[i:]
-    if syntax.arch == 'armv7':
+    if syntax.arch.name == 'armv7':
         ghost_assertion_type = ghost_assertion_armv7_type
-    elif syntax.arch == 'rv64':
+    elif syntax.arch.name == 'rv64':
         ghost_assertion_type = ghost_assertion_rv64_type
     else:
         assert False
@@ -558,7 +558,7 @@ def mk_bwand_mask (expr, n):
     return mk_bwand (expr, mk_num (((1 << n) - 1), expr.typ))
 
 def end_addr (p, typ):
-    if syntax.is_64bit:
+    if syntax.arch.is_64bit:
         mk_word = syntax.mk_word64
     else:
         mk_word = syntax.mk_word32
@@ -604,7 +604,7 @@ def pvalid_assertion2 ((typ, k, p, pv), (typ2, k2, p2, pv2)):
     return mk_and (imp1, imp2)
 
 def sym_distinct_assertion ((typ, p, pv), (start, end)):
-    if syntax.is_64bit:
+    if syntax.arch.is_64bit:
         mk_word = syntax.mk_word64
     else:
         mk_word = syntax.mk_word32
@@ -614,7 +614,7 @@ def sym_distinct_assertion ((typ, p, pv), (start, end)):
     return mk_implies (pv, mk_or (out1, out2))
 
 def norm_array_type (t):
-    if syntax.is_64bit:
+    if syntax.arch.is_64bit:
         mk_word = syntax.mk_word64
     else:
         mk_word = syntax.mk_word32
@@ -650,7 +650,7 @@ def get_styp_condition_inner1 (inner_typ, outer_typ):
     return r
 
 def array_typ_size ((kind, el_typ, num, _)):
-    if syntax.is_64bit:
+    if syntax.arch.is_64bit:
         mk_word = syntax.mk_word64
     else:
         mk_word = syntax.mk_word32
@@ -658,7 +658,7 @@ def array_typ_size ((kind, el_typ, num, _)):
     return mk_times (num, el_size)
 
 def get_styp_condition_inner2 (inner_typ, outer_typ):
-    if syntax.is_64bit:
+    if syntax.arch.is_64bit:
         wordT = syntax.word64T
         mk_word = syntax.mk_word64
     else:
@@ -731,7 +731,7 @@ def var_not_in_expr (var, expr):
     return all_vars_have_prop (expr, lambda v: v != v2)
 
 def mk_array_size_ineq (typ, num, p):
-    if syntax.is_64bit:
+    if syntax.arch.is_64bit:
         mk_word = syntax.mk_word64
         size_lim = ((2 ** 64) - 8) / typ.size()
     else:
@@ -744,7 +744,7 @@ def mk_array_size_ineq (typ, num, p):
     return mk_less_eq (num, mk_word(size_lim))
 
 def mk_align_valid_ineq (typ, p):
-    if syntax.is_64bit:
+    if syntax.arch.is_64bit:
         mk_word = syntax.mk_word64
         wordT = syntax.word64T
     else:
@@ -1692,7 +1692,7 @@ def word64_list_from_tm (t):
     return xs
 
 def tm_with_word_list(xs):
-    if syntax.is_64bit:
+    if syntax.arch.is_64bit:
         mk_word = syntax.mk_word64
     else:
         mk_word = syntax.mk_word32
@@ -1710,7 +1710,7 @@ def mk_eq_selective_wrapper (v, (xs, ys)):
 
 def apply_rel_wrapper (lhs, rhs):
     syntax.context_trace()
-    if syntax.is_64bit:
+    if syntax.arch.is_64bit:
         mk_word = syntax.mk_word64
         wordT = syntax.word64T
     else:

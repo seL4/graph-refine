@@ -178,9 +178,9 @@ def split_inst_name_regs_armv7 (nm):
 
 
 def split_inst_name_regs(nm):
-    if syntax.arch == 'armv7':
+    if syntax.arch.name == 'armv7':
         return split_inst_name_regs_armv7(nm)
-    elif syntax.arch == 'rv64':
+    elif syntax.arch.name == 'rv64':
         return split_inst_name_regs_rv64(nm)
     else:
         assert False
@@ -192,7 +192,7 @@ def mk_fun (nm, word_args, ex_args, word_rets, ex_rets, globs):
     """wrapper for making a syntax.Function with standard args/rets."""
     #assert False
     #rv64_hack
-    if syntax.is_64bit:
+    if syntax.arch.is_64bit:
         wordT = syntax.word64T
     else:
         wordT = syntax.word32T
@@ -319,9 +319,9 @@ def split_inst_name_addr (instname):
     bits = instname.split('_')
     assert bits, instname
     addr = bits[-1]
-    if syntax.arch == 'armv7':
+    if syntax.arch.name == 'armv7':
         inst_addr_re = inst_addr_re_armv7
-    elif syntax.arch == 'rv64':
+    elif syntax.arch.name == 'rv64':
         inst_addr_re = inst_addr_re_rv64
     else:
         assert False
@@ -335,10 +335,10 @@ def split_inst_name_addr (instname):
 
 def mk_bin_inst_spec (fname):
     #rv64_hack
-    if syntax.arch == 'armv7':
+    if syntax.arch.name == 'armv7':
         instruction_fun_specs = instruction_fun_specs_armv7
         wordT = syntax.word32T
-    elif syntax.arch == 'rv64':
+    elif syntax.arch.name == 'rv64':
         instruction_fun_specs = instruction_fun_specs_rv64
         wordT = syntax.word64T
     else:
@@ -365,7 +365,7 @@ def mk_bin_inst_spec (fname):
     print ident
 
     ident = instruction_name_aliases.get (ident, ident)
-    if syntax.arch == 'armv7':
+    if syntax.arch.name == 'armv7':
         base_ident = ident.split ("_")[0]
     else:
         tmp = ident.split('-')
@@ -414,9 +414,9 @@ def mk_asm_inst_spec (fname):
     if not fname.startswith ("asm_instruction'"):
         return
 
-    if syntax.arch == 'armv7':
+    if syntax.arch.name == 'armv7':
         instruction_fun_specs = instruction_fun_specs_armv7
-    elif syntax.arch == 'rv64':
+    elif syntax.arch.name == 'rv64':
         instruction_fun_specs = instruction_fun_specs_rv64
     else:
         assert False
@@ -435,13 +435,13 @@ def mk_asm_inst_spec (fname):
     print ident
     print args
 
-    if syntax.arch == 'armv7':
+    if syntax.arch.name == 'armv7':
         if not all ([arg.startswith ('%') for arg in args]):
             printout ('Warning: asm instruction name: formatting: %r'
                       % fname)
             return
 
-    if syntax.arch == 'armv7':
+    if syntax.arch.name == 'armv7':
         base_ident = ident.split ("_")[0]
     else:
         tmp = ident.split('-')

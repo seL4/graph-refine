@@ -116,7 +116,7 @@ def build_rodata (rodata_stream, rodata_ranges = [('Section', '.rodata')]):
         struct = Struct (struct_name, (end - start) + 1, 1)
         structs[struct_name] = struct
         typ = syntax.get_global_wrapper (struct.typ)
-        if syntax.is_64bit:
+        if syntax.arch.is_64bit:
             mk_word = mk_word16
         else:
             mk_word = mk_word32
