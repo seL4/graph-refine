@@ -266,6 +266,11 @@ class Arch:
             self.mk_word = mk_word32
             self.word_type = word32T
             self.word_size = 32
+            self.sp_register = 'r13'
+            self.large_return_ptr_register = 'r0'
+            self.argument_registers = ['r0','r1','r2','r3']
+            self.callee_saved_registers = ['r4','r5','r6','r7',
+                                           'r8','r9','r10','r11','r13']
         elif name == 'rv64':
             self.name = 'rv64'
             self.ptr_size = 8
@@ -274,6 +279,12 @@ class Arch:
             self.mk_word = mk_word64
             self.word_type = word64T
             self.word_size = 64
+            self.sp_register = 'r2'
+            self.large_return_ptr_register = 'r10'
+            self.argument_registers = ['r10','r11','r12','r13',
+                                       'r14','r15','r16','r17']
+            self.callee_saved_registers = ['r2','r3','r4','r8','r9','r18',
+                                           'r19','r20','r21','r22','r23','r24','r25','r26','r27']
         else:
             raise ValueError('unsupported architecture: %r' % name)
     def __repr__ (self):
