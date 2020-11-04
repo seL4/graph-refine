@@ -113,12 +113,10 @@ def simplify_expr_whyps (sexpr, rep, hyps, cache = None, extra_defs = {},
 
 last_10_non_const = []
 
-def offs_expr_const (addr_expr, sp_expr, rep, hyps, extra_defs = {},
-                     cache = None, typ = syntax.word32T):
+def offs_expr_const (addr_expr, sp_expr, rep, hyps, typ,
+                     extra_defs = {}, cache = None):
     """if the offset between a stack addr and the initial stack pointer
     is a constant offset, try to compute it."""
-    if syntax.arch.is_64bit:
-        typ = syntax.word64T
     addr_x = solver.parse_s_expression (addr_expr)
     sp_x = solver.parse_s_expression (sp_expr)
     vs = [(addr_x, 1), (sp_x, -1)]
@@ -219,9 +217,8 @@ def get_ptr_offsets (p, n_ptrs, bases, hyps = [], cache = None,
     for (v, ptr, hyp) in smt_ptrs:
         off = None
         for (ptr2, k) in smt_bases:
-            off = offs_expr_const (ptr, ptr2, rep, [hyp] + hyps,
-                                   cache = cache, extra_defs = ex_defs,
-                                   typ = ptr_typ)
+            off = offs_expr_const (ptr, ptr2, rep, [hyp] + hyps, ptr_typ,
+                                   cache = cache, extra_defs = ex_defs)
             if off != None:
                 offs.append ((v, off, k))
                 break
@@ -1337,22 +1334,17 @@ reg_aliases_rv64 = {
 
 def inst_const_rets (node):
     assert "instruction'" in node.fname
-    if syntax.arch.name == 'armv7':
-        reg_aliases = reg_aliases_armv7
-    elif syntax.arch.name == 'rv64':
-        reg_aliases = reg_aliases_rv64
-    else:
-        print 'Unsupported arch %s' % syntax.arch
-        assert False
 
     bits = set ([s.lower () for s in node.fname.split ('_')])
     fun = functions[node.fname]
     def is_const (nm, typ):
         if typ in [builtinTs['Mem'], builtinTs['Dom']]:
             return True
+        # FIXME: possible arch-specific hack
         if typ != word32T or typ != word64T:
             return False
-        return not (nm in bits or [al for al in reg_aliases.get (nm, [])
+        return not (nm in bits or [al for al
+                                   in syntax.arch.register_aliases.get (nm, [])
                                    if al in bits])
     is_consts = [is_const (nm, typ) for (nm, typ) in fun.outputs]
     input_set = set ([v for arg in node.args

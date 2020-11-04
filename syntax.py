@@ -269,6 +269,7 @@ class Arch:
             self.sp_register = 'r13'
             self.large_return_ptr_register = 'r0'
             self.argument_registers = ['r0','r1','r2','r3']
+            self.register_aliases = {'r11': ['fp'],'r13': ['sp'],'r14': ['lr']}
             self.callee_saved_registers = ['r4','r5','r6','r7',
                                            'r8','r9','r10','r11','r13']
         elif name == 'rv64':
@@ -283,6 +284,7 @@ class Arch:
             self.large_return_ptr_register = 'r10'
             self.argument_registers = ['r10','r11','r12','r13',
                                        'r14','r15','r16','r17']
+            self.register_aliases = {'r1': ['ra'],'r2': ['sp'],'r8': ['fp']}
             self.callee_saved_registers = ['r2','r3','r4','r8','r9','r18',
                                            'r19','r20','r21','r22','r23','r24','r25','r26','r27']
         else:
