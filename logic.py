@@ -105,135 +105,68 @@ def mk_aligned (w, n):
     mask = Expr ('Num', w.typ, val = ((1 << n) - 1))
     return mk_eq (mk_bwand (w, mask), mk_num (0, w.typ))
 
-def mk_eqs_arm_none_eabi_gnu (var_c_args, var_c_rets, c_imem, c_omem,
-                              min_stack_size):
-    arg_regs = mk_var_list (['r0', 'r1', 'r2', 'r3'], word32T)
-    r0 = arg_regs[0]
-    sp = mk_var ('r13', word32T)
-    st = mk_var ('stack', builtinTs['Mem'])
-    r0_input = mk_var ('ret_addr_input', word32T)
-    sregs = mk_stack_sequence (sp, 4, st, word32T, len (var_c_args) + 1)
-
-    ret = mk_var ('ret', word32T)
-    preconds = [mk_aligned (sp, 2),
-                mk_eq (ret, mk_var ('r14', word32T)),
-                mk_aligned (ret, 2),
-                mk_eq (r0_input, r0),
-                mk_less_eq (min_stack_size, sp)]
-
-    post_eqs = [(x, x) for x in mk_var_list (['r4', 'r5', 'r6', 'r7', 'r8',
-                                              'r9', 'r10', 'r11', 'r13'], word32T)]
-
-    arg_seq = [(r, None) for r in arg_regs] + sregs
-    if len (var_c_rets) > 1:
-        # the 'return-too-much' issue.
-        # instead r0 is a save-returns-here pointer
-        arg_seq.pop (0)
-        preconds += [mk_aligned (r0, 2), mk_less_eq (sp, r0)]
-        save_seq = mk_stack_sequence (r0_input, 4, st, word32T,
-                                      len (var_c_rets))
-        save_addrs = [addr for (_, addr) in save_seq]
-        post_eqs += [(r0_input, r0_input)]
-        out_eqs = zip (var_c_rets, [x for (x, _) in save_seq])
-        out_eqs = [(c, syntax.arch.mk_cast (a, c.typ)) for (c, a) in out_eqs]
-        init_save_seq = mk_stack_sequence (r0, 4, st, word32T,
-                                           len (var_c_rets))
-        (_, last_arg_addr) = arg_seq[len (var_c_args) - 1]
-        preconds += [mk_less_eq (sp, addr)
-                     for (_, addr) in init_save_seq[-1:]]
-        if last_arg_addr:
-            preconds += [mk_less (last_arg_addr, addr)
-                         for (_, addr) in init_save_seq[:1]]
-    else:
-        out_eqs = zip (var_c_rets, [r0])
-        save_addrs = []
-    arg_seq_addrs = [addr for ((_, addr), _) in zip (arg_seq, var_c_args)
-                     if addr != None]
-    swrap = mk_stack_wrapper (sp, st, arg_seq_addrs)
-    swrap2 = mk_stack_wrapper (sp, st, save_addrs)
-    post_eqs += [(swrap, swrap2)]
-
-    mem = mk_var ('mem', builtinTs['Mem'])
-    (mem_ieqs, mem_oeqs) = mk_mem_eqs ([mem], c_imem, [mem], c_omem,
-                                       ['ASM', 'C'])
-
-    addr = None
-    arg_eqs = [cast_pair (((a_x, 'ASM_IN'), (c_x, 'C_IN')))
-               for (c_x, (a_x, addr)) in zip (var_c_args, arg_seq)]
-    if addr:
-        preconds += [mk_less_eq (sp, addr)]
-    ret_eqs = [cast_pair (((a_x, 'ASM_OUT'), (c_x, 'C_OUT')))
-               for (c_x, a_x) in out_eqs]
-    preconds = [((a_x, 'ASM_IN'), (true_term, 'ASM_IN')) for a_x in preconds]
-    asm_invs = [((vin, 'ASM_IN'), (vout, 'ASM_OUT')) for (vin, vout) in post_eqs]
-
-    return (arg_eqs + mem_ieqs + preconds,
-            ret_eqs + mem_oeqs + asm_invs)
-
-
-def mk_eqs_riscv64_unknown_linux_gnu(var_c_args, var_c_rets, c_imem, c_omem, min_stack_size):
+def mk_eqs(var_c_args, var_c_rets, c_imem, c_omem, min_stack_size):
     syntax.context_trace()
 
-    arg_regs = mk_var_list(['r10', 'r11', 'r12', 'r13', 'r14', 'r15', 'r16', 'r17'], word64T)
+    arg_regs = mk_var_list(syntax.arch.argument_registers, syntax.arch.word_type)
+    ar0 = arg_regs[0]
 
-    r10 = arg_regs[0]
-    r11 = arg_regs[1]
-
-    sp = mk_var('r2', word64T)
+    sp = mk_var(syntax.arch.sp_register, syntax.arch.word_type)
     st = mk_var('stack', builtinTs['Mem'])
-    r10_input = mk_var('ret_addr_input', word64T)
-    sregs = mk_stack_sequence(sp, 8, st, word64T, len(var_c_args) + 1)
-    ret = mk_var('ret', word64T)
+    ra_input = mk_var('ret_addr_input', syntax.arch.word_type)
+    sregs = mk_stack_sequence(sp, syntax.arch.ptr_size, st, syntax.arch.word_type, len(var_c_args) + 1)
+    ret = mk_var('ret', syntax.arch.word_type)
 
     preconds = [
-        #for RV64, assume the stack is 16-byte aligned
-        mk_aligned(sp, 4),
-        mk_eq(ret, mk_var('r1', word64T)),
-
-        # precondition; ret address is 2-byte aligned for
-        # compress insturction or 4-byte aligned for
-        # normal instruction
-        # note that the assembly decompiler addes a check to
-        # assert that the return address in r1 is 2-byte aligend.
-        mk_aligned(ret, 1),
-        mk_eq(r10_input, r10),
+        mk_aligned(sp, syntax.arch.stack_alignment_bits),
+        mk_eq(ret, mk_var(syntax.arch.ra_register, syntax.arch.word_type)),
+        mk_aligned(ret, syntax.arch.ret_addr_alignment_bits),
+        mk_eq(ra_input, ar0),
         mk_less_eq(min_stack_size, sp)
     ]
 
     post_eqs = [
         (x, x) for x in mk_var_list(
-            ['r2', 'r3', 'r4', 'r8', 'r9', 'r18', 'r19', 'r20', 'r21',
-             'r22', 'r23', 'r24', 'r25', 'r26', 'r27'],
-            word64T)
+            syntax.arch.callee_saved_registers,
+            syntax.arch.word_type)
     ]
 
     arg_seq = [(r, None) for r in arg_regs] + sregs
 
-    if len (var_c_rets) > 2:
-        # the 'return-too-much' issue.
-        # instead r0 is a save-returns-here pointer
-        arg_seq.pop (0)
-        preconds += [mk_aligned (r10, 3), mk_less_eq (sp, r10)]
-        save_seq = mk_stack_sequence (r10_input, 8, st, word64T,
-                                      len (var_c_rets))
+    if len(var_c_rets) > len(syntax.arch.return_registers):
+        # Our return value exceeds the capacity of the return
+        # registers. In this case, the caller will pass us a
+        # memory address where we can save our return value
+        # as an implicit first argument (passed in the first
+        # argument register).
+        arg_seq.pop(0)
+        preconds += [
+            mk_aligned(ar0, syntax.arch.ptr_alignment_bits),
+            mk_less_eq(sp, ar0)
+        ]
+        save_seq = mk_stack_sequence(
+            ra_input, syntax.arch.ptr_size, st,
+            syntax.arch.word_type, len(var_c_rets)
+        )
         save_addrs = [addr for (_, addr) in save_seq]
-        post_eqs += [(r10_input, r10_input)]
-        out_eqs = zip (var_c_rets, [x for (x, _) in save_seq])
+        post_eqs += [(ra_input, ra_input)]
+        out_eqs = zip(var_c_rets, [x for (x, _) in save_seq])
         out_eqs = [(c, syntax.arch.mk_cast(a, c.typ)) for (c, a) in out_eqs]
-        init_save_seq = mk_stack_sequence (r10, 8, st, word64T,
-                                           len(var_c_rets))
-        (_, last_arg_addr) = arg_seq[len (var_c_args) - 1]
+        init_save_seq = mk_stack_sequence(
+            ar0, syntax.arch.ptr_size, st,
+            syntax.arch.word_type, len(var_c_rets)
+        )
+        (_, last_arg_addr) = arg_seq[len(var_c_args) - 1]
         preconds += [mk_less_eq (sp, addr)
                      for (_, addr) in init_save_seq[-1:]]
         if last_arg_addr:
             preconds += [mk_less (last_arg_addr, addr)
                          for (_, addr) in init_save_seq[:1]]
-
-    elif len(var_c_rets) == 2:
-        out_eqs = zip(var_c_rets, [r10, r11])
+    elif len(var_c_rets) <= 1:
+        out_eqs = zip(var_c_rets, [ar0])
         save_addrs = []
     else:
-        out_eqs = zip (var_c_rets, [r10])
+        out_eqs = zip(var_c_rets, arg_regs[:len(syntax.arch.argument_registers)])
         save_addrs = []
 
     arg_seq_addrs = [addr for ((_, addr), _) in zip (arg_seq, var_c_args)
@@ -261,6 +194,7 @@ def mk_eqs_riscv64_unknown_linux_gnu(var_c_args, var_c_rets, c_imem, c_omem, min
     asm_invs = [((vin, 'ASM_IN'), (vout, 'ASM_OUT')) for (vin, vout) in post_eqs]
 
     return (arg_eqs + mem_ieqs + preconds, ret_eqs + mem_oeqs + asm_invs)
+
 
 class Pairing:
     def __init__ (self, tags, funs, eqs, notes = None):

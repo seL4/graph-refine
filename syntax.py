@@ -261,6 +261,9 @@ class Arch:
         if name == 'armv7':
             self.name = 'armv7'
             self.ptr_size = 4
+            self.stack_alignment_bits = 2
+            self.ptr_alignment_bits = 2
+            self.ret_addr_alignment_bits = 2
             self.is_64bit = False
             self.ghost_assertion_type = Type('WordArray', 50, 32)
             self.mk_word = mk_word32
@@ -268,14 +271,19 @@ class Arch:
             self.word_type = word32T
             self.word_size = 32
             self.sp_register = 'r13'
+            self.ra_register = 'r14'
             self.large_return_ptr_register = 'r0'
             self.argument_registers = ['r0','r1','r2','r3']
+            self.return_registers = ['r0']
             self.register_aliases = {'r11': ['fp'],'r13': ['sp'],'r14': ['lr']}
             self.callee_saved_registers = ['r4','r5','r6','r7',
                                            'r8','r9','r10','r11','r13']
         elif name == 'rv64':
             self.name = 'rv64'
             self.ptr_size = 8
+            self.stack_alignment_bits = 4
+            self.ptr_alignment_bits = 3
+            self.ret_addr_alignment_bits = 1
             self.is_64bit = True
             self.ghost_assertion_type = Type('WordArray', 50, 64)
             self.mk_word = mk_word64
@@ -283,9 +291,11 @@ class Arch:
             self.word_type = word64T
             self.word_size = 64
             self.sp_register = 'r2'
+            self.ra_register = 'r1'
             self.large_return_ptr_register = 'r10'
             self.argument_registers = ['r10','r11','r12','r13',
                                        'r14','r15','r16','r17']
+            self.return_registers = ['r10','r11']
             self.register_aliases = {'r1': ['ra'],'r2': ['sp'],'r8': ['fp']}
             self.callee_saved_registers = ['r2','r3','r4','r8','r9','r18',
                                            'r19','r20','r21','r22','r23','r24','r25','r26','r27']

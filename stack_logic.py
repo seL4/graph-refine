@@ -1165,15 +1165,7 @@ def mk_pairing (pre_pair, stack_bounds):
     (var_c_args, c_imem, glob_c_args) = split_scalar_pairs (c_fun.inputs)
     (var_c_rets, c_omem, glob_c_rets) = split_scalar_pairs (c_fun.outputs)
 
-    if syntax.arch.name == 'armv7':
-        eqs = logic.mk_eqs_arm_none_eabi_gnu (var_c_args, var_c_rets,
-                                              c_imem, c_omem, sz)
-    elif syntax.arch.name == 'rv64':
-        eqs = logic.mk_eqs_riscv64_unknown_linux_gnu(var_c_args, var_c_rets,
-                                                     c_imem, c_omem, sz)
-    else:
-        assert False
-
+    eqs = logic.mk_eqs(var_c_args, var_c_rets, c_imem, c_omem, sz)
     return logic.Pairing (['ASM', 'C'], {'ASM': asm_f, 'C': c_fun.name}, eqs)
 
 def mk_pairings (stack_bounds):
