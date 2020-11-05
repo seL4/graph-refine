@@ -1117,19 +1117,12 @@ class GraphSlice:
 
     def get_induct_var (self, (n1, n2)):
         if (n1, n2) not in self.induct_var_env:
-            if syntax.arch.is_64bit:
-                vname = self.solv.add_var('induct_i_%d_%d' % (n1, n2), word64T)
-            else:
-                vname = self.solv.add_var('induct_i_%d_%d' % (n1, n2), word32T)
-
+            vname = self.solv.add_var('induct_i_%d_%d' % (n1, n2), syntax.arch.word_type)
             self.induct_var_env[(n1, n2)] = vname
             self.pc_env_requests.add (((n1, n2), 'InductVar'))
         else:
             vname = self.induct_var_env[(n1, n2)]
-        if syntax.arch.is_64bit:
-            return mk_smt_expr(vname, word64T)
-
-        return mk_smt_expr (vname, word32T)
+        return mk_smt_expr(vname, syntax.arch.word_type)
 
     def interpret_hyp (self, hyp):
         return hyp.interpret (self)
@@ -1232,10 +1225,7 @@ def inst_eqs (eqs, envs, solv):
             for ((x, x_addr), (y, y_addr)) in eqs]
 
 def subst_induct (expr, induct_var):
-    if syntax.arch.is_64bit:
-        substs = {('%n', word64T): induct_var}
-    else:
-        substs = {('%n', word32T): induct_var}
+    substs = {('%n', syntax.arch.word_type): induct_var}
     return logic.var_subst (expr, substs, must_subst = False)
 
 printed_hyps = {}

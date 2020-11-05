@@ -18,8 +18,8 @@ from rep_graph import (vc_num, vc_offs, vc_double_range, vc_upto, mk_vc_opts,
                        VisitCount)
 import logic
 
-from syntax import (true_term, false_term, boolT, mk_var, mk_word64, mk_word32, mk_word8,
-                    mk_plus, mk_minus, word64T, word32T, word8T, mk_and, mk_eq, mk_implies, mk_not,
+from syntax import (true_term, false_term, boolT, mk_var,
+                    mk_plus, mk_minus, mk_and, mk_eq, mk_implies, mk_not,
                     rename_expr)
 import syntax
 
@@ -255,8 +255,7 @@ def serialise_details (details, ss):
 
 def serialise_lambda (eq_term, ss):
     ss.extend (['Lambda', '%i'])
-    # hack rv64
-    word64T.serialise (ss)
+    syntax.arch.word_type.serialise(ss)
     eq_term.serialise (ss)
 
 def deserialise_details (ss, i):
@@ -267,8 +266,7 @@ def deserialise_details (ss, i):
 def deserialise_lambda (ss, i):
     assert ss[i : i + 2] == ['Lambda', '%i'], (ss, i)
     (i, typ) = syntax.parse_typ (ss, i + 2)
-    # hack rv64
-    assert typ == word64T, typ
+    assert typ == syntax.arch.word_type, typ
     (i, eq_term) = syntax.parse_expr (ss, i)
     return (i, eq_term)
 
@@ -403,19 +401,16 @@ def split_hyps_at_visit (tags, split, restrs, visit):
     (l_tag, r_tag) = tags
 
     def mksub (v):
-        # hack rv64
-        return lambda exp: logic.var_subst (exp, {('%i', word64T) : v},
+        return lambda exp: logic.var_subst (exp, {('%i', syntax.arch.word_type) : v},
                                             must_subst = False)
     def inst (exp):
         return logic.inst_eq_at_visit (exp, visit)
-    # hack rv64
-    zsub = mksub (mk_word64 (0))
+    zsub = mksub (syntax.arch.mk_word(0))
     if visit.kind == 'Number':
-        # hack rv64
-        lsub = mksub (mk_word64 (visit.n))
+        lsub = mksub (syntax.arch.mk_word(visit.n))
     else:
-        lsub = mksub (mk_plus (mk_var ('%n', word64T),
-                               mk_word64 (visit.n)))
+        lsub = mksub (mk_plus (mk_var ('%n', syntax.arch.word_type),
+                               syntax.arch.mk_word(visit.n)))
 
     hyps = [(Hyp ('PCImp', l_visit, r_visit), 'pc imp'),
             (Hyp ('PCImp', l_visit, l_start), '%s pc imp' % l_tag),
@@ -584,18 +579,14 @@ def loop_eq_hyps_at_visit (tag, split, eqs, restrs, visit_num,
     start = split_visit_one_visit (tag, details, restrs, vc_num (0))
 
     def mksub (v):
-        # hack rv64
-        return lambda exp: logic.var_subst (exp, {('%i', word64T) : v},
+        return lambda exp: logic.var_subst (exp, {('%i', syntax.arch.word_type) : v},
                                             must_subst = False)
-    # hack rv64
-    zsub = mksub (mk_word64 (0))
+    zsub = mksub(syntax.arch.mk_word(0))
     if visit_num.kind == 'Number':
-        # hack rv64
-        isub = mksub (mk_word64 (visit_num.n))
+        isub = mksub(syntax.arch.mk_word(visit_num.n))
     else:
-        # hack rv64
-        isub = mksub (mk_plus (mk_var ('%n', word64T),
-                               mk_word64 (visit_num.n)))
+        isub = mksub (mk_plus (mk_var ('%n', syntax.arch.word_type),
+                               syntax.arch.mk_word(visit_num.n)))
 
     hyps = [(Hyp ('PCImp', visit, start), '%s pc imp' % tag)]
     hyps += [(eq_hyp ((zsub (exp), start), (isub (exp), visit),
@@ -643,9 +634,8 @@ def mk_loop_counter_eq_hyp (p, split, restrs, n):
     details = (split, (0, 1), [])
     (tag, _) = p.node_tags[split]
     visit = split_visit_one_visit (tag, details, restrs, vc_offs (0))
-    # hack rv64
-    return eq_hyp ((mk_var ('%n', word64T), visit),
-                   (mk_word64 (n), visit), (split, 0))
+    return eq_hyp ((mk_var ('%n', syntax.arch.word_type), visit),
+                   (syntax.arch.mk_word(n), visit), (split, 0))
 
 def single_loop_rev_induct_base_checks (p, restrs, hyps, tag, split,
                                         n_bound, eqs_assume, pred):
@@ -825,10 +815,8 @@ def next_induct_var (n):
     return v
 
 def pretty_lambda (t):
-    # hack rv64
-    v = syntax.mk_var ('#seq-visits', word64T)
-    # hack rv64
-    t = logic.var_subst (t, {('%i', word64T) : v}, must_subst = False)
+    v = syntax.mk_var ('#seq-visits', syntax.arch.word_type)
+    t = logic.var_subst (t, {('%i', syntax.arch.word_type) : v}, must_subst = False)
     return syntax.pretty_expr (t, print_type = True)
 
 def check_proof_report_rec (p, restrs, hyps, proof, step_num, ctxt, inducts,
