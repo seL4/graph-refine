@@ -270,6 +270,8 @@ class Arch:
             self.mk_cast = mk_cast_armv7
             self.word_type = word32T
             self.word_size = 32
+            self.rodata_chunk_type = word32T
+            self.rodata_chunk_size = 32
             self.sp_register = 'r13'
             self.ra_register = 'r14'
             self.large_return_ptr_register = 'r0'
@@ -282,6 +284,7 @@ class Arch:
             self.smt_alignment_pattern = '#xfffffffd'
             self.smt_native_zero = '#x00000000'
             self.smt_stackeq_mask = '#x00000003'
+            self.smt_rodata_mask = '#x00000003'
         elif name == 'rv64':
             self.name = 'rv64'
             self.ptr_size = 8
@@ -294,6 +297,8 @@ class Arch:
             self.mk_cast = mk_cast_rv64
             self.word_type = word64T
             self.word_size = 64
+            self.rodata_chunk_type = word16T
+            self.rodata_chunk_size = 16
             self.sp_register = 'r2'
             self.ra_register = 'r1'
             self.large_return_ptr_register = 'r10'
@@ -307,6 +312,7 @@ class Arch:
             self.smt_alignment_pattern = "#xfffffffffffffffd"
             self.smt_native_zero = '#x0000000000000000'
             self.smt_stackeq_mask = '#x0000000000000007'
+            self.smt_rodata_mask =  '#x0000000000000003'
         else:
             raise ValueError('unsupported architecture: %r' % name)
     def __repr__ (self):
