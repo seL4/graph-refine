@@ -244,22 +244,22 @@ def run_time (elapsed, proc):
     else:
         return '(%s)' % ', '.join (times)
 
-def smt_typ (typ):
+def smt_typ(typ):
     if typ.kind == 'Word':
         return '(_ BitVec %d)' % typ.num
     elif typ.kind == 'WordArray':
         return '(Array (_ BitVec %d) (_ BitVec %d))' % tuple (typ.nums)
     elif typ.kind == 'TokenWords':
         return '(Array (_ BitVec %d) (_ BitVec %d))' % (
-            token_smt_typ.num, typ.num)
+            syntax.arch.word_size.num, typ.num)
+    smt_typ_builtins = get_smt_typ_builtins()
     return smt_typ_builtins[typ.name]
-
-# HACK HERE
-token_smt_typ = syntax.word64T
-#token_smt_typ = syntax.word32T
-
-smt_typ_builtins = {'Bool':'Bool', 'Mem':'{MemSort}', 'Dom':'{MemDomSort}',
-                    'Token': smt_typ (token_smt_typ)}
+def get_smt_typ_builtins():
+    return {
+        'Bool':'Bool',
+        'Mem':'{MemSort}', 'Dom':'{MemDomSort}',
+        'Token': smt_typ(syntax.arch.word_type)
+    }
 
 smt_typs_omitted = set ([builtinTs['HTD'], builtinTs['PMS']])
 
@@ -519,7 +519,6 @@ def smt_expr_memupd (m, p, v, typ, solv):
         p = solv.cache_large_expr (p, 'memupd_pointer', syntax.arch.word_type)
         p_align = '(bvand %s %s)' % (p, syntax.arch.smt_alignment_pattern)
         solv.note_model_expr (p_align, syntax.arch.word_type)
-        # note hack for rv64
         solv.note_model_expr(
             '(load-word%d %s %s)' % (syntax.arch.word_size, m, p_align),
             syntax.arch.word_type
@@ -973,8 +972,9 @@ class Solver:
 
     def get_eq_rodata_witness (self, v):
         # depends on assertion above, should probably fix this
-        #rv64 hack: word32T -> word64T
-        ro_witness = mk_smt_expr ('rodata-witness', word64T)
+        # rv64 changed word32T -> word64T
+        # but should it be rodata_chunk_type instead?
+        ro_witness = mk_smt_expr ('rodata-witness', syntax.arch.word_size)
         return syntax.mk_eq (ro_witness, v)
 
     def check_hyp_raw (self, hyp, model = None, force_solv = False,
@@ -1709,8 +1709,9 @@ class Solver:
             if not rodata_ptrs:
                 rodata_ptrs = []
             for (r_addr, r_typ) in rodata_ptrs:
-                #rv64_hack
-                r_addr.typ = syntax.word64T
+                # rv64_changed to word64T, should it
+                # be rodata_chunk_type instead?
+                r_addr.typ = syntax.arch.word_type
                 r_addr_s = smt_expr (r_addr, {}, None)
                 print 'raddr:'
                 print type(r_addr)

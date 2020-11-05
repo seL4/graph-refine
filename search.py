@@ -1349,13 +1349,11 @@ def mk_seq_eqs (p, split, step, with_rodata):
 
     # the variable 'loop' will be converted to the point in
     # the sequence - note this should be multiplied by the step size
-    # hack rv64
-    loop = mk_var ('%i', word64T)
+    loop = mk_var ('%i', syntax.arch.word_type)
     if step == 1:
         minus_loop_step = mk_uminus (loop)
     else:
-        # hack rv64
-        minus_loop_step = mk_times (loop, mk_word64 (- step))
+        minus_loop_step = mk_times (loop, synatx.arch.mk_word(- step))
 
     for (var, data) in get_loop_var_analysis_at (p, split):
         if data == 'LoopVariable':

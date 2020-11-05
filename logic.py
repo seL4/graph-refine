@@ -1494,27 +1494,11 @@ def mk_mem_acc_wrapper (addr, v):
 def mk_mem_wrapper (m):
     return syntax.mk_rel_wrapper ('MemWrapper', [m])
 
-def tm_with_word32_list (xs):
-    if xs:
-        return foldr1 (mk_plus, map (mk_word32, xs))
-    else:
-        return mk_uminus (mk_word32 (0))
-
-def word32_list_from_tm (t):
+def list_from_tm (t):
     xs = []
     while t.is_op ('Plus'):
         [x, t] = t.vals
-        assert x.kind == 'Num' and x.typ == word32T
-        xs.append (x.val)
-    if t.kind == 'Num':
-        xs.append (t.val)
-    return xs
-
-def word64_list_from_tm (t):
-    xs = []
-    while t.is_op ('Plus'):
-        [x, t] = t.vals
-        assert x.kind == 'Num' and x.typ == word64T
+        assert x.kind == 'Num' and x.typ == syntax.arch.word_type
         xs.append (x.val)
     if t.kind == 'Num':
         xs.append (t.val)
@@ -1573,8 +1557,8 @@ def inst_eq_at_visit (exp, vis):
     if not exp.is_op ('EqSelectiveWrapper'):
         return True
     [_, xs, ys] = exp.vals
-    xs = word64_list_from_tm(xs)
-    ys = word64_list_from_tm(ys)
+    xs = list_from_tm(xs)
+    ys = list_from_tm(ys)
     if vis.kind == 'Number':
         return vis.n in xs
     elif vis.kind == 'Offset':

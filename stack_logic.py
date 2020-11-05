@@ -369,13 +369,10 @@ def stack_virtualise_expr (expr, sp_offs):
         if expr.typ == syntax.word8T:
             ps = [(syntax.mk_minus (p, syntax.arch.mk_word(n)), n)
                   for n in [0, 1, 2, 3]]
-        elif expr.typ == syntax.word32T:
-            ps = [(p, 0)]
-            assert False
-        elif expr.typ == syntax.word64T:
+        elif expr.typ == syntax.arch.word_type:
             ps = [(p, 0)]
         else:
-            assert expr.typ == syntax.word32T, expr
+            assert expr.typ == syntax.arch.word_type, expr
         ptrs = [(p, 'MemAcc') for (p, _) in ps]
         if sp_offs == None:
             return (ptrs, None)
@@ -416,9 +413,8 @@ def stack_virtualise_upd (((nm, typ), expr), sp_offs):
                 if p not in sp_offs:
                     raise StackOffsMissing ()
                 (k, offs) = sp_offs[p]
-                #rv64_hack
                 upds.append (((('Fake', k, offs),
-                               syntax.word64T), v2))
+                               syntax.arch.word_type), v2))
             expr = m
         assert is_stack (expr), expr
         return (ptrs, upds)
@@ -436,8 +432,7 @@ def stack_virtualise_ret (expr, sp_offs):
         assert is_stack (m), expr
         if sp_offs != None:
             (k, offs) = sp_offs[p]
-            #rv64_hack
-            r = (('Fake', k, offs), syntax.word64T)
+            r = (('Fake', k, offs), syntax.arch.word_type)
         else:
             r = None
         return ([(p, 'MemUpdate')], r)
@@ -478,8 +473,7 @@ def stack_virtualise_node (node, sp_offs):
         if sp_offs == None:
             return (ptrs, None)
         else:
-            #rv64_hack
-            ptr_upds = [(('unused#ptr#name%d' % i, syntax.word64T),
+            ptr_upds = [(('unused#ptr#name%d' % i, syntax.arch.word_type),
                          ptr) for (i, (ptr, _)) in enumerate (ptrs)]
             return (ptrs, syntax.Node ('Basic', node.cont,
                     [upd for (_, us) in upds for upd in us]
@@ -1332,8 +1326,7 @@ def inst_const_rets (node):
     def is_const (nm, typ):
         if typ in [builtinTs['Mem'], builtinTs['Dom']]:
             return True
-        # FIXME: possible arch-specific hack
-        if typ != word32T or typ != word64T:
+        if typ != syntax.arch.word_type:
             return False
         return not (nm in bits or [al for al
                                    in syntax.arch.register_aliases.get (nm, [])

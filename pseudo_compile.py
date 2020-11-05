@@ -370,9 +370,8 @@ def check_compile (func):
 def subst_expr (expr):
     if expr.kind == 'Symbol':
         if expr.name in symbols:
-            #assert False
-            #rv64_hack
-            return mk_word64(symbols[expr.name][0])
+            #FIXME: dubious assumption of native word size here
+            return syntax.arch.mk_word(symbols[expr.name][0])
         else:
             return None
     elif expr.is_op ('PAlignValid'):

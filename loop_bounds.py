@@ -258,9 +258,7 @@ def candidate_additional_eqs (p, split):
             [x, y] = y.vals
             eq_vals.add ((x, y))
             eq_vals.add ((y, x))
-    # rv64_hack rv64
-    loop = syntax.mk_var ('%i', syntax.word64T)
-    #assert False
+    loop = syntax.mk_var ('%i', syntax.arch.word_type)
     minus_loop_step = syntax.mk_uminus (loop)
 
     vas = search.get_loop_var_analysis_at(p, split)
