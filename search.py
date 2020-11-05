@@ -46,13 +46,8 @@ def get_loop_var_analysis_at (p, n):
     return res
 
 def get_loop_vars_at (p, n):
-    if syntax.arch.is_64bit:
-        mk_word = mk_word64
-    else:
-        mk_word = mk_word32
-
     vs = [var for (var, data) in get_loop_var_analysis_at (p, n)
-          if data == 'LoopVariable'] + [mk_word(0)]
+          if data == 'LoopVariable'] + [syntax.arch.mk_word(0)]
     vs.sort ()
     return vs
 
@@ -363,10 +358,7 @@ def update_v_ids_for_model (knowledge, pairs, vs, m):
             k_counter += 1
     # then figure out which pairings are still viable
     needed_ks = set ()
-    if syntax.arch.is_64bit:
-        zero = syntax.mk_word64(0)
-    else:
-        zero = syntax.mk_word32 (0)
+    zero = syntax.arch.mk_word(0)
     for (pair, data) in pairs.items ():
         if data[0] == 'Failed':
             continue
@@ -656,10 +648,7 @@ def split_group (knowledge, m, group):
 def mk_pairing_v_eqs (knowledge, pair, endorsed = True):
     v_eqs = []
     (lvs, rvs) = knowledge.pairs[pair]
-    if syntax.arch.is_64bit:
-        zero = mk_word64(0)
-    else:
-        zero = mk_word32 (0)
+    zero = syntax.arch.mk_word(0)
     for v_i in lvs:
         (k, const) = knowledge.v_ids[v_i]
         if const and v_i[0] != zero:
@@ -1413,14 +1402,11 @@ def v_eqs_to_split (p, pair, v_eqs, restrs, hyps, tags = None):
     r_details = (r_n, (r_init, r_step), mk_seq_eqs (p, r_n, r_step, False)
                  + c_memory_loop_invariant (p, r_n, l_n))
 
-    if syntax.arch.is_64bit:
-        mk_word = syntax.mk_word64
-    else:
-        mk_word = syntax.mk_word32
+    zero = syntax.arch.mk_word(0)
 
     eqs = [(v_i[0], syntax.arch.mk_cast(v_j[0], v_i[0].typ))
            for (v_i, v_j) in v_eqs if v_j != 'Const'
-           if v_i[0] != mk_word(0)]
+           if v_i[0] != zero]
 
     n = 2
     split = (l_details, r_details, eqs, n, (n * r_step) - 1)
