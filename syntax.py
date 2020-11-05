@@ -256,72 +256,7 @@ and FloatingPointCast (FP to FP) represent the variants of to_fp in the SMTLIB2
 standard.
 """
 
-class Arch:
-    def __init__(self, name = 'armv7'):
-        if name == 'armv7':
-            self.name = 'armv7'
-            self.ptr_size = 4
-            self.stack_alignment_bits = 2
-            self.ptr_alignment_bits = 2
-            self.ret_addr_alignment_bits = 2
-            self.is_64bit = False
-            self.ghost_assertion_type = Type('WordArray', 50, 32)
-            self.mk_word = mk_word32
-            self.mk_cast = mk_cast_armv7
-            self.word_type = word32T
-            self.word_size = 32
-            self.rodata_chunk_type = word32T
-            self.rodata_chunk_size = 32
-            self.sp_register = 'r13'
-            self.ra_register = 'r14'
-            self.large_return_ptr_register = 'r0'
-            self.argument_registers = ['r0','r1','r2','r3']
-            self.return_registers = ['r0']
-            self.register_aliases = {'r11': ['fp'],'r13': ['sp'],'r14': ['lr']}
-            self.callee_saved_registers = ['r4','r5','r6','r7',
-                                           'r8','r9','r10','r11','r13']
-            self.zero_wired_registers = []
-            self.smt_alignment_pattern = '#xfffffffd'
-            self.smt_native_zero = '#x00000000'
-            self.smt_stackeq_mask = '#x00000003'
-            self.smt_rodata_mask = '#x00000003'
-        elif name == 'rv64':
-            self.name = 'rv64'
-            self.ptr_size = 8
-            self.stack_alignment_bits = 4
-            self.ptr_alignment_bits = 3
-            self.ret_addr_alignment_bits = 1
-            self.is_64bit = True
-            self.ghost_assertion_type = Type('WordArray', 50, 64)
-            self.mk_word = mk_word64
-            self.mk_cast = mk_cast_rv64
-            self.word_type = word64T
-            self.word_size = 64
-            self.rodata_chunk_type = word16T
-            self.rodata_chunk_size = 16
-            self.sp_register = 'r2'
-            self.ra_register = 'r1'
-            self.large_return_ptr_register = 'r10'
-            self.argument_registers = ['r10','r11','r12','r13',
-                                       'r14','r15','r16','r17']
-            self.return_registers = ['r10','r11']
-            self.register_aliases = {'r1': ['ra'],'r2': ['sp'],'r8': ['fp']}
-            self.callee_saved_registers = ['r2','r3','r4','r8','r9','r18',
-                                           'r19','r20','r21','r22','r23','r24','r25','r26','r27']
-            self.zero_wired_registers = ['r0']
-            self.smt_alignment_pattern = "#xfffffffffffffffd"
-            self.smt_native_zero = '#x0000000000000000'
-            self.smt_stackeq_mask = '#x0000000000000007'
-            self.smt_rodata_mask =  '#x0000000000000003'
-        else:
-            raise ValueError('unsupported architecture: %r' % name)
-    def __repr__ (self):
-        return 'Arch (%r)' % self.name
 
-arch = None
-def set_arch(name = 'armv7'):
-    global arch
-    arch = Arch(name)
 
 class Type:
     def __init__ (self, kind, name, el_typ=None):
@@ -1670,6 +1605,74 @@ def pretty_expr (expr, print_type = False):
     else:
         assert not 'expr pretty-printable', expr
 
+# ========================
+# Architecture definitions
+
+class Arch:
+    def __init__(self, name = 'armv7'):
+        if name == 'armv7':
+            self.name = 'armv7'
+            self.ptr_size = 4
+            self.stack_alignment_bits = 2
+            self.ptr_alignment_bits = 2
+            self.ret_addr_alignment_bits = 2
+            self.is_64bit = False
+            self.ghost_assertion_type = Type('WordArray', 50, 32)
+            self.mk_word = mk_word32
+            self.mk_cast = mk_cast_armv7
+            self.word_type = word32T
+            self.word_size = 32
+            self.rodata_chunk_type = word32T
+            self.rodata_chunk_size = 32
+            self.sp_register = 'r13'
+            self.ra_register = 'r14'
+            self.large_return_ptr_register = 'r0'
+            self.argument_registers = ['r0','r1','r2','r3']
+            self.return_registers = ['r0']
+            self.register_aliases = {'r11': ['fp'],'r13': ['sp'],'r14': ['lr']}
+            self.callee_saved_registers = ['r4','r5','r6','r7',
+                                           'r8','r9','r10','r11','r13']
+            self.zero_wired_registers = []
+            self.smt_alignment_pattern = '#xfffffffd'
+            self.smt_native_zero = '#x00000000'
+            self.smt_stackeq_mask = '#x00000003'
+            self.smt_rodata_mask = '#x00000003'
+        elif name == 'rv64':
+            self.name = 'rv64'
+            self.ptr_size = 8
+            self.stack_alignment_bits = 4
+            self.ptr_alignment_bits = 3
+            self.ret_addr_alignment_bits = 1
+            self.is_64bit = True
+            self.ghost_assertion_type = Type('WordArray', 50, 64)
+            self.mk_word = mk_word64
+            self.mk_cast = mk_cast_rv64
+            self.word_type = word64T
+            self.word_size = 64
+            self.rodata_chunk_type = word16T
+            self.rodata_chunk_size = 16
+            self.sp_register = 'r2'
+            self.ra_register = 'r1'
+            self.large_return_ptr_register = 'r10'
+            self.argument_registers = ['r10','r11','r12','r13',
+                                       'r14','r15','r16','r17']
+            self.return_registers = ['r10','r11']
+            self.register_aliases = {'r1': ['ra'],'r2': ['sp'],'r8': ['fp']}
+            self.callee_saved_registers = ['r2','r3','r4','r8','r9','r18',
+                                           'r19','r20','r21','r22','r23','r24','r25','r26','r27']
+            self.zero_wired_registers = ['r0']
+            self.smt_alignment_pattern = "#xfffffffffffffffd"
+            self.smt_native_zero = '#x0000000000000000'
+            self.smt_stackeq_mask = '#x0000000000000007'
+            self.smt_rodata_mask =  '#x0000000000000003'
+        else:
+            raise ValueError('unsupported architecture: %r' % name)
+    def __repr__ (self):
+        return 'Arch (%r)' % self.name
+arch = None
+def set_arch(name = 'armv7'):
+    global arch
+    arch = Arch(name)
 
 # =================================================
 # some helper code that's needed all over the place
