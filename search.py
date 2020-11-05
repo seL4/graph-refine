@@ -11,7 +11,7 @@ from check import restr_others, loops_to_split, ProofNode
 from rep_graph import (mk_graph_slice, vc_num, vc_offs, vc_upto,
                        vc_double_range, VisitCount, vc_offset_upto)
 import rep_graph
-from syntax import (mk_and, mk_cast, mk_implies, mk_not, mk_uminus, mk_var,
+from syntax import (mk_and, mk_implies, mk_not, mk_uminus, mk_var,
                     foldr1, boolT, word64T, word32T, word8T, builtinTs, true_term, false_term,
                     mk_word64, mk_word32, mk_word8, mk_times, Expr, Type, mk_or, mk_eq, mk_memacc,
                     mk_num, mk_minus, mk_plus, mk_less)
@@ -1380,7 +1380,7 @@ def mk_seq_eqs (p, split, step, with_rodata):
         elif data[0] == 'LoopLinearSeries':
             (_, form, _) = data
             eqs.append (form (var,
-                              mk_cast (minus_loop_step, var.typ)))
+                              syntax.arch.mk_cast(minus_loop_step, var.typ)))
         else:
             assert not 'var_deps type understood'
 
@@ -1418,7 +1418,7 @@ def v_eqs_to_split (p, pair, v_eqs, restrs, hyps, tags = None):
     else:
         mk_word = syntax.mk_word32
 
-    eqs = [(v_i[0], mk_cast (v_j[0], v_i[0].typ))
+    eqs = [(v_i[0], syntax.arch.mk_cast(v_j[0], v_i[0].typ))
            for (v_i, v_j) in v_eqs if v_j != 'Const'
            if v_i[0] != mk_word(0)]
 

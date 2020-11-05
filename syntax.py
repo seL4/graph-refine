@@ -264,6 +264,7 @@ class Arch:
             self.is_64bit = False
             self.ghost_assertion_type = Type('WordArray', 50, 32)
             self.mk_word = mk_word32
+            self.mk_cast = mk_cast_armv7
             self.word_type = word32T
             self.word_size = 32
             self.sp_register = 'r13'
@@ -278,6 +279,7 @@ class Arch:
             self.is_64bit = True
             self.ghost_assertion_type = Type('WordArray', 50, 64)
             self.mk_word = mk_word64
+            self.mk_cast = mk_cast_rv64
             self.word_type = word64T
             self.word_size = 64
             self.sp_register = 'r2'
@@ -1522,7 +1524,7 @@ def mk_word32_maybe(x):
         assert x.typ == word32T
         return x
 
-def mk_cast(x, typ, signed=False):
+def mk_cast_generic(x, typ, signed=False):
     if x.typ == typ:
         return x
     else:
@@ -1531,6 +1533,16 @@ def mk_cast(x, typ, signed=False):
         assert x.typ.kind == 'Word', x.typ
         assert typ.kind == 'Word', typ
         return Expr ('Op', typ, name=cast_op, vals=[x])
+
+def mk_cast_armv7(x, typ):
+    return mk_cast_generic(x, typ)
+
+# The RISC-V calling convention requires some special handling for
+# 32-bit values stored in 64-bit registers. These are presumed to
+# be stored in sign-extended form, even if the C type is unsigned.
+def mk_cast_rv64(x, typ):
+    signed = x.typ.num == 32 and typ.num == 64
+    return mk_cast_generic(x, typ, signed=signed)
 
 def mk_memacc(m, p, typ):
     assert m.typ == builtinTs['Mem']
@@ -1584,7 +1596,7 @@ def adjust_op_vals (expr, vals):
 
 mks = (mk_var, mk_plus, mk_uminus, mk_minus, mk_times, mk_modulus, mk_bwand,
        mk_eq, mk_less_eq, mk_less, mk_implies, mk_and, mk_or, mk_not, mk_word64, mk_word32,
-       mk_word8, mk_word32_maybe, mk_cast, mk_memacc, mk_memupd, mk_arr_index,
+       mk_word8, mk_word32_maybe, mk_cast_generic, mk_memacc, mk_memupd, mk_arr_index,
        mk_arroffs, mk_if, mk_meta_typ, mk_pvalid)
 
 # ====================================================================

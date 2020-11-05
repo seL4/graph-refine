@@ -394,7 +394,7 @@ def stack_virtualise_expr (expr, sp_offs):
 
         if n != 0:
             v = syntax.mk_shiftr (v, n * 8)
-        v = syntax.mk_cast (v, expr.typ)
+        v = syntax.arch.mk_cast(v, expr.typ)
         return (ptrs, v)
     elif expr.kind == 'Op':
         vs = [stack_virtualise_expr (v, sp_offs) for v in expr.vals]

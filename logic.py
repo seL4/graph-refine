@@ -11,7 +11,7 @@ from syntax import foldr1
 
 (mk_var, mk_plus, mk_uminus, mk_minus, mk_times, mk_modulus, mk_bwand, mk_eq,
  mk_less_eq, mk_less, mk_implies, mk_and, mk_or, mk_not, mk_word64, mk_word32, mk_word8,
- mk_word32_maybe, mk_cast, mk_memacc, mk_memupd, mk_arr_index, mk_arroffs,
+ mk_word32_maybe, mk_cast_generic, mk_memacc, mk_memupd, mk_arr_index, mk_arroffs,
  mk_if, mk_meta_typ, mk_pvalid) = syntax.mks
 
 from syntax import structs
@@ -21,28 +21,18 @@ def is_int (n):
     return hasattr (n, '__int__')
 
 def mk_eq_with_cast (a, c):
-    return mk_eq (a, mk_cast (c, a.typ))
+    return mk_eq (a, syntax.arch.mk_cast (c, a.typ))
 
 def mk_rodata (m):
     assert m.typ == builtinTs['Mem']
     return Expr ('Op', boolT, name = 'ROData', vals = [m])
 
-def cast_pair (pair, mk_cast=mk_cast):
+def cast_pair (pair):
     (a, a_addr), (c, c_addr) = pair
     if a.typ != c.typ and c.typ == boolT:
         assert False
         c = mk_if (c, mk_word32 (1), mk_word32 (0))
-    return ((a, a_addr), (mk_cast(c, a.typ), c_addr))
-
-# The RISC-V calling convention requires some special handling for
-# 32-bit values stored in 64-bit registers. These are presumed to
-# be stored in sign-extended form, even if the C type is unsigned.
-def mk_cast_rv64(x, typ):
-    signed = x.typ.num == 32 and typ.num == 64
-    return mk_cast(x, typ, signed=signed)
-
-def cast_pair_rv64(pair):
-    return cast_pair(pair, mk_cast_rv64)
+    return ((a, a_addr), (syntax.arch.mk_cast(c, a.typ), c_addr))
 
 def split_scalar_globals (vs):
     for i in range (len (vs)):
@@ -168,7 +158,7 @@ def mk_eqs_arm_none_eabi_gnu (var_c_args, var_c_rets, c_imem, c_omem,
         save_addrs = [addr for (_, addr) in save_seq]
         post_eqs += [(r0_input, r0_input)]
         out_eqs = zip (var_c_rets, [x for (x, _) in save_seq])
-        out_eqs = [(c, mk_cast (a, c.typ)) for (c, a) in out_eqs]
+        out_eqs = [(c, syntax.arch.mk_cast (a, c.typ)) for (c, a) in out_eqs]
         init_save_seq = mk_stack_sequence (r0, 4, st, word32T,
                                            len (var_c_rets))
         (_, last_arg_addr) = arg_seq[len (var_c_args) - 1]
@@ -252,7 +242,7 @@ def mk_eqs_riscv64_unknown_linux_gnu(var_c_args, var_c_rets, c_imem, c_omem, min
         save_addrs = [addr for (_, addr) in save_seq]
         post_eqs += [(r10_input, r10_input)]
         out_eqs = zip (var_c_rets, [x for (x, _) in save_seq])
-        out_eqs = [(c, mk_cast_rv64(a, c.typ)) for (c, a) in out_eqs]
+        out_eqs = [(c, syntax.arch.mk_cast(a, c.typ)) for (c, a) in out_eqs]
         init_save_seq = mk_stack_sequence (r10, 8, st, word64T,
                                            len(var_c_rets))
         (_, last_arg_addr) = arg_seq[len (var_c_args) - 1]
@@ -281,13 +271,13 @@ def mk_eqs_riscv64_unknown_linux_gnu(var_c_args, var_c_rets, c_imem, c_omem, min
                                        ['ASM', 'C'])
 
     addr = None
-    arg_eqs = [cast_pair_rv64(((a_x, 'ASM_IN'), (c_x, 'C_IN')))
+    arg_eqs = [cast_pair(((a_x, 'ASM_IN'), (c_x, 'C_IN')))
                for (c_x, (a_x, addr)) in zip (var_c_args, arg_seq)]
 
     if addr:
         preconds += [mk_less_eq (sp, addr)]
 
-    ret_eqs = [cast_pair_rv64(((a_x, 'ASM_OUT'), (c_x, 'C_OUT')))
+    ret_eqs = [cast_pair(((a_x, 'ASM_OUT'), (c_x, 'C_OUT')))
                for (c_x, a_x) in out_eqs]
 
     preconds = [((a_x, 'ASM_IN'), (true_term, 'ASM_IN')) for a_x in preconds]
@@ -489,7 +479,7 @@ def split_out_cast (expr, target_typ, bits):
         if x.typ.num >= bits and expr.typ.num >= bits:
             return split_out_cast (x, target_typ, bits)
         else:
-            return mk_cast (expr, target_typ)
+            return syntax.arch.mk_cast (expr, target_typ)
     elif expr.is_op ('BWAnd'):
         [x, y] = expr.vals
         if y.kind == 'Num':
@@ -500,7 +490,7 @@ def split_out_cast (expr, target_typ, bits):
         if val & full_mask == full_mask:
             return split_out_cast (x, target_typ, bits)
         else:
-            return mk_cast (expr, target_typ)
+            return syntax.arch.mk_cast(expr, target_typ)
     elif expr.is_op (['Plus', 'Minus']):
         # rounding issues will appear if this arithmetic is done
         # at a smaller number of bits than we'll eventually report
@@ -512,9 +502,9 @@ def split_out_cast (expr, target_typ, bits):
             else:
                 return mk_minus (vals[0], vals[1])
         else:
-            return mk_cast (expr, target_typ)
+            return syntax.arch.mk_cast(expr, target_typ)
     else:
-        return mk_cast (expr, target_typ)
+        return syntax.arch.mk_cast(expr, target_typ)
 
 def toplevel_split_out_cast (expr):
     bits = None
