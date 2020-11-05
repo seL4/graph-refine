@@ -612,228 +612,6 @@ def split_hyp (hyp):
     else:
         return [hyp]
 
-mem_word8_preamble = [
-    '''(define-fun load-word32 ((m {MemSort}) (p (_ BitVec 32)))
-	(_ BitVec 32)
-(concat
-	(concat (select m (bvadd p #x00000003))
-	        (select m (bvadd p #x00000002)))
-    (concat (select m (bvadd p #x00000001))
-            (select m p)))
-)
-''',
-    '''(define-fun load-word64 ((m {MemSort}) (p (_ BitVec 32)))
-	(_ BitVec 64)
-(bvor ((_ zero_extend 32) (load-word32 m p))
-	(bvshl ((_ zero_extend 32)
-		(load-word32 m (bvadd p #x00000004))) #x0000000000000020)))''',
-    '''(define-fun store-word32 ((m {MemSort}) (p (_ BitVec 32))
-	(v (_ BitVec 32))) {MemSort}
-(store (store (store (store m p ((_ extract 7 0) v))
-	(bvadd p #x00000001) ((_ extract 15 8) v))
-	(bvadd p #x00000002) ((_ extract 23 16) v))
-	(bvadd p #x00000003) ((_ extract 31 24) v))
-) ''',
-    '''(define-fun store-word64 ((m {MemSort}) (p (_ BitVec 32)) (v (_ BitVec 64)))
-        {MemSort}
-(store-word32 (store-word32 m p ((_ extract 31 0) v))
-	(bvadd p #x00000004) ((_ extract 63 32) v)))''',
-    '''(define-fun load-word8 ((m {MemSort}) (p (_ BitVec 32))) (_ BitVec 8)
-(select m p))''',
-    '''(define-fun store-word8 ((m {MemSort}) (p (_ BitVec 32)) (v (_ BitVec 8)))
-	{MemSort}
-(store m p v))''',
-    '''(define-fun mem-dom ((p (_ BitVec 32)) (d {MemDomSort})) Bool
-(not (= (select d p) #b0)))''',
-    '''(define-fun mem-eq ((x {MemSort}) (y {MemSort})) Bool (= x y))''',
-    '''(define-fun word32-eq ((x (_ BitVec 32)) (y (_ BitVec 32)))
-    Bool (= x y))''',
-    '''(define-fun word64-eq ((x (_ BitVec 64)) (y (_ BitVec 64)))
-	Bool (= x y))''',
-    '''(define-fun word2-xor-scramble ((a (_ BitVec 2)) (x (_ BitVec 2))
-   (b (_ BitVec 2)) (c (_ BitVec 2)) (y (_ BitVec 2)) (d (_ BitVec 2))) Bool
-(bvult (bvadd (bvxor a x) b) (bvadd (bvxor c y) d)))''',
-    '''(declare-fun unspecified-precond () Bool)''',
-]
-
-mem_word32_preamble = [
-    '''(define-fun load-word32 ((m {MemSort}) (p (_ BitVec 32)))
-	(_ BitVec 32)
-(select m ((_ extract 31 2) p)))''',
-    '''(define-fun store-word32 ((m {MemSort}) (p (_ BitVec 32)) (v (_ BitVec 32)))
-	{MemSort}
-(store m ((_ extract 31 2) p) v))''',
-    '''(define-fun load-word64 ((m {MemSort}) (p (_ BitVec 32)))
-	(_ BitVec 64)
-(bvor ((_ zero_extend 32) (load-word32 m p))
-	(bvshl ((_ zero_extend 32)
-		(load-word32 m (bvadd p #x00000004))) #x0000000000000020)))''',
-    '''(define-fun store-word64 ((m {MemSort}) (p (_ BitVec 32)) (v (_ BitVec 64)))
-        {MemSort}
-(store-word32 (store-word32 m p ((_ extract 31 0) v))
-	(bvadd p #x00000004) ((_ extract 63 32) v)))''',
-    '''(define-fun word8-shift ((p (_ BitVec 32))) (_ BitVec 32)
-(bvshl ((_ zero_extend 30) ((_ extract 1 0) p)) #x00000003))''',
-    '''(define-fun word8-get ((p (_ BitVec 32)) (x (_ BitVec 32))) (_ BitVec 8)
-((_ extract 7 0) (bvlshr x (word8-shift p))))''',
-    '''(define-fun load-word8 ((m {MemSort}) (p (_ BitVec 32))) (_ BitVec 8)
-(word8-get p (load-word32 m p)))''',
-    '''(define-fun word8-put ((p (_ BitVec 32)) (x (_ BitVec 32)) (y (_ BitVec 8)))
-  (_ BitVec 32) (bvor (bvshl ((_ zero_extend 24) y) (word8-shift p))
-	(bvand x (bvnot (bvshl #x000000FF (word8-shift p))))))''',
-    '''(define-fun store-word8 ((m {MemSort}) (p (_ BitVec 32)) (v (_ BitVec 8)))
-	{MemSort}
-(store-word32 m p (word8-put p (load-word32 m p) v)))''',
-    '''(define-fun mem-dom ((p (_ BitVec 32)) (d {MemDomSort})) Bool
-(not (= (select d p) #b0)))''',
-    '''(define-fun mem-eq ((x {MemSort}) (y {MemSort})) Bool (= x y))''',
-    '''(define-fun word32-eq ((x (_ BitVec 32)) (y (_ BitVec 32)))
-    Bool (= x y))''',
-    '''(define-fun word64-eq ((x (_ BitVec 64)) (y (_ BitVec 64)))
-	Bool (= x y))''',
-    '''(define-fun word2-xor-scramble ((a (_ BitVec 2)) (x (_ BitVec 2))
-   (b (_ BitVec 2)) (c (_ BitVec 2)) (y (_ BitVec 2)) (d (_ BitVec 2))) Bool
-(bvult (bvadd (bvxor a x) b) (bvadd (bvxor c y) d)))''',
-    '''(declare-fun unspecified-precond () Bool)'''
-]
-
-'''
-For RV64, memory addresses are 64-bit, but loads and stores can be
-performed in bytes, half-words, words, and double-words. Therefore,
-we model the memory as byte-addressable. This requires shifting and adding
-when we need to read and write half-words, words, and double words.
-'''
-
-mem_word8_riscv_preamble = [
-    '''
-(define-fun load-word8 ((m {MemSort}) (p (_ BitVec 64)))
-	(_ BitVec 8)
-	(select m p)
-)
-''',
-
-    '''
-(define-fun load-word16 ((m {MemSort}) (p (_ BitVec 64)))
-	(_ BitVec 16)
-	(concat (select m (bvadd p #x0000000000000001))
-	        (select m p)
-	)
-)
-''',
-
-    '''
-(define-fun load-word32 ((m {MemSort}) (p (_ BitVec 64)))
-	(_ BitVec 32)
-	(concat
-		(concat (select m (bvadd p #x0000000000000003))
-				(select m (bvadd p #x0000000000000002)))
-		(concat (select m (bvadd p #x0000000000000001))
-				(select m p))
-	)
-)
-''',
-
-    '''
-(define-fun load-word64 ((m {MemSort}) (p (_ BitVec 64)))
-	(_ BitVec 64)
-	(concat (load-word32 m (bvadd p #x0000000000000004))
-			(load-word32 m p)
-	)
-)
-'''
-    ,
-
-    '''
-(define-fun store-word8 ((m {MemSort}) (p (_ BitVec 64)) (v (_ BitVec 8)))
-	{MemSort}
-	(store m p v)
-)
-'''
-    ,
-
-    '''
-(define-fun store-word16 ((m {MemSort}) (p (_ BitVec 64)) (v (_ BitVec 16)))
-	{MemSort}
-	(store-word8
-		(store-word8 m p ((_ extract 7 0) v))
-		(bvadd p #x0000000000000001)
-		((_ extract 15 8) v)
-	)
-)
-'''
-    ,
-
-
-    '''
-(define-fun store-word32 ((m {MemSort}) (p (_ BitVec 64)) (v (_ BitVec 32)))
-	{MemSort}
-	(store-word16
-		(store-word16 m p ((_ extract 15 0) v))
-		(bvadd p #x0000000000000002)
-		((_ extract 31 16) v)
-	)
-)
-''',
-
-    '''
-(define-fun store-word64 ((m {MemSort}) (p (_ BitVec 64)) (v (_ BitVec 64)))
-	{MemSort}
-	(store-word32
-		(store-word32 m p ((_ extract 31 0) v))
-		(bvadd p #x0000000000000004)
-		((_ extract 63 32) v)
-	)
-)
-''',
-
-
-    '''
-(define-fun mem-dom ((p (_ BitVec 64)) (d {MemDomSort}))
-	Bool
-	(not (= (select d p) #b0)))
-''',
-
-    '''
-(define-fun mem-eq ((x {MemSort}) (y {MemSort}))
-	Bool
-	(= x y))
-''',
-
-
-    '''
-(define-fun word32-eq ((x (_ BitVec 32)) (y (_ BitVec 32)))
-	Bool
-	(= x y))
-''',
-
-
-    '''
-(define-fun word64-eq ((x (_ BitVec 64)) (y (_ BitVec 64)))
-    Bool
-    (= x y))
-''',
-
-
-    '''
-(define-fun word2-xor-scramble ((a (_ BitVec 2)) (x (_ BitVec 2))
-	(b (_ BitVec 2)) (c (_ BitVec 2)) (y (_ BitVec 2)) (d (_ BitVec 2)))
-	Bool
-	(bvult (bvadd (bvxor a x) b) (bvadd (bvxor c y) d)))
-''',
-
-    '''(declare-fun unspecified-precond () Bool)'''
-]
-
-
-word32_smt_convs = {'MemSort': '(Array (_ BitVec 30) (_ BitVec 32))',
-                    'MemDomSort': '(Array (_ BitVec 32) (_ BitVec 1))'}
-word8_smt_convs = {'MemSort': '(Array (_ BitVec 32) (_ BitVec 8))',
-                   'MemDomSort': '(Array (_ BitVec 32) (_ BitVec 1))'}
-word64_riscv_smt_convs = {'MemSort': '(Array (_ BitVec 61) (_ BitVec 64))',
-                          'MemDomSort': '(Array (_ BitVec 64) (_ BitVec 1))'}
-word8_riscv_smt_convs = {'MemSort': '(Array (_ BitVec 64) (_ BitVec 8))',
-                         'MemDomSort': '(Array (_ BitVec 64) (_ BitVec 1))'}
-
 def preexec (timeout):
     def ret ():
         # setting the session ID on a fork allows us to clean up
@@ -891,6 +669,7 @@ class Solver:
     def __init__ (self, produce_unsat_cores = False):
         self.replayable = []
         self.unsat_cores = produce_unsat_cores
+        self.mem_mode = None
         self.online_solver = None
         self.parallel_solvers = {}
         self.parallel_model_states = {}
@@ -935,19 +714,11 @@ class Solver:
                       '(set-logic QF_AUFBV)', ]
         if self.unsat_cores:
             preamble += ['(set-option :produce-unsat-cores true)']
-
         if solver_impl.mem_mode == '8':
-            if syntax.arch.name == 'rv64':
-                preamble.extend(mem_word8_riscv_preamble)
-                print preamble
-            else:
-                preamble.extend (mem_word8_preamble)
+            preamble.extend(syntax.arch.smt_word8_preamble)
         else:
-            if syntax.arch.name == 'rv64':
-                preamble.extend(mem_word64_riscv_preamble)
-                print preamble
-            else:
-                preamble.extend (mem_word32_preamble)
+            preamble.extend(syntax.arch.smt_native_preamble)
+        print preamble
         return preamble
 
     def startup_solver (self, use_this_solver = None):
@@ -962,6 +733,7 @@ class Solver:
         else:
             solver = self.fast_solver
         devnull = open (os.devnull, 'w')
+        self.mem_mode = solver.mem_mode
         self.online_solver = subprocess.Popen (solver.args,
                                                stdin = subprocess.PIPE, stdout = subprocess.PIPE,
                                                stderr = devnull, preexec_fn = preexec (solver.timeout))
@@ -1005,11 +777,10 @@ class Solver:
         if self.online_solver == None:
             self.startup_solver ()
 
-        if syntax.arch.is_64bit:
-            msg = msg.format(** word8_riscv_smt_convs)
+        if self.mem_mode == '8':
+            msg = msg.format(** syntax.arch.smt_word8_conversions)
         else:
-            msg = msg.format (** word32_smt_convs)
-
+            msg = msg.format(** syntax.arch.smt_native_conversions)
         try:
             self.write (msg)
             response = self.online_solver.stdout.readline().strip()
@@ -1312,15 +1083,10 @@ class Solver:
 
     def write_solv_script (self, f, input_msgs, solver = slow_solver,
                            only_if_is_model = False):
-        if solver.mem_mode == '8' and syntax.arch.name == 'rv64':
-            smt_convs = word8_riscv_smt_convs
-        elif solver.mem_mode == '8':
-            smt_convs = word8_smt_convs
+        if solver.mem_mode == '8':
+            smt_convs = syntax.arch.smt_word8_conversions
         else:
-            if syntax.arch.is_64bit:
-                smt_convs = word8_riscv_smt_convs
-            else:
-                smt_convs = word32_smt_convs
+            smt_convs = syntax.arch.smt_native_conversions
         for msg in self.preamble (solver):
             msg = msg.format (** smt_convs)
             f.write (msg + '\n')

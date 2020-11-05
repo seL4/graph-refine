@@ -1637,6 +1637,10 @@ class Arch:
             self.smt_native_zero = '#x00000000'
             self.smt_stackeq_mask = '#x00000003'
             self.smt_rodata_mask = '#x00000003'
+            self.smt_word8_preamble = armv7_word8_preamble
+            self.smt_native_preamble = armv7_native_preamble
+            self.smt_word8_conversions = armv7_word8_conversions
+            self.smt_native_conversions = armv7_native_conversions
         elif name == 'rv64':
             self.name = 'rv64'
             self.ptr_size = 8
@@ -1665,6 +1669,10 @@ class Arch:
             self.smt_native_zero = '#x0000000000000000'
             self.smt_stackeq_mask = '#x0000000000000007'
             self.smt_rodata_mask =  '#x0000000000000003'
+            self.smt_word8_preamble = rv64_word8_preamble
+            self.smt_native_preamble = rv64_native_preamble
+            self.smt_word8_conversions = rv64_word8_conversions
+            self.smt_native_conversions = rv64_native_conversions
         else:
             raise ValueError('unsupported architecture: %r' % name)
     def __repr__ (self):
@@ -1673,6 +1681,222 @@ arch = None
 def set_arch(name = 'armv7'):
     global arch
     arch = Arch(name)
+
+armv7_word8_preamble = [
+    '''(define-fun load-word32 ((m {MemSort}) (p (_ BitVec 32)))
+	(_ BitVec 32)
+(concat
+	(concat (select m (bvadd p #x00000003))
+	        (select m (bvadd p #x00000002)))
+    (concat (select m (bvadd p #x00000001))
+            (select m p)))
+)
+''',
+    '''(define-fun load-word64 ((m {MemSort}) (p (_ BitVec 32)))
+	(_ BitVec 64)
+(bvor ((_ zero_extend 32) (load-word32 m p))
+	(bvshl ((_ zero_extend 32)
+		(load-word32 m (bvadd p #x00000004))) #x0000000000000020)))''',
+    '''(define-fun store-word32 ((m {MemSort}) (p (_ BitVec 32))
+	(v (_ BitVec 32))) {MemSort}
+(store (store (store (store m p ((_ extract 7 0) v))
+	(bvadd p #x00000001) ((_ extract 15 8) v))
+	(bvadd p #x00000002) ((_ extract 23 16) v))
+	(bvadd p #x00000003) ((_ extract 31 24) v))
+) ''',
+    '''(define-fun store-word64 ((m {MemSort}) (p (_ BitVec 32)) (v (_ BitVec 64)))
+        {MemSort}
+(store-word32 (store-word32 m p ((_ extract 31 0) v))
+	(bvadd p #x00000004) ((_ extract 63 32) v)))''',
+    '''(define-fun load-word8 ((m {MemSort}) (p (_ BitVec 32))) (_ BitVec 8)
+(select m p))''',
+    '''(define-fun store-word8 ((m {MemSort}) (p (_ BitVec 32)) (v (_ BitVec 8)))
+	{MemSort}
+(store m p v))''',
+    '''(define-fun mem-dom ((p (_ BitVec 32)) (d {MemDomSort})) Bool
+(not (= (select d p) #b0)))''',
+    '''(define-fun mem-eq ((x {MemSort}) (y {MemSort})) Bool (= x y))''',
+    '''(define-fun word32-eq ((x (_ BitVec 32)) (y (_ BitVec 32)))
+    Bool (= x y))''',
+    '''(define-fun word64-eq ((x (_ BitVec 64)) (y (_ BitVec 64)))
+	Bool (= x y))''',
+    '''(define-fun word2-xor-scramble ((a (_ BitVec 2)) (x (_ BitVec 2))
+   (b (_ BitVec 2)) (c (_ BitVec 2)) (y (_ BitVec 2)) (d (_ BitVec 2))) Bool
+(bvult (bvadd (bvxor a x) b) (bvadd (bvxor c y) d)))''',
+    '''(declare-fun unspecified-precond () Bool)''',
+]
+
+armv7_native_preamble = [
+    '''(define-fun load-word32 ((m {MemSort}) (p (_ BitVec 32)))
+	(_ BitVec 32)
+(select m ((_ extract 31 2) p)))''',
+    '''(define-fun store-word32 ((m {MemSort}) (p (_ BitVec 32)) (v (_ BitVec 32)))
+	{MemSort}
+(store m ((_ extract 31 2) p) v))''',
+    '''(define-fun load-word64 ((m {MemSort}) (p (_ BitVec 32)))
+	(_ BitVec 64)
+(bvor ((_ zero_extend 32) (load-word32 m p))
+	(bvshl ((_ zero_extend 32)
+		(load-word32 m (bvadd p #x00000004))) #x0000000000000020)))''',
+    '''(define-fun store-word64 ((m {MemSort}) (p (_ BitVec 32)) (v (_ BitVec 64)))
+        {MemSort}
+(store-word32 (store-word32 m p ((_ extract 31 0) v))
+	(bvadd p #x00000004) ((_ extract 63 32) v)))''',
+    '''(define-fun word8-shift ((p (_ BitVec 32))) (_ BitVec 32)
+(bvshl ((_ zero_extend 30) ((_ extract 1 0) p)) #x00000003))''',
+    '''(define-fun word8-get ((p (_ BitVec 32)) (x (_ BitVec 32))) (_ BitVec 8)
+((_ extract 7 0) (bvlshr x (word8-shift p))))''',
+    '''(define-fun load-word8 ((m {MemSort}) (p (_ BitVec 32))) (_ BitVec 8)
+(word8-get p (load-word32 m p)))''',
+    '''(define-fun word8-put ((p (_ BitVec 32)) (x (_ BitVec 32)) (y (_ BitVec 8)))
+  (_ BitVec 32) (bvor (bvshl ((_ zero_extend 24) y) (word8-shift p))
+	(bvand x (bvnot (bvshl #x000000FF (word8-shift p))))))''',
+    '''(define-fun store-word8 ((m {MemSort}) (p (_ BitVec 32)) (v (_ BitVec 8)))
+	{MemSort}
+(store-word32 m p (word8-put p (load-word32 m p) v)))''',
+    '''(define-fun mem-dom ((p (_ BitVec 32)) (d {MemDomSort})) Bool
+(not (= (select d p) #b0)))''',
+    '''(define-fun mem-eq ((x {MemSort}) (y {MemSort})) Bool (= x y))''',
+    '''(define-fun word32-eq ((x (_ BitVec 32)) (y (_ BitVec 32)))
+    Bool (= x y))''',
+    '''(define-fun word64-eq ((x (_ BitVec 64)) (y (_ BitVec 64)))
+	Bool (= x y))''',
+    '''(define-fun word2-xor-scramble ((a (_ BitVec 2)) (x (_ BitVec 2))
+   (b (_ BitVec 2)) (c (_ BitVec 2)) (y (_ BitVec 2)) (d (_ BitVec 2))) Bool
+(bvult (bvadd (bvxor a x) b) (bvadd (bvxor c y) d)))''',
+    '''(declare-fun unspecified-precond () Bool)'''
+]
+
+'''
+For RV64, memory addresses are 64-bit, but loads and stores can be
+performed in bytes, half-words, words, and double-words. Therefore,
+we model the memory as byte-addressable. This requires shifting and adding
+when we need to read and write half-words, words, and double words.
+'''
+
+rv64_word8_preamble = [
+    '''
+(define-fun load-word8 ((m {MemSort}) (p (_ BitVec 64)))
+	(_ BitVec 8)
+	(select m p)
+)
+''',
+    '''
+(define-fun load-word16 ((m {MemSort}) (p (_ BitVec 64)))
+	(_ BitVec 16)
+	(concat (select m (bvadd p #x0000000000000001))
+		(select m p)
+	)
+)
+''',
+    '''
+(define-fun load-word32 ((m {MemSort}) (p (_ BitVec 64)))
+	(_ BitVec 32)
+	(concat
+		(concat (select m (bvadd p #x0000000000000003))
+				(select m (bvadd p #x0000000000000002)))
+		(concat (select m (bvadd p #x0000000000000001))
+				(select m p))
+	)
+)
+''',
+    '''
+(define-fun load-word64 ((m {MemSort}) (p (_ BitVec 64)))
+	(_ BitVec 64)
+	(concat (load-word32 m (bvadd p #x0000000000000004))
+			(load-word32 m p)
+	)
+)
+''',
+    '''
+(define-fun store-word8 ((m {MemSort}) (p (_ BitVec 64)) (v (_ BitVec 8)))
+	{MemSort}
+	(store m p v)
+)
+''',
+    '''
+(define-fun store-word16 ((m {MemSort}) (p (_ BitVec 64)) (v (_ BitVec 16)))
+	{MemSort}
+	(store-word8
+		(store-word8 m p ((_ extract 7 0) v))
+		(bvadd p #x0000000000000001)
+		((_ extract 15 8) v)
+	)
+)
+''',
+    '''
+(define-fun store-word32 ((m {MemSort}) (p (_ BitVec 64)) (v (_ BitVec 32)))
+	{MemSort}
+	(store-word16
+		(store-word16 m p ((_ extract 15 0) v))
+		(bvadd p #x0000000000000002)
+		((_ extract 31 16) v)
+	)
+)
+''',
+    '''
+(define-fun store-word64 ((m {MemSort}) (p (_ BitVec 64)) (v (_ BitVec 64)))
+	{MemSort}
+	(store-word32
+		(store-word32 m p ((_ extract 31 0) v))
+		(bvadd p #x0000000000000004)
+		((_ extract 63 32) v)
+	)
+)
+''',
+    '''
+(define-fun mem-dom ((p (_ BitVec 64)) (d {MemDomSort}))
+	Bool
+	(not (= (select d p) #b0)))
+''',
+    '''
+(define-fun mem-eq ((x {MemSort}) (y {MemSort}))
+	Bool
+	(= x y))
+''',
+    '''
+(define-fun word32-eq ((x (_ BitVec 32)) (y (_ BitVec 32)))
+	Bool
+	(= x y))
+''',
+    '''
+(define-fun word64-eq ((x (_ BitVec 64)) (y (_ BitVec 64)))
+    Bool
+    (= x y))
+''',
+    '''
+(define-fun word2-xor-scramble ((a (_ BitVec 2)) (x (_ BitVec 2))
+	(b (_ BitVec 2)) (c (_ BitVec 2)) (y (_ BitVec 2)) (d (_ BitVec 2)))
+	Bool
+	(bvult (bvadd (bvxor a x) b) (bvadd (bvxor c y) d)))
+''',
+    '''(declare-fun unspecified-precond () Bool)'''
+]
+
+rv64_native_preamble = ['DEADBEEF'] # rv64_word8_preamble
+
+armv7_native_conversions = {
+    'MemSort': '(Array (_ BitVec 30) (_ BitVec 32))',
+    'MemDomSort': '(Array (_ BitVec 32) (_ BitVec 1))'
+}
+armv7_word8_conversions = {
+    'MemSort': '(Array (_ BitVec 32) (_ BitVec 8))',
+    'MemDomSort': '(Array (_ BitVec 32) (_ BitVec 1))'
+}
+rv64_native_conversions = {
+    'MemSort': '(Array (_ BitVec 61) (_ BitVec 64))',
+    'MemDomSort': '(Array (_ BitVec 64) (_ BitVec 1))'
+}
+rv64_word8_conversions = {
+    'MemSort': '(Array (_ BitVec 64) (_ BitVec 8))',
+    'MemDomSort': '(Array (_ BitVec 64) (_ BitVec 1))'
+}
+
+
+
+
+
+
 
 # =================================================
 # some helper code that's needed all over the place
