@@ -488,13 +488,8 @@ def smt_expr (expr, env, solv):
         assert not 'handled expr', expr
 
 def smt_expr_memacc (m, p, typ, solv):
-    if syntax.arch.is_64bit:
-        wordT = syntax.word64T
-    else:
-        wordT = syntax.word32T
-
     if m[0] == 'SplitMem':
-        p = solv.cache_large_expr (p, 'memacc_pointer', wordT)
+        p = solv.cache_large_expr (p, 'memacc_pointer', syntax.arch.word_type)
         (_, split, top, bot) = m
         top_acc = smt_expr_memacc (top, p, typ, solv)
         bot_acc = smt_expr_memacc (bot, p, typ, solv)
@@ -503,18 +498,13 @@ def smt_expr_memacc (m, p, typ, solv):
         sexp = '(load-word%d %s %s)' % (typ.num, m, p)
     else:
         assert not 'word load type supported', typ
-    solv.note_model_expr (p, wordT)
+    solv.note_model_expr (p, syntax.arch.word_type)
     solv.note_model_expr (sexp, typ)
     return sexp
 
 def smt_expr_memupd (m, p, v, typ, solv):
-    if syntax.arch.is_64bit:
-        wordT = syntax.word64T
-    else:
-        wordT = syntax.word32T
-
     if m[0] == 'SplitMem':
-        p = solv.cache_large_expr (p, 'memupd_pointer', wordT)
+        p = solv.cache_large_expr (p, 'memupd_pointer', syntax.arch.word_type)
         v = solv.cache_large_expr (v, 'memupd_val', typ)
         (_, split, top, bot) = m
         memT = syntax.builtinTs['Mem']
@@ -526,37 +516,21 @@ def smt_expr_memupd (m, p, v, typ, solv):
         bot = '(ite (bvule %s %s) %s %s)' % (split, p, bot, bot_upd)
         return ('SplitMem', split, top, bot)
     elif typ.num == 8:
-        #assert False
-        p = solv.cache_large_expr (p, 'memupd_pointer', wordT)
-
-        # Note hack for RV64
-        if syntax.arch.is_64bit:
-            p_align = '(bvand %s #xfffffffffffffffd)' % p
-        else:
-            p_align = '(bvand %s #xfffffffd)' % p
-
-        solv.note_model_expr (p_align, wordT)
+        p = solv.cache_large_expr (p, 'memupd_pointer', syntax.arch.word_type)
+        p_align = '(bvand %s %s)' % (p, syntax.arch.smt_alignment_pattern)
+        solv.note_model_expr (p_align, syntax.arch.word_type)
         # note hack for rv64
-
-        if syntax.arch.is_64bit:
-            solv.note_model_expr('(load-word64 %s %s)' % (m, p_align),
-                                 syntax.word64T)
-        else:
-            solv.note_model_expr ('(load-word32 %s %s)' % (m, p_align),
-                                  syntax.word32T)
-        #print 'bla\n'
-        #print m
-        #print '\n'
-        #print p
-        #print '\n'
-        #print v
-        #assert False
+        solv.note_model_expr(
+            '(load-word%d %s %s)' % (syntax.arch.word_size, m, p_align),
+            syntax.arch.word_type
+        )
         return '(store-word8 %s %s %s)' % (m, p, v)
     elif typ.num in [32, 64]:
-        solv.note_model_expr ('(load-word%d %s %s)' % (typ.num, m, p),
-                              typ)
-        #solv.note_model_expr (p, syntax.word32T)
-        solv.note_model_expr(p, wordT)
+        solv.note_model_expr(
+            '(load-word%d %s %s)' % (typ.num, m, p),
+            typ
+        )
+        solv.note_model_expr(p, syntax.arch.word_type)
         return '(store-word%d %s %s %s)' % (typ.num, m, p, v)
     else:
         assert not 'MemUpdate word width supported', typ
@@ -564,16 +538,12 @@ def smt_expr_memupd (m, p, v, typ, solv):
 def smt_ifthenelse (sw, x, y, solv):
     if x[0] != 'SplitMem' and y[0] != 'SplitMem':
         return '(ite %s %s %s)' % (sw, x, y)
-    if syntax.arch.is_64bit:
-        zero = '#x0000000000000000'
-    else:
-        zero = '#x00000000'
     if x[0] != 'SplitMem':
-        (x_split, x_top, x_bot) = (zero, x, x)
+        (x_split, x_top, x_bot) = (syntax.arch.smt_native_zero, x, x)
     else:
         (_, x_split, x_top, x_bot) = x
     if y[0] != 'SplitMem':
-        (y_split, y_top, y_bot) = (zero, y, y)
+        (y_split, y_top, y_bot) = (syntax.arch.smt_native_zero, y, y)
     else:
         (_, y_split, y_top, y_bot) = y
     if x_split != y_split:
@@ -1126,9 +1096,14 @@ class Solver:
             return name
         name = self.smt_name (name, kind = (kind, typ),
                               ignore_external_names = ignore_external_names)
-        # r0 or x0 for riscv is always 0. writes to the reg do not have effects
-        if syntax.arch.name == 'rv64' and name.startswith('r0'):
-            self.send('(define-fun %s () %s #x0000000000000000)' % (name, smt_typ(typ)))
+        # writes to zero-wired registers (e.g. RISC-V x0) have no effect
+        if any([ name.startswith(rz)
+                 for rz in syntax.arch.zero_wired_registers]):
+            self.send(
+                '(define-fun %s () %s %s)' % (
+                    name, smt_typ(typ), syntax.arch.smt_native_zero
+                )
+            )
         else:
             self.send ('(declare-fun %s () %s)' % (name, smt_typ(typ)))
         if typ_representable (typ) and kind != 'Aux':
@@ -1159,10 +1134,7 @@ class Solver:
                 val = mk_smt_expr (smt, typ)
                 return self.add_def (name + '_' + nm, val, {},
                                      ignore_external_names = ignore_external_names)
-            if syntax.arch.is_64bit:
-                split = add('split', syntax.word64T, split)
-            else:
-                split = add ('split', syntax.word32T, split)
+            split = add('split', syntax.arch.word_type, split)
             top = add ('top', val.typ, top)
             bot = add ('bot', val.typ, bot)
             return ('SplitMem', split, top, bot)
@@ -1973,19 +1945,10 @@ class Solver:
         return name2
 
     def note_ptr (self, p_s):
-        #print 'note_ptr:'
-        #print p_s
         if p_s in self.ptrs:
             p = self.ptrs[p_s]
         else:
-            if syntax.arch.is_64bit:
-                wordT = syntax.word64T
-            else:
-                wordT = syntax.word32T
-
-            print 'here:'
-            print p_s
-            p = self.add_def ('ptr', mk_smt_expr (p_s, wordT), {})
+            p = self.add_def ('ptr', mk_smt_expr (p_s, syntax.arch.word_type), {})
             self.ptrs[p_s] = p
         return p
 
@@ -2038,11 +2001,7 @@ class Solver:
             pvalids[htd_s][(typ, p, kind)] = var
 
             def smtify (((typ, p, kind), var)):
-                if syntax.arch.is_64bit:
-                    wordT = syntax.word64T
-                else:
-                    wordT = syntax.word32T
-                return (typ, kind, mk_smt_expr (p, wordT),
+                return (typ, kind, mk_smt_expr (p, syntax.arch.word_type),
                         mk_smt_expr (var, boolT))
             pdata = smtify (((typ, p, kind), var))
             (_, _, p, pv) = pdata
@@ -2115,32 +2074,20 @@ class Solver:
         k = ('ImpliesStackEq', sp, s1, s2)
         if k in self.stack_eqs:
             return self.stack_eqs[k]
-
-        if syntax.arch.is_64bit:
-            wordT = word64T
-        else:
-            wordT = word32T
-
-        addr = self.add_var ('stack-eq-witness', wordT)
-        if syntax.arch.is_64bit:
-            #print addr
-            self.assert_fact_smt('(= (bvand %s #x0000000000000007) #x0000000000000000)' % addr)
-        else:
-            self.assert_fact_smt ('(= (bvand %s #x00000003) #x00000000)' % addr)
+        addr = self.add_var ('stack-eq-witness', syntax.arch.word_type)
+        self.assert_fact_smt(
+            '(= (bvand %s %s) %s)' % (
+                addr,
+                syntax.arch.smt_stackeq_mask,
+                syntax.arch.smt_native_zero
+            )
+        )
         sp_smt = smt_expr (sp, env, self)
         self.assert_fact_smt ('(bvule %s %s)' % (sp_smt, addr))
-        ptr = mk_smt_expr (addr, wordT)
-        print "stackeq:"
-        print sp
-        print s1
-        print s2
-        print ptr
-        eq = syntax.mk_eq (syntax.mk_memacc (s1, ptr, wordT),
-                           syntax.mk_memacc (s2, ptr, wordT))
-        print 'eq:'
-        print eq
+        ptr = mk_smt_expr (addr, syntax.arch.word_type)
+        eq = syntax.mk_eq (syntax.mk_memacc (s1, ptr, syntax.arch.word_type),
+                           syntax.mk_memacc (s2, ptr, syntax.arch.word_type))
         stack_eq = self.add_def ('stack-eq', eq, env)
-        print stack_eq
         self.stack_eqs[k] = stack_eq
         return stack_eq
 
@@ -2186,15 +2133,11 @@ class Solver:
             self.model_exprs[psexpr] = (v, typ)
 
     def add_pvalid_dom_assertions (self):
-        if syntax.arch.is_64bit:
-            bits = 64
-        else:
-            bits = 32
-
         if not self.doms:
             return
         if cheat_mem_doms:
             return
+        bits = syntax.arch.word_size
         dom = iter (self.doms).next ()[1]
 
         pvs = [(var, (p, typ.size ()))

@@ -278,6 +278,10 @@ class Arch:
             self.register_aliases = {'r11': ['fp'],'r13': ['sp'],'r14': ['lr']}
             self.callee_saved_registers = ['r4','r5','r6','r7',
                                            'r8','r9','r10','r11','r13']
+            self.zero_wired_registers = []
+            self.smt_alignment_pattern = '#xfffffffd'
+            self.smt_native_zero = '#x00000000'
+            self.smt_stackeq_mask = '#x00000003'
         elif name == 'rv64':
             self.name = 'rv64'
             self.ptr_size = 8
@@ -299,6 +303,10 @@ class Arch:
             self.register_aliases = {'r1': ['ra'],'r2': ['sp'],'r8': ['fp']}
             self.callee_saved_registers = ['r2','r3','r4','r8','r9','r18',
                                            'r19','r20','r21','r22','r23','r24','r25','r26','r27']
+            self.zero_wired_registers = ['r0']
+            self.smt_alignment_pattern = "#xfffffffffffffffd"
+            self.smt_native_zero = '#x0000000000000000'
+            self.smt_stackeq_mask = '#x0000000000000007'
         else:
             raise ValueError('unsupported architecture: %r' % name)
     def __repr__ (self):
