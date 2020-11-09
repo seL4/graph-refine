@@ -120,7 +120,7 @@ ${TARGET_DIR}/ASMFunctions.txt: ${TARGET_DIR}/kernel.elf.txt ${TARGET_DIR}/kerne
 
 ${TARGET_DIR}/CFunctions.txt: ${L4V_KERNEL_BUILD_PATH}/kernel_all.c_pp ${L4V_REPO_PATH}/tools/asmrefine/*.thy
 	@mkdir -p ${TARGET_DIR}
-	MAKEFILES= make -C ${L4V_REPO_PATH}/proof/ SimplExportOnly
+	MAKEFILES= make -C ${L4V_REPO_PATH}/proof/ SimplExport
 	# FIXME: the following path should really depend on L4V_FEATURES.
 	cp ${L4V_REPO_PATH}/proof/asmrefine/${L4V_ARCH}/CFunDump.txt $@
 
