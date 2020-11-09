@@ -122,7 +122,7 @@ ${TARGET_DIR}/CFunctions.txt: ${L4V_KERNEL_BUILD_PATH}/kernel_all.c_pp ${L4V_REP
 	@mkdir -p ${TARGET_DIR}
 	MAKEFILES= make -C ${L4V_REPO_PATH}/proof/ SimplExport
 	# FIXME: the following path should really depend on L4V_FEATURES.
-	cp ${L4V_REPO_PATH}/proof/asmrefine/${L4V_ARCH}/CFunDump.txt $@
+	cp ${L4V_REPO_PATH}/proof/asmrefine/export/${L4V_ARCH}/CFunDump.txt $@
 
 ${TARGET_DIR}/target.py: target.py
 	@mkdir -p ${TARGET_DIR}
