@@ -1884,7 +1884,6 @@ rv64_native_preamble = [
 	{MemSort}
 	(store m ((_ extract 63 3) p) v))
 ''',
-
     '''
 (define-fun word8-shift ((p (_ BitVec 64)))
 	(_ BitVec 64)
@@ -1896,6 +1895,13 @@ rv64_native_preamble = [
 	((_ extract 7 0) (bvlshr x (word8-shift p))))
 ''',
     '''
+(define-fun word8-put ((p (_ BitVec 64)) (orig (_ BitVec 64)) (w (_ BitVec 8)))
+	(_ BitVec 64)
+	(bvor
+		(bvand (bvnot (bvshl #x00000000000000FF (word8-shift p))) orig)
+		(bvshl ((_ zero_extend 56) w) (word8-shift p))))
+''',
+    '''
 (define-fun load-word8 ((m {MemSort}) (p (_ BitVec 64)))
 	(_ BitVec 8)
 	(word8-get p (load-word64 m p)))
@@ -1904,6 +1910,18 @@ rv64_native_preamble = [
 (define-fun load-word16 ((m {MemSort}) (p (_ BitVec 64)))
 	(_ BitVec 16)
 	(concat (load-word8 m (bvadd p #x0000000000000001)) (load-word8 m p) ))
+''',
+    '''
+(define-fun store-word8 ((m {MemSort}) (p (_ BitVec 64)) (w (_ BitVec 8)))
+	{MemSort}
+	(store-word64 m p (word8-put p (load-word64 m p) w)))
+''',
+    '''
+(define-fun store-word16 ((m {MemSort}) (p (_ BitVec 64)) (ww (_ BitVec 16)))
+	{MemSort}
+	(store-word8
+		(store-word8 m p ((_ extract 7 0) ww))
+		(bvadd p #x0000000000000001) ((_ extract 15 8) ww)))
 ''',
     '''
 (define-fun mem-dom ((p (_ BitVec 64)) (d {MemDomSort}))
