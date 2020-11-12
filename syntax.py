@@ -1873,7 +1873,66 @@ rv64_word8_preamble = [
     '''(declare-fun unspecified-precond () Bool)'''
 ]
 
-rv64_native_preamble = ['DEADBEEF'] # rv64_word8_preamble
+rv64_native_preamble = [
+    '''
+(define-fun load-word64 ((m {MemSort}) (p (_ BitVec 64)))
+	(_ BitVec 64)
+	(select m ((_ extract 63 3) p)))
+''',
+    '''
+(define-fun store-word64 ((m {MemSort}) (p (_ BitVec 64)) (v (_ BitVec 64)))
+	{MemSort}
+	(store m ((_ extract 63 3) p) v))
+''',
+
+    '''
+(define-fun word8-shift ((p (_ BitVec 64)))
+	(_ BitVec 64)
+	(bvshl ((_ zero_extend 61) ((_ extract 2 0) p)) #x0000000000000003))
+''',
+    '''
+(define-fun word8-get ((p (_ BitVec 64)) (x (_ BitVec 64)))
+	(_ BitVec 8)
+	((_ extract 7 0) (bvlshr x (word8-shift p))))
+''',
+    '''
+(define-fun load-word8 ((m {MemSort}) (p (_ BitVec 64)))
+	(_ BitVec 8)
+	(word8-get p (load-word64 m p)))
+''',
+    '''
+(define-fun load-word16 ((m {MemSort}) (p (_ BitVec 64)))
+	(_ BitVec 16)
+	(concat (load-word8 m (bvadd p #x0000000000000001)) (load-word8 m p) ))
+''',
+    '''
+(define-fun mem-dom ((p (_ BitVec 64)) (d {MemDomSort}))
+	Bool
+	(not (= (select d p) #b0)))
+''',
+    '''
+(define-fun mem-eq ((x {MemSort}) (y {MemSort}))
+	Bool
+	(= x y))
+''',
+    '''
+(define-fun word32-eq ((x (_ BitVec 32)) (y (_ BitVec 32)))
+	Bool
+	(= x y))
+''',
+    '''
+(define-fun word64-eq ((x (_ BitVec 64)) (y (_ BitVec 64)))
+	Bool
+	(= x y))
+''',
+    '''
+(define-fun word2-xor-scramble ((a (_ BitVec 2)) (x (_ BitVec 2))
+	(b (_ BitVec 2)) (c (_ BitVec 2)) (y (_ BitVec 2)) (d (_ BitVec 2)))
+	Bool
+	(bvult (bvadd (bvxor a x) b) (bvadd (bvxor c y) d)))
+''',
+    '''(declare-fun unspecified-precond () Bool)'''
+]
 
 armv7_native_conversions = {
     'MemSort': '(Array (_ BitVec 30) (_ BitVec 32))',
