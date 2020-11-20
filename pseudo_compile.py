@@ -11,10 +11,10 @@ from syntax import structs, get_vars, get_expr_typ, get_node_vars, Expr, Node
 import logic
 
 
-(mk_var, mk_plus, mk_uminus, mk_minus, mk_times, mk_modulus, mk_bwand, mk_eq,
- mk_less_eq, mk_less, mk_implies, mk_and, mk_or, mk_not, mk_word64, mk_word32, mk_word8,
- mk_word32_maybe, mk_memacc, mk_memupd, mk_arr_index, mk_arroffs,
- mk_if, mk_meta_typ, mk_pvalid) = syntax.mks
+from syntax import (mk_var, mk_plus, mk_uminus, mk_minus, mk_times, mk_modulus,  mk_bwand, mk_eq,
+                    mk_less_eq, mk_less, mk_implies, mk_and, mk_or, mk_not, mk_word64, mk_word32, mk_word8,
+                    mk_word32_maybe, mk_memacc, mk_memupd, mk_arr_index, mk_arroffs,
+                    mk_if, mk_meta_typ, mk_pvalid)
 
 from syntax import word64T, word32T, word8T
 
