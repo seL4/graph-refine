@@ -338,10 +338,7 @@ class Type:
             assert sz % 8 == 0, self
             return sz / 8
         elif self.kind == 'Ptr':
-            if arch.is_64bit:
-                return 8
-            else:
-                return 4
+            return arch.ptr_size
         else:
             assert not 'type has size'
 
@@ -353,10 +350,7 @@ class Type:
         elif self.kind in ('Word', 'FloatingPoint'):
             return self.size ()
         elif self.kind == 'Ptr':
-            if arch.is_64bit:
-                return 8
-            else:
-                return 4
+            return arch.ptr_size
         else:
             assert not 'type has alignment'
 
@@ -902,10 +896,7 @@ phantom_types = set ([builtinTs[t] for t
 
 def concrete_type (typ):
     if typ.kind == 'Ptr':
-        if arch.is_64bit:
-            return word64T
-        else:
-            return word32T
+        return arch.word_type
     else:
         return typ
 
@@ -950,10 +941,7 @@ def parse_typ(bits, n, symbolic_types = False):
         if symbolic_types:
             return (n, Type ('Ptr', '', typ))
         else:
-            if arch.is_64bit:
-                return (n, word64T)
-            else:
-                return (n, word32T)
+            return (n, arch.word_type)
     else:
         assert not 'type encoded', (n, bits[n:], bits)
 
