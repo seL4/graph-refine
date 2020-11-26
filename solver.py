@@ -950,12 +950,8 @@ class Solver:
             eq_vs = [(smt_num (p, syntax.arch.word_size), smt_num (v, syntax.arch.rodata_chunk_size))
                      for (p, v) in rodata_data.iteritems ()]
             eq_vs.append ((ro_witness, ro_witness_val))
-            print ro_witness
-            print ro_witness_val
-            print eq_vs
             load_word_m = ('(= (load-word%d m' % syntax.arch.rodata_chunk_size) + ' %s) %s)'
             eqs = [load_word_m % v for v in eq_vs]
-            print eqs
             ro_def = '(and %s)' % ' \n  '.join (eqs)
             ro_ineqs = ['(and (bvule %s %s) (bvule %s %s))'
                         % (smt_num (start, syntax.arch.word_size), ro_witness,
