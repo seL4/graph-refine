@@ -868,7 +868,7 @@ class Solver:
         name = self.smt_name (name, kind = (kind, typ),
                               ignore_external_names = ignore_external_names)
         # writes to zero-wired registers (e.g. RISC-V x0) have no effect
-        if any([ name.startswith(rz)
+        if any([ name.startswith(rz + '_')
                  for rz in syntax.arch.zero_wired_registers]):
             self.send(
                 '(define-fun %s () %s %s)' % (
