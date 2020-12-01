@@ -1899,7 +1899,7 @@ rv64_native_preamble = [
     '''
 (define-fun word16-shift ((p (_ BitVec 64)))
 	(_ BitVec 64)
-	(bvshl ((_ zero_extend 61) (bvand ((_ extract 2 0) p) #b110)) #x0000000000000003))
+	(bvshl ((_ zero_extend 61) (concat ((_ extract 2 1) p) #b0)) #x0000000000000003))
 ''',
     '''
 (define-fun word16-get ((p (_ BitVec 64)) (x (_ BitVec 64)))
