@@ -1653,7 +1653,7 @@ class Arch:
             self.smt_alignment_pattern = "#xfffffffffffffffd"
             self.smt_native_zero = '#x0000000000000000'
             self.smt_stackeq_mask = '#x0000000000000007'
-            self.smt_rodata_mask =  '#x0000000000000003'
+            self.smt_rodata_mask =  '#x0000000000000001'
             self.smt_word8_preamble = rv64_word8_preamble
             self.smt_native_preamble = rv64_native_preamble
             self.smt_word8_conversions = rv64_word8_conversions
@@ -1892,21 +1892,36 @@ rv64_native_preamble = [
 	(word8-get p (load-word64 m p)))
 ''',
     '''
-(define-fun load-word16 ((m {MemSort}) (p (_ BitVec 64)))
-	(_ BitVec 16)
-	(concat (load-word8 m (bvadd p #x0000000000000001)) (load-word8 m p) ))
-''',
-    '''
 (define-fun store-word8 ((m {MemSort}) (p (_ BitVec 64)) (w (_ BitVec 8)))
 	{MemSort}
 	(store-word64 m p (word8-put p (load-word64 m p) w)))
 ''',
     '''
+(define-fun word16-shift ((p (_ BitVec 64)))
+	(_ BitVec 64)
+	(bvshl ((_ zero_extend 61) (bvand ((_ extract 2 0) p) #b110)) #x0000000000000003))
+''',
+    '''
+(define-fun word16-get ((p (_ BitVec 64)) (x (_ BitVec 64)))
+	(_ BitVec 16)
+	((_ extract 15 0) (bvlshr x (word16-shift p))))
+''',
+    '''
+(define-fun word16-put ((p (_ BitVec 64)) (orig (_ BitVec 64)) (ww (_ BitVec 16)))
+	(_ BitVec 64)
+	(bvor
+		(bvand (bvnot (bvshl #x000000000000FFFF (word16-shift p))) orig)
+		(bvshl ((_ zero_extend 48) ww) (word16-shift p))))
+''',
+    '''
+(define-fun load-word16 ((m {MemSort}) (p (_ BitVec 64)))
+	(_ BitVec 16)
+	(word16-get p (load-word64 m p)))
+''',
+    '''
 (define-fun store-word16 ((m {MemSort}) (p (_ BitVec 64)) (ww (_ BitVec 16)))
 	{MemSort}
-	(store-word8
-		(store-word8 m p ((_ extract 7 0) ww))
-		(bvadd p #x0000000000000001) ((_ extract 15 8) ww)))
+	(store-word64 m p (word16-put p (load-word64 m p) ww)))
 ''',
     '''
 (define-fun mem-dom ((p (_ BitVec 64)) (d {MemDomSort}))
