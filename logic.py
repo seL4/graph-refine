@@ -27,13 +27,6 @@ def mk_rodata (m):
     assert m.typ == builtinTs['Mem']
     return Expr ('Op', boolT, name = 'ROData', vals = [m])
 
-def cast_pair (pair):
-    (a, a_addr), (c, c_addr) = pair
-    if a.typ != c.typ and c.typ == boolT:
-        assert False
-        c = mk_if (c, mk_word32 (1), mk_word32 (0))
-    return ((a, a_addr), (syntax.arch.mk_cast(c, a.typ), c_addr))
-
 def split_scalar_globals (vs):
     for i in range (len (vs)):
         if vs[i].typ.kind != 'Word' and vs[i].typ != boolT:
@@ -181,13 +174,13 @@ def mk_eqs(var_c_args, var_c_rets, c_imem, c_omem, min_stack_size):
                                        ['ASM', 'C'])
 
     addr = None
-    arg_eqs = [cast_pair(((a_x, 'ASM_IN'), (c_x, 'C_IN')))
+    arg_eqs = [syntax.arch.cast_pair(((a_x, 'ASM_IN'), (c_x, 'C_IN')))
                for (c_x, (a_x, addr)) in zip (var_c_args, arg_seq)]
 
     if addr:
         preconds += [mk_less_eq (sp, addr)]
 
-    ret_eqs = [cast_pair(((a_x, 'ASM_OUT'), (c_x, 'C_OUT')))
+    ret_eqs = [syntax.arch.cast_pair(((a_x, 'ASM_OUT'), (c_x, 'C_OUT')))
                for (c_x, a_x) in out_eqs]
 
     preconds = [((a_x, 'ASM_IN'), (true_term, 'ASM_IN')) for a_x in preconds]

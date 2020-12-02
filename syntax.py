@@ -1471,7 +1471,7 @@ def mk_word32_maybe(x):
         assert x.typ == word32T
         return x
 
-def mk_cast_armv7(x, typ):
+def mk_cast_generic(x, typ):
     if x.typ == typ:
         return x
     else:
@@ -1483,7 +1483,8 @@ def mk_cast_armv7(x, typ):
 # The RISC-V calling convention requires some special handling for
 # 32-bit values stored in 64-bit registers. These are presumed to
 # be stored in sign-extended form, even if the C type is unsigned.
-def mk_cast_rv64(x, typ):
+# We solve this problem by making cast_pair arch-specific.
+def mk_cast_pair_rv64(x, typ):
     if x.typ == typ:
         return x
     context_trace(mk_pairing=('asm_f', 'c_fun'))
@@ -1492,6 +1493,16 @@ def mk_cast_rv64(x, typ):
     signed = x.typ.num == 32 and typ.num == 64
     cast_op = 'WordCastSigned' if signed else 'WordCast'
     return Expr ('Op', typ, name=cast_op, vals=[x])
+
+def cast_pair_rv64(pair):
+    (a, a_addr), (c, c_addr) = pair
+    return ((a, a_addr), (mk_cast_pair_rv64(c, a.typ), c_addr))
+
+def cast_pair_armv7(pair):
+    (a, a_addr), (c, c_addr) = pair
+    if a.typ != c.typ and c.typ == boolT:
+        c = mk_if(c, mk_word32 (1), mk_word32 (0))
+    return ((a, a_addr), (mk_cast_generic(c, a.typ), c_addr))
 
 def mk_memacc(m, p, typ):
     assert m.typ == builtinTs['Mem']
@@ -1604,7 +1615,8 @@ class Arch:
             self.is_64bit = False
             self.ghost_assertion_type = Type('WordArray', 50, 32)
             self.mk_word = mk_word32
-            self.mk_cast = mk_cast_armv7
+            self.mk_cast = mk_cast_generic
+            self.cast_pair = cast_pair_armv7
             self.word_type = word32T
             self.word_size = 32
             self.rodata_chunk_type = word32T
@@ -1635,7 +1647,8 @@ class Arch:
             self.is_64bit = True
             self.ghost_assertion_type = Type('WordArray', 50, 64)
             self.mk_word = mk_word64
-            self.mk_cast = mk_cast_rv64
+            self.mk_cast = mk_cast_generic
+            self.cast_pair = cast_pair_rv64
             self.word_type = word64T
             self.word_size = 64
             self.rodata_chunk_type = word16T
