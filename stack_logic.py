@@ -1023,8 +1023,7 @@ def get_asm_calling_convention_inner (num_c_args, num_c_rets, const_mem):
     from syntax import mk_var, word32T, word64T, builtinTs
 
     arg_regs = mk_var_list(syntax.arch.argument_registers, syntax.arch.word_type)
-    r0 = arg_regs[0]
-    r1 = arg_regs[1]
+    ar0 = arg_regs[0]
     sp = mk_var(syntax.arch.sp_register, syntax.arch.word_type)
     st = mk_var('stack', builtinTs['Mem'])
     ra_input = mk_var('ret_addr_input', syntax.arch.word_type)
@@ -1039,9 +1038,9 @@ def get_asm_calling_convention_inner (num_c_args, num_c_rets, const_mem):
     )
 
     arg_seq = [r for r in arg_regs] + [s for (s, _) in sregs]
-    if num_c_rets > 2:
-        # the 'return-too-much' issue.
-        # instead r0 is a save-returns-here pointer
+    if num_c_rets > len(syntax.arch.return_registers):
+        # Our return value(s) exceed(s) the capacity of the return
+        # registers. (see also corresponding section in logic module)
         arg_seq.pop (0)
         rets = mk_stack_sequence(
             ra_input, syntax.arch.ptr_size,
@@ -1049,11 +1048,10 @@ def get_asm_calling_convention_inner (num_c_args, num_c_rets, const_mem):
         )
         rets = [r for (r, _) in rets]
         # FIXME: need to handle multiple return value case
-    # FIXME: this elif might or might not be an rv64-specific hack!
-    elif num_c_rets == 2:
-        rets = [r0, r1]
+    elif num_c_rets <= 1:
+        rets = [ar0]
     else:
-        rets = [r0]
+        rets = arg_regs[:len(syntax.arch.argument_registers)]
 
     callee_saved_vars = ([mk_var (v, syntax.arch.word_type)
                           for v in syntax.arch.callee_saved_registers]
