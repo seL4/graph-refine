@@ -968,9 +968,6 @@ class Solver:
             smt_typ (builtinTs['Mem']), imp_ro_def))
 
     def get_eq_rodata_witness (self, v):
-        # depends on assertion above, should probably fix this
-        # rv64 changed word32T -> word64T
-        # but should it be rodata_chunk_type instead?
         ro_witness = mk_smt_expr ('rodata-witness', syntax.arch.word_size)
         return syntax.mk_eq (ro_witness, v)
 
