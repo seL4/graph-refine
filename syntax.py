@@ -1097,15 +1097,6 @@ def parse_node (bits, n):
     else:
         assert bits[n] == 'Call'
         cont = node_name(bits[n + 1])
-        # hack for Call RV64, not sure Ret is used
-        # instead of the address of next instruction
-        # after the call is used in the decompiled file
-        if arch.name == 'rv64' and cont == 'Ret':
-            try:
-                cont = parse_int(bits[n + 13])
-            except:
-                cont = 'Ret'
-
         name = bits[n + 2]
         (n, args) = parse_list (parse_expr, bits, n + 3)
         (n, saves) = parse_list (parse_lval, bits, n)
