@@ -155,9 +155,6 @@ def mk_eqs(var_c_args, var_c_rets, c_imem, c_omem, min_stack_size):
         if last_arg_addr:
             preconds += [mk_less (last_arg_addr, addr)
                          for (_, addr) in init_save_seq[:1]]
-    elif len(var_c_rets) <= 1:
-        out_eqs = zip(var_c_rets, [ar0])
-        save_addrs = []
     else:
         out_eqs = zip(var_c_rets, arg_regs[:len(syntax.arch.argument_registers)])
         save_addrs = []
