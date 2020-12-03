@@ -204,6 +204,9 @@ count = [0]
 
 save_solv_example_time = [-1]
 
+# the token_smt_typ is uniformly 64-bit across all architectures
+token_smt_typ = syntax.word64T
+
 def save_solv_example (solv, last_msgs, comments = []):
     count[0] += 1
     name = 'ex_%d_%d' % (random_name, count[0])
@@ -251,14 +254,14 @@ def smt_typ(typ):
         return '(Array (_ BitVec %d) (_ BitVec %d))' % tuple (typ.nums)
     elif typ.kind == 'TokenWords':
         return '(Array (_ BitVec %d) (_ BitVec %d))' % (
-            syntax.arch.word_size.num, typ.num)
+            token_smt_typ.num, typ.num)
     smt_typ_builtins = get_smt_typ_builtins()
     return smt_typ_builtins[typ.name]
 def get_smt_typ_builtins():
     return {
         'Bool':'Bool',
         'Mem':'{MemSort}', 'Dom':'{MemDomSort}',
-        'Token': smt_typ(syntax.arch.word_type)
+        'Token': smt_typ(token_smt_typ)
     }
 
 smt_typs_omitted = set ([builtinTs['HTD'], builtinTs['PMS']])
