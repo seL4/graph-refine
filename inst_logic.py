@@ -246,6 +246,7 @@ instruction_fun_specs_rv64 = {
     'ebreak':           ("impl'ebreak", []),
     'ecall':            ("impl'ecall", ["I", "I", "I", "I", "O"]),
     'rdtime':           ("impl'rdtime", ["O"]),
+    'rdcycle':          ("impl'rdcycle", ["O"]),
     'unimp':            ("unimp", []),
 }
 
