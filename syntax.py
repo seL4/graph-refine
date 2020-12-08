@@ -1928,6 +1928,33 @@ rv64_native_preamble = [
 	(store-word64 m p (word16-put p (load-word64 m p) ww)))
 ''',
     '''
+(define-fun word32-shift ((p (_ BitVec 64)))
+        Bool
+        (= ((_ extract 2 2) p) #b1))
+''',
+    '''
+(define-fun word32-get ((p (_ BitVec 64)) (x (_ BitVec 64)))
+        (_ BitVec 32)
+        (ite (word32-shift p) ((_ extract 63 32) x) ((_ extract 31 0) x)))
+''',
+    '''
+(define-fun word32-put ((p (_ BitVec 64)) (orig (_ BitVec 64)) (ww (_ BitVec 32)))
+        (_ BitVec 64)
+        (ite (word32-shift p)
+             (concat ww ((_ extract 31 0) orig))
+             (concat ((_ extract 63 32) orig) ww)))
+''',
+    '''
+(define-fun load-word32 ((m {MemSort}) (p (_ BitVec 64)))
+        (_ BitVec 32)
+        (word32-get p (load-word64 m p)))
+''',
+    '''
+(define-fun store-word32 ((m {MemSort}) (p (_ BitVec 64)) (ww (_ BitVec 32)))
+        {MemSort}
+        (store-word64 m p (word32-put p (load-word64 m p) ww)))
+''',
+    '''
 (define-fun mem-dom ((p (_ BitVec 64)) (d {MemDomSort}))
 	Bool
 	(not (= (select d p) #b0)))
