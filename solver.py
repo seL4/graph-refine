@@ -20,30 +20,41 @@ solverlist_format = """
 The .solverlist format is one solver per line, e.g.
 
 # SONOLAR is the strongest offline solver in our experiments.
-SONOLAR: offline: /home/tsewell/bin/sonolar --input-format=smtlib2
+SONOLAR: offline:: /home/tsewell/bin/sonolar --input-format=smtlib2
 # CVC4 is useful in online and offline mode.
-CVC4: online: /home/tsewell/bin/cvc4 --incremental --lang smt --tlimit=5000
-CVC4: offline: /home/tsewell/bin/cvc4 --lang smt
+CVC4: online:: /home/tsewell/bin/cvc4 --incremental --lang smt --tlimit=5000
+CVC4: offline:: /home/tsewell/bin/cvc4 --lang smt
 # Z3 is a useful online solver. Use of Z3 in offline mode is not recommended,
 # because it produces incompatible models.
-Z3 4.3: online: /home/tsewell/dev/z3-dist/build/z3 -t:2 -smt2 -in
-# Z3 4.3: offline: /home/tsewell/dev/z3-dist/build/z3 -smt2 -in
+Z3 4.3: online:: /home/tsewell/dev/z3-dist/build/z3 -t:2 -smt2 -in
+# Z3 4.3: offline:: /home/tsewell/dev/z3-dist/build/z3 -smt2 -in
 
 N.B. only ONE online solver is needed, so Z3 is redundant in the above.
 
-Each non-comment line is ':' separated, with this pattern:
-name : online/offline/fast/slow : command
+Each non-comment line contains 4 ':'-separated fields, with this pattern:
+name : online/offline/fast/slow : config : command
 
-The name is used to identify the solver. The second token specifies
-the solver mode. Solvers in "fast" or "online" mode must support all
-interactive SMTLIB2 features including push/pop. With "slow" or "offline" mode
-the solver will be executed once per query, and push/pop will not be used.
+The name is used to identify the solver.
+
+The second field specifies the solver mode. Solvers in "fast" or "online" mode
+must support all interactive SMTLIB2 features including push/pop. With "slow"
+or "offline" mode the solver will be executed once per query, and push/pop will
+not be used.
+
+The third field contains optional configuration, and is always empty in the
+above example. Currently, the only supported configuration is "mem_mode=8",
+This specifies that the solver should model memory as 8-bit words, rather than
+the default machine word size.
 
 The remainder of each line is a shell command that executes the solver in
 SMTLIB2 mode. For online solvers it is typically worth setting a resource
 limit, after which the offline solver will be run.
 
-The first online solver will be used. The offline solvers will be used in
+By default, the first online solver will be used. An alternative online solver
+can be selected by giving a configuration line like the following:
+online-solver: Z3
+
+The offline solvers will be used in
 parallel, by default. The set to be used in parallel can be controlled with
 a strategy line e.g.:
 strategy: SONOLAR all, SONOLAR hyp, CVC4 hyp
@@ -51,6 +62,26 @@ strategy: SONOLAR all, SONOLAR hyp, CVC4 hyp
 This specifies that SONOLAR and CVC4 should both be run on each hypothesis. In
 addition SONOLAR will be applied to try to solve all related hypotheses at
 once, which may be faster than solving them one at a time.
+
+For model repair, the set of offline solvers can be controlled with a
+model-strategy line, e.g.:
+model-strategy: SONOLAR, CVC4
+
+A complete example:
+
+strategy: SONOLAR all, SONOLAR hyp, CVC4-word8 all
+model-strategy: SONOLAR
+online-solver: Z3
+CVC4: online:: /path/to/cvc4 --incremental --lang smt --tlimit=5000
+Z3: online:: /usr/bin/z3 -t:5000 -smt2 -in
+SONOLAR: offline:: /path/to/sonolar --input-format=smtlib2
+SONOLAR-word8: offline: mem_mode=8: /path/to/sonolar --input-format=smtlib2
+CVC4: offline:: /path/to/cvc4 --lang smt
+CVC4-word8: offline: mem_mode=8: /path/to/cvc4 --lang smt
+Yices2: offline:: /path/to/yices-smt2
+Yices2-word8: offline: mem_mode=8: /path/to/yices-smt2
+Z3: offline:: /usr/bin/z3 -smt2 -in
+Z3-word8: offline: mem_mode=8: /usr/bin/z3 -smt2 -in
 """
 
 solverlist_file = ['.solverlist']
@@ -67,14 +98,14 @@ class SolverImpl:
             self.name = name + ' (offline)'
 
     def __repr__ (self):
-        return 'SolverImpl (%r, %r, %r, %r)' % (self.name,
-                                                self.fast, self.args, self.timeout)
+        return 'SolverImpl (%r, %r, %r, %r, %r)' % (self.name,
+                                                    self.fast, self.mem_mode, self.args, self.timeout)
 
 def parse_solver (bits):
     import os
     import sys
     mode_set = ['fast', 'slow', 'online', 'offline']
-    if len (bits) < 3 or bits[1].lower () not in mode_set:
+    if len (bits) != 4 or bits[1].lower() not in mode_set:
         print 'solver.py: solver list could not be parsed'
         print '  in %s' % solverlist_file[0]
         print '  reading %r' % bits
@@ -82,13 +113,17 @@ def parse_solver (bits):
         sys.exit (1)
     name = bits[0]
     fast = (bits[1].lower () in ['fast', 'online'])
-    args = bits[2].split ()
+    config = bits[2]
+    args = bits[3].split()
     assert os.path.exists (args[0]), (args[0], bits)
     if not fast:
         timeout = 6000
     else:
         timeout = 30
-    return SolverImpl (name, fast, args, timeout)
+    solver = SolverImpl(name, fast, args, timeout)
+    if config:
+        parse_config_change(config, solver)
+    return solver
 
 def find_solverlist_file ():
     import os
@@ -109,21 +144,25 @@ def find_solverlist_file ():
 def get_solver_set ():
     solvers = []
     strategy = None
+    model_strategy = None
+    online_solver = None
     for line in open (find_solverlist_file ()):
         line = line.strip ()
         if not line or line.startswith ('#'):
             continue
-        bits = [bit.strip () for bit in line.split (':', 2)]
+        bits = [bit.strip() for bit in line.split(':', 3)]
         if bits[0] == 'strategy':
             [_, strat] = bits
             strategy = parse_strategy (strat)
-        elif bits[0] == 'config':
-            [_, config] = bits
-            assert solvers
-            parse_config_change (config, solvers[-1])
+        elif bits[0] == 'model-strategy':
+            [_, model_config] = bits
+            model_strategy = [solv.strip() for solv in model_config.split(',')]
+        elif bits[0] == 'online-solver':
+            [_, online_solver] = bits
+            online_solver = online_solver.strip()
         else:
             solvers.append (parse_solver (bits))
-    return (solvers, strategy)
+    return solvers, strategy, model_strategy, online_solver
 
 def parse_strategy (strat):
     solvs = strat.split (',')
@@ -153,26 +192,41 @@ def parse_config_change (config, solver):
 
 def load_solver_set ():
     import sys
-    (solvers, strategy) = get_solver_set ()
+    solvers, strategy, model_strategy, online_solver = get_solver_set()
     fast_solvers = [sv for sv in solvers if sv.fast]
     slow_solvers = [sv for sv in solvers if not sv.fast]
-    slow_dict = dict ([(sv.origname, sv) for sv in slow_solvers])
+    assert fast_solvers, solvers
+    assert slow_solvers, solvers
+    fast_dict = dict([(sv.origname, sv) for sv in fast_solvers])
+    slow_dict = dict([(sv.origname, sv) for sv in slow_solvers])
     if strategy == None:
-        strategy = [(nm, strat) for nm in slow_dict
+        strategy = [(solv.origname, strat)
+                    for solv in slow_solvers
                     for strat in ['all', 'hyp']]
     for (nm, strat) in strategy:
         if nm not in slow_dict:
-            print "solver.py: strategy option %r" % nm
-            print "found in .solverlist strategy line"
-            print "not an offline solver (required for parallel use)"
-            print "(known offline solvers %s)" % slow_dict.keys ()
+            print "solverlist strategy uses bad offline solver: %r" % nm
+            print "known offline solvers are: %s" % ', '.join(slow_dict.keys())
             sys.exit (1)
     strategy = [(slow_dict[nm], strat) for (nm, strat) in strategy]
-    assert fast_solvers, solvers
-    assert slow_solvers, solvers
-    return (fast_solvers[0], slow_solvers[0], strategy, slow_dict.values ())
+    if model_strategy is None:
+        model_strategy = [solv.origname for solv in slow_solvers]
+    for nm in model_strategy:
+        if nm not in slow_dict:
+            print "solverlist model-strategy uses bad offline solver: %r" % nm
+            print "known offline solvers are: %s" % ', '.join(slow_dict.keys())
+            sys.exit(1)
+    model_strategy = [slow_dict[nm] for nm in model_strategy]
+    if online_solver is None:
+        online_solver = fast_solvers[0].origname
+    if online_solver not in fast_dict:
+        print "solverlist online-solver uses bad online solver: %r" % nm
+        print "known online solvers are: %s" % ', '.join(fast_dict.keys())
+        sys.exit(1)
+    online_solver = fast_dict[online_solver]
+    return online_solver, slow_solvers[0], strategy, model_strategy
 
-(fast_solver, slow_solver, strategy, model_strategy) = load_solver_set ()
+fast_solver, slow_solver, strategy, model_strategy = load_solver_set()
 
 from syntax import (Expr, fresh_name, builtinTs, true_term, false_term,
                     foldr1, mk_or, boolT, word64T, word32T, word16T, word8T, mk_implies, Type, get_global_wrapper)
