@@ -373,8 +373,6 @@ def smt_expr (expr, env, solv):
                 return '((_ zero_extend %d) %s)' % (
                     expr.typ.num - v.typ.num, ex)
             else:
-                #print expr.name
-                #assert None
                 return '((_ sign_extend %d) %s)' % (
                     expr.typ.num - v.typ.num, ex)
     elif expr.is_op (['ToFloatingPoint', 'ToFloatingPointSigned',
@@ -404,8 +402,6 @@ def smt_expr (expr, env, solv):
         return smt_expr (expr, env, solv)
     elif expr.is_op (['PValid', 'PGlobalValid',
                       'PWeakValid', 'PArrayValid']):
-        #print 'pvalid:\n'
-        #print expr
         if expr.name == 'PArrayValid':
             [htd, typ_expr, p, num] = expr.vals
             num = to_smt_expr (num, env, solv)
@@ -422,9 +418,6 @@ def smt_expr (expr, env, solv):
         assert htd.kind == 'Var'
         htd_s = env[(htd.name, htd.typ)]
         p_s = smt_expr (p, env, solv)
-        print 'hhhh:'
-        print p_s
-        print env
         var = solv.add_pvalids (htd_s, typ, p_s, expr.name)
         return var
     elif expr.is_op ('MemDom'):
@@ -458,12 +451,10 @@ def smt_expr (expr, env, solv):
     elif expr.is_op ('Equals') and expr.vals[0].typ == word32T:
         (x, y) = [smt_expr (e, env, solv) for e in expr.vals]
         sexp = '(word32-eq %s %s)' % (x, y)
-        #assert False
         return sexp
     elif expr.is_op('Equals') and expr.vals[0].typ == word64T:
         (x, y) = [smt_expr(e, env, solv) for e in expr.vals]
         sexp = '(word64-eq %s %s)' % (x, y)
-        #print sexp
         return sexp
     elif expr.is_op ('StackEqualsImplies'):
         [sp1, st1, sp2, st2] = [smt_expr (e, env, solv)
@@ -482,12 +473,6 @@ def smt_expr (expr, env, solv):
         eq = solv.add_implies_stack_eq (sp1, st1, st2, env)
         sp1 = smt_expr (sp1, env, solv)
         sp2 = smt_expr (sp2, env, solv)
-        print "ImpliesStackEquals:"
-        print sp1
-        print st1
-        print sp2
-        print st2
-        print eq
         #rv64_hack
         # for functions that do not touch stack at all,
         # something like
@@ -508,9 +493,6 @@ def smt_expr (expr, env, solv):
         var = solv.add_var ('updated_htd', expr.typ)
         return var
     elif expr.kind == 'Op':
-        #print "expr:"
-        #print expr
-        #print 'done\n'
         vals = [smt_expr (e, env, solv) for e in expr.vals]
         if vals:
             sexp = '(%s %s)' % (smt_ops[expr.name], ' '.join(vals))
@@ -522,14 +504,6 @@ def smt_expr (expr, env, solv):
         return smt_num_t (expr.val, expr.typ)
     elif expr.kind == 'Var':
         if (expr.name, expr.typ) not in env:
-            trace ('Env miss for %s in smt_expr' % expr.name)
-            trace ('Environment is %s' % env)
-            print expr
-            print expr.name
-            print expr.typ
-            for e in env:
-                print e
-                print '\n'
             raise EnvMiss (expr.name, expr.typ)
         val = env[(expr.name, expr.typ)]
         assert val[0] == 'SplitMem' or type(val) == str
@@ -774,7 +748,6 @@ class Solver:
             preamble.extend(syntax.arch.smt_word8_preamble)
         else:
             preamble.extend(syntax.arch.smt_native_preamble)
-        print preamble
         return preamble
 
     def startup_solver (self, use_this_solver = None):
@@ -798,8 +771,6 @@ class Solver:
         for msg in self.preamble (solver):
             self.send (msg, replay=False)
         for (msg, _) in self.replayable:
-            #print 'replay:'
-            #print msg
             self.send (msg, replay=False)
 
     def close (self, reason = '?'):
@@ -875,8 +846,6 @@ class Solver:
 
     def prompt_s_expression_inner (self, prompt):
         try:
-            #print 'here'
-            #print prompt
             self.write (prompt)
             return self.get_s_expression (prompt)
         except IOError, e:
@@ -901,13 +870,8 @@ class Solver:
         ucs = []
         if response == 'sat' and model:
             all_ok = self.fetch_model (m)
-            print 'sat:'
-            print all_ok
         if response == 'unsat' and unsat_core:
-            #if response == 'unsat':
             ucs = self.get_unsat_core ()
-            print 'ucs:'
-            print ucs
             all_ok = ucs != None
 
         self.send_inner ('(pop 1)', replay = False)
@@ -976,13 +940,9 @@ class Solver:
             trace ('WARNING: redef of var %r to name %s' % (val, name))
 
         typ = smt_typ (val.typ)
-        print typ
-        print name
-        print smt
         self.send ('(define-fun %s () %s %s)' % (name, typ, smt))
 
         self.defs[name] = parse_s_expression (smt)
-        print self.defs[name]
         if typ_representable (val.typ):
             self.model_vars.add (name)
 
@@ -1046,9 +1006,6 @@ class Solver:
         assert self.unsat_cores or unsat_core == None
 
         hyp_dict = {}
-        print hyps
-        print 'kk'
-        print type(hyps)
         raw_hyps = [(hyp2, tag) for (hyp, tag) in hyps
                     for hyp2 in split_hyp (hyp)]
         last_hyps[0] = list (raw_hyps)
@@ -1161,24 +1118,29 @@ class Solver:
             solver = use_this_solver
         if not solver:
             return 'no-slow-solver'
-
         (fd, name) = tempfile.mkstemp (suffix='.txt',
                                        prefix='graph-refine-problem-')
         tmpfile_write = open (name, 'w')
         self.write_solv_script (tmpfile_write, input_msgs,
                                 solver = solver)
         tmpfile_write.close ()
-        print name
         shutil.copyfile(name, './logs' + name + '.smt2')
-        print 'solver inputs:\n'
-        print input_msgs
-        print 'done\n'
+        print ('\nsending input to %s, dump: %s.smt2\n--- [' % (solver.origname, name))
+        for l in input_msgs:
+            print l
+        print '--- ]\n'
         proc = subprocess.Popen (solver.args,
                                  stdin = fd, stdout = subprocess.PIPE,
                                  preexec_fn = preexec (timeout))
         os.close (fd)
         os.unlink (name)
-
+        print ('receiving output from %s, dump: %s.smt2\n--- [' % (solver.origname, name))
+        while True:
+            line = proc.stdout.readline()
+            if not line:
+                break
+            print type(line)
+        print '--- ]\n'
         return (proc, proc.stdout)
 
     def use_slow_solver (self, hyps, model = None, unsat_core = None,
@@ -1228,22 +1190,10 @@ class Solver:
 
     def add_parallel_solver (self, k, hyps, model = None,
                              use_this_solver = None):
-        #for h in hyps:
-        #	print 'hyp: \n'
-        #	print h
-        #	print 'hyp done\n'
-
         cmds = ['(assert %s)' % hyp for hyp in hyps] + ['(check-sat)']
-
         if model != None:
             cmds.append (self.fetch_model_request ())
-
-        #print 'cmds'
-        #print cmds
-        #print 'donecmds'
-
         trace ('  --> new parallel solver %s' % str (k))
-
         if k in self.parallel_solvers:
             raise IndexError ('duplicate parallel solver ID', k)
         solver = self.slow_solver
@@ -1346,10 +1296,6 @@ class Solver:
         """test a series of keyed hypotheses [(k1, h1), (k2, h2) ..etc]
         either returns (True, -) all hypotheses true
         or (False, ki) i-th hypothesis unprovable"""
-
-        print 'chk:'
-        print hyps
-
         hyps = [(k, hyp) for (k, hyp) in hyps
                 if not self.test_hyp (hyp, env, force_solv = 'Fast',
                                       catch = True, hyp_name = "('hyp', %s)" % k)]
@@ -1357,7 +1303,6 @@ class Solver:
         if not hyps:
             return ('unsat', None)
         all_hyps = foldr1 (syntax.mk_and, [h for (k, h) in hyps])
-        print 'all_hyps: %s' % all_hyps
         def spawn ((k, hyp), stratkey):
             goal = smt_expr (syntax.mk_not (hyp), env, self)
             [self.add_parallel_solver ((solver.name, strat, k),
@@ -1641,8 +1586,6 @@ class Solver:
     def check_hyp (self, hyp, env, model = None, force_solv = False,
                    hyp_name = None):
         hyp = smt_expr (hyp, env, self)
-        print 'check_hyp:'
-        print hyp
         force_solv = 'Slow'
         return self.check_hyp_raw (hyp, model = model,
                                    force_solv = force_solv, hyp_name = hyp_name)
@@ -1745,8 +1688,6 @@ class Solver:
         return p
 
     def add_pvalids (self, htd_s, typ, p_s, kind, recursion = False):
-        print 'pvalids:'
-        print p_s
         htd_sexp = parse_s_expression (htd_s)
         if htd_sexp[0] == 'ite':
             [cond, l, r] = map (flat_s_expression, htd_sexp[1:])
@@ -1764,23 +1705,12 @@ class Solver:
                 # be rodata_chunk_type instead?
                 r_addr.typ = syntax.arch.word_type
                 r_addr_s = smt_expr (r_addr, {}, None)
-                print 'raddr:'
-                print type(r_addr)
-                print r_addr
-                print r_typ
-                print r_addr_s
                 var = self.add_pvalids (htd_s, ('Type', r_typ),
                                         r_addr_s, 'PGlobalValid',
                                         recursion = True)
                 self.assert_fact_smt (var)
-
-        print 'nodeptr:'
-        print p_s
         if p_s == '#x7b38':
             assert False
-
-        #print r_addr
-        #print r_typ
         p = self.note_ptr (p_s)
 
         trace ('adding pvalid with type %s' % (typ, ))
@@ -1818,19 +1748,12 @@ class Solver:
             return var
 
     def get_imm_basis_mems (self, m, accum):
-        #print m
-        #print accum
-        #print m[0]
-        #print type(m)
-
         if m[0] == 'ite':
             (_, c, l, r) = m
             self.get_imm_basis_mems (l, accum)
             self.get_imm_basis_mems (r, accum)
         elif m[0] in ['store-word32', 'store-word8', 'store-word64']:
             (_, m, p, v) = m
-            print m
-            #assert False
             self.get_imm_basis_mems (m, accum)
         elif type (m) == tuple:
             assert not 'mem construction understood', m
@@ -2085,7 +2008,6 @@ def hash_test_hyp_fast (solv, hyp, env, cache):
 paren_re = re.compile (r"(\(|\))")
 
 def parse_s_expressions (ss):
-    #print ss
     bits = [bit for s in ss for split1 in paren_re.split (s)
             for bit in split1.split ()]
     def group (n):

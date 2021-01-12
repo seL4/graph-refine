@@ -78,20 +78,13 @@ reg_set_rv64 = set(['x%d' % i for i in range(32)])
 inst_split_re = re.compile('[_,]*')
 
 def split_inst_name_regs_rv64(nm):
-    print 'splitinst'
-    print nm
-
     reg_aliases = reg_aliases_rv64
     bits = inst_split_re.split(nm)
-    print bits
     fin_bits = []
     regs = []
-    print 'bits:'
-    print bits
     for i in range(len(bits)):
         if bits[i] in reg_aliases_rv64.keys():
             if bits[i] == 'zero' and bits[0] == 'sfence.vma':
-                print bits[i]
                 fin_bits.append('x0')
             else:
                 regs.append(reg_aliases_rv64.get(bits[i]))
@@ -127,7 +120,6 @@ def split_inst_name_regs_rv64(nm):
 
         elif bits[i] == 'x0' and bits[0] == 'sfence.vma':
             fin_bits.append(bits[i])
-            print fin_bits
         elif bits[i] in reg_set_rv64:
             regs.append('r' + bits[i][1:])
             fin_bits.append('-argv%d' % len(regs))
@@ -139,17 +131,10 @@ def split_inst_name_regs_rv64(nm):
             fin_bits.append('-argv%d' % len(regs))
         else:
             fin_bits.append(bits[i])
-
-    print 'dada'
-    print regs
     for f in fin_bits:
         if f.startswith('-argv'):
             fin_bits.remove(f)
             fin_bits.append(f)
-
-    print fin_bits
-    #print fin_bits
-    #print '_'.join(fin_bits)
     return (regs, '_'.join (fin_bits))
 
 
@@ -262,7 +247,7 @@ def add_impl_fun (impl_fname, regspecs):
     r_fname = 'r_' + impl_fname
 
     if l_fname in functions:
-        print 'skip_add %s' % l_fname
+        #print 'skip_add %s' % l_fname
         return
 
     assert r_fname not in functions
@@ -274,18 +259,8 @@ def add_impl_fun (impl_fname, regspecs):
     rets = [s for s in regspecs if s == 'O']
     rets = ['ret_val%d' % (i + 1) for (i, s) in enumerate (rets)]
 
-    print 'addimpl'
-    print l_fname
-    print r_fname
-    print inps
-    print rets
-
     l_fun = mk_fun (l_fname, inps, [ident_v], rets, [], bin_globs)
     r_fun = mk_fun (r_fname, inps, [ident_v], rets, [], bin_globs)
-
-    print l_fun.inputs
-    print r_fun.inputs
-    print 'kk'
 
     inp_eqs = [((mk_var (nm, typ), 'ASM_IN'), (mk_var (nm, typ), 'C_IN'))
                for (nm, typ) in l_fun.inputs]
@@ -297,18 +272,13 @@ def add_impl_fun (impl_fname, regspecs):
                  (syntax.true_term, 'C_OUT')) for (nm, typ) in bin_globs]
     pair = logic.Pairing (['ASM', 'C'], {'ASM': l_fname, 'C': r_fname},
                           (inp_eqs, out_eqs))
-
-    print inp_eqs
-    print out_eqs
-    print 'kkk'
-
     assert l_fname not in pairings
     assert r_fname not in pairings
     functions[l_fname] = l_fun
     functions[r_fname] = r_fun
     pairings[l_fname] = [pair]
     pairings[r_fname] = [pair]
-    print 'addpairing %s %s' % (l_fname, r_fname)
+    #print 'addpairing %s %s' % (l_fname, r_fname)
 
 inst_addr_re_armv7 = re.compile('E[0123456789][0123456789]*')
 # Note that the decompiler seems ignore the top 4 bytes which
@@ -349,22 +319,11 @@ def mk_bin_inst_spec (fname):
         return
 
     if functions[fname].entry:
-        print 'binalready %s %s' % (fname, functions[fname].entry)
         return
 
     (_, ident) = fname.split ("'", 1)
-    print '1'
-    print ident
     (ident, addr) = split_inst_name_addr (ident)
-    print '2'
-    print ident
-    print addr
     (regs, ident) = split_inst_name_regs (ident)
-
-    print 'be'
-    print regs
-    print ident
-
     ident = instruction_name_aliases.get (ident, ident)
     if syntax.arch.name == 'armv7':
         base_ident = ident.split ("_")[0]
@@ -374,38 +333,23 @@ def mk_bin_inst_spec (fname):
             base_ident = ident.split('-')[0][:-1]
         else:
             base_ident = tmp[0]
-
-    print 'ident'
-    print base_ident
     if base_ident not in instruction_fun_specs:
         print base_ident
         assert False
         return
 
     (impl_fname, regspecs) = instruction_fun_specs[base_ident]
-
-    print 'asmimpl %s' % impl_fname
     #impl_fname = impl_fname + '@' + str(hex(addr))
     add_impl_fun (impl_fname, regspecs)
-
-    print impl_fname
-    print regspecs
-
     assert len (regspecs) == len (regs), (fname, regs, regspecs)
     inp_regs = [reg for (reg, d) in zip (regs, regspecs) if d == 'I']
     out_regs = [reg for (reg, d) in zip (regs, regspecs) if d == 'O']
-
-    #print inp_regs
-    #print out_regs
-    #assert False
-
     call = syntax.Node ('Call', 'Ret', ('l_' + impl_fname,
                                         [syntax.mk_var (reg, wordT) for reg in inp_regs]
                                         + [syntax.mk_token (ident)]
                                         + [syntax.mk_var (nm, typ) for (nm, typ) in bin_globs],
                                         [(reg, wordT) for reg in out_regs] + bin_globs))
     assert not functions[fname].nodes
-    print 'binfname %s' % fname
     functions[fname].nodes[1] = call
     functions[fname].entry = 1
 
@@ -423,18 +367,11 @@ def mk_asm_inst_spec (fname):
         assert False
 
     if functions[fname].entry:
-        print 'already %s %s' % (fname, functions[fname].entry)
-        #assert False
+        # print 'already %s %s' % (fname, functions[fname].entry)
         return
-
-    #	assert False
 
     (_, ident) = fname.split ("'", 1)
     (args, ident) = split_inst_name_regs (ident)
-
-    print 'args'
-    print ident
-    print args
 
     if syntax.arch.name == 'armv7':
         if not all ([arg.startswith ('%') for arg in args]):
@@ -451,7 +388,6 @@ def mk_asm_inst_spec (fname):
         else:
             base_ident = tmp[0]
 
-    print 'ident %s' % base_ident
     if base_ident not in instruction_fun_specs:
         print base_ident
         assert False
@@ -460,7 +396,6 @@ def mk_asm_inst_spec (fname):
     (impl_fname, regspecs) = instruction_fun_specs[base_ident]
 
 #    impl_fname = 'asm_' + impl_fname
-    print 'implfun %s' % impl_fname
     add_impl_fun (impl_fname, regspecs)
 
     (iscs, imems, _) = logic.split_scalar_pairs (functions[fname].inputs)
@@ -470,13 +405,11 @@ def mk_asm_inst_spec (fname):
                                         iscs + [syntax.mk_token (ident)] + imems,
                                         [(v.name, v.typ) for v in oscs + omems]))
     assert not functions[fname].nodes
-    print 'asmfname %s' % fname
     functions[fname].nodes[1] = call
     functions[fname].entry = 1
 
 def add_inst_specs (report_problematic = True):
     for f in functions.keys ():
-        print 'func %s' % f
         mk_asm_inst_spec (f)
         mk_bin_inst_spec (f)
     if report_problematic:
@@ -493,10 +426,6 @@ def problematic_instructions ():
                 continue
             unhandled.setdefault (f, [])
             unhandled[f].append (f2)
-
-    print 'unhandled'
-    print unhandled
-
     for f in unhandled:
         printout ('Function %r contains unhandled instructions:' % f)
         printout ('  %s' % unhandled[f])
