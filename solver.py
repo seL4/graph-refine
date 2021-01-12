@@ -1134,13 +1134,6 @@ class Solver:
                                  preexec_fn = preexec (timeout))
         os.close (fd)
         os.unlink (name)
-        print ('receiving output from %s, dump: %s.smt2\n--- [' % (solver.origname, name))
-        while True:
-            line = proc.stdout.readline()
-            if not line:
-                break
-            print type(line)
-        print '--- ]\n'
         return (proc, proc.stdout)
 
     def use_slow_solver (self, hyps, model = None, unsat_core = None,
