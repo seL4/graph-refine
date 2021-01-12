@@ -32,15 +32,11 @@ def get_loop_var_analysis_at (p, n):
     if k in p.cached_analysis:
         return p.cached_analysis[k]
     for hook in target_objects.hooks ('loop_var_analysis'):
-        print 'hook\n'
-        print hook
         res = hook (p, n)
         if res != None:
             p.cached_analysis[k] = res
             return res
     var_deps = p.compute_var_dependencies ()
-    print 'vardeps\n'
-    print var_deps
     res = p.get_loop_var_analysis (var_deps, n)
     p.cached_analysis[k] = res
     return res
@@ -489,7 +485,6 @@ def eval_model (m, s, toplevel = None):
     xs = [eval_model (m, x, toplevel) for x in s[1:]]
 
     if op[0] == '_' and op[1] in ['zero_extend', 'sign_extend']:
-        #assert False
         [_, ex_kind, n_extend] = op
         n_extend = int (n_extend)
         [x] = xs

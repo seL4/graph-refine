@@ -257,7 +257,6 @@ def preserves_sp (fname):
     """all functions will keep the stack pointer equal, whether they have
     pairing partners or not."""
     assume_sp_equal = bool (target_objects.hooks ('assume_sp_equal'))
-    print assume_sp_equal
     if not extra_symbols:
         for fname2 in target_objects.symbols:
             extra_symbols.add(fname2)
@@ -423,7 +422,6 @@ def stack_virtualise_upd (((nm, typ), expr), sp_offs):
         return (ptrs, [((nm, typ), expr2)])
 
 def stack_virtualise_ret (expr, sp_offs):
-    #assert False
     if expr.kind == 'Var':
         return ([], (expr.name, expr.typ))
     elif expr.is_op ('MemAcc'):
@@ -448,11 +446,9 @@ def stack_virtualise_node (node, sp_offs):
             return (ptrs, syntax.Node ('Cond',
                     node.get_conts (), cond))
     elif node.kind == 'Call':
-        print node.fname
         if is_instruction (node.fname):
             return ([], node)
         cc = get_asm_calling_convention_at_node (node)
-        print cc
         assert cc != None, node.fname
         args = [arg for arg in cc['args'] if not is_stack (arg)]
         args = [stack_virtualise_expr (arg, sp_offs) for arg in args]
@@ -519,8 +515,6 @@ def get_loop_virtual_stack_analysis (p, tag):
     cc = get_asm_calling_convention (fname)
     rets = list (set ([ptr for arg in cc['rets']
                        for (ptr, _) in stack_virtualise_expr (arg, None)[0]]))
-    print cc
-    print rets
     rets = [adjust_ret_ptr (ret) for ret in rets]
     renames = p.entry_exit_renames (tags = [tag])
     r = renames[tag + '_OUT']

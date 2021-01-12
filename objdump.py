@@ -50,7 +50,6 @@ def build_rodata (rodata_stream, rodata_ranges = [('Section', '.rodata')]):
 
     act_rodata_ranges = []
     for (kind, nm) in rodata_ranges:
-        print "kind %s nm %s" % (kind, nm)
         if kind == 'Symbol':
             (addr, size, _) = symbols[nm]
             act_rodata_ranges.append ((addr, addr + size - 1))
@@ -73,37 +72,19 @@ def build_rodata (rodata_stream, rodata_ranges = [('Section', '.rodata')]):
             comb_ranges.append ((start, end))
 
     rodata = {}
-    print 'FIXME LOADING RODATA'
-    print rodata_ranges
-    print sections
-    print symbols
-    for (s, e) in act_rodata_ranges:
-        print "%s -- %s" % (hex(s), hex(e))
     for line in rodata_stream:
         if not is_rodata_line.match (line):
             continue
         bits = line.split ()
         (addr, v) = (int (bits[0][:-1], 16), int (bits[1], 16))
-        if [1 for (start, end) in comb_ranges
-                if start <= addr and addr <= end]:
-            # rv64_hack
-            #if not addr % 4 == 0:
-            #print 'waring %s not aligned' % addr
-            #assert addr % 4 == 0, addr
-
-            #rv64_hack
+        if [1 for (start, end) in comb_ranges if start <= addr and addr <= end]:
             if len(bits[1]) > 4:
                 # RISC-V rodata is little-endian
                 rodata[addr] = v & 0xffff
                 rodata[addr + 2] = v >> 16
-                print 'addr %s val %s' % (hex(addr), hex(rodata[addr]))
-                print 'addr %s val %s' % (hex(addr + 2), hex(rodata[addr + 2]))
             else:
                 rodata[addr] = v
-                print 'addr %s val %s' % (hex(addr), hex(rodata[addr]))
 
-    print comb_ranges
-    print len(comb_ranges)
     if len (comb_ranges) == 1:
         rodata_names = ['rodata_struct']
     else:

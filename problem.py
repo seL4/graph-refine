@@ -22,12 +22,8 @@ class Problem:
     def __init__ (self, pairing, name = None):
         if name == None:
             name = pairing.name
-        print 'problem name %s pairing %s' % (name, pairing)
         self.name = 'Problem (%s)' % name
         self.pairing = pairing
-        #print 'pairing:\n'
-        #print pairing
-        #print type(pairing)
         self.nodes = {}
         self.vs = {}
         self.next_node_name = 1
@@ -92,8 +88,6 @@ class Problem:
         vs = syntax.get_vars (fun)
         vs = dict ([(v, fresh_name (v, self.vs, vs[v])) for v in vs])
         ns = fun.reachable_nodes ()
-        print fun.name
-        print ns
         check_no_symbols (self.name, [fun.nodes[n] for n in ns])
         for n in ns:
             assert n not in node_renames
@@ -108,24 +102,13 @@ class Problem:
 
     def add_entry_function (self, fun, tag):
         (ns, vs) = self.add_function (fun, tag, {})
-        print 'add func\n'
-        print fun
-        print fun.name
-        print fun.nodes
-        print tag
         entry = ns[fun.entry]
-        print entry
-        print fun.entry
         args = [(vs[v], typ) for (v, typ) in fun.inputs]
         rets = [(vs[v], typ) for (v, typ) in fun.outputs]
         self.entries.append((entry, tag, fun.name, args))
         self.outputs[tag] = rets
 
         self.inline_scripts[tag] = []
-        #print args
-        #print rets
-        #print entry
-        #print 'done add func\n'
         return (args, rets, entry)
 
     def get_entry_details (self, tag):
@@ -173,59 +156,23 @@ class Problem:
     def mk_node_graph (self, node_subset = None):
         if node_subset == None:
             node_subset = self.nodes
-        '''
-		print 'node begin \n'
-		for n in self.nodes:
-			print type(n)
-			print '\t'
-			print self.nodes
-			print n
-		print 'node end \n'
-
-		for n in node_subset:
-			print 'cont '
-			print n
-			print ' '
-			print self.nodes[n].get_conts()
-			print 'contdone\n'
-		'''
         return dict ([(n, [c for c in self.nodes[n].get_conts ()
                            if c in node_subset])
                       for n in node_subset])
 
     def do_loop_analysis (self):
         entries = [e for (e, tag, nm, args) in self.entries]
-        #print 'zzzu'
-        #print self.name
-        #print self.next_node_name
-        '''	
-		for (ee, tt, nn, aa) in self.entries:
-			print ee
-			print '\n'
-			print tt
-			print '\n'
-			print nn
-			print '\n'
-			print aa
-			print '\n'
-		print 'zzzz\n'
-		'''
 
         self.loop_data = {}
 
         graph = self.mk_node_graph ()
         comps = logic.tarjan (graph, entries)
         self.tarjan_order = []
-        #print entries
-        #print graph
-        #print comps
         for (head, tail) in comps:
             self.tarjan_order.append (head)
             self.tarjan_order.extend (tail)
             if not tail and head not in graph[head]:
-                #print 'loop cont (%d %s)' % (head, tail)
                 continue
-            #print 'loop (%d %s)' % (head, tail)
             trace ('Loop (%d, %s)' % (head, tail))
 
             loop_set = set (tail)
@@ -239,11 +186,6 @@ class Problem:
                 self.compute_preds ()
 
             self.loop_data[head] = ('Head', loop_set)
-            #print 'set loop head'
-            #print self.loop_data[head]
-            #print head
-            #print self.nodes[head]
-            #print 'done'
             for t in tail:
                 self.loop_data[t] = ('Mem', head)
 

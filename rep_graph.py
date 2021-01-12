@@ -481,10 +481,8 @@ class GraphSlice:
             new_nm = nm
             node = self.p.nodes[n]
             if node.kind == 'Call':
-                #print 'call1:\n'
                 if (nm, typ) not in node.rets:
                     pass
-                    #print 'call2:\n'
                 elif self.fast_const_ret (n, nm, typ):
                     pass
                 else:
@@ -525,9 +523,6 @@ class GraphSlice:
         return False
 
     def get_node_pc_env_raw (self, (n, vcount), tag):
-        #print 'getnode:'
-        #print n
-        #print tag
         if n in self.inp_envs:
             return (true_term, self.inp_envs[n])
 
@@ -550,8 +545,6 @@ class GraphSlice:
             # so we save a lot of merge effort
             pc_envs = [(to_smt_expr (pc, env, self.solv), {})
                        for (pc, env) in pc_envs]
-            print 'Err:'
-            print pc_envs
 
         (pc, env, large) = merge_envs_pcs (pc_envs, self.solv)
 
@@ -559,8 +552,6 @@ class GraphSlice:
             name = self.path_cond_name ((n, vcount), tag)
             name = self.solv.add_def (name, pc, env)
             pc = mk_smt_expr (name, boolT)
-            #print name
-            #print pc
 
         for (nm, typ) in env:
             if len (env[(nm, typ)]) > 80:
@@ -651,13 +642,6 @@ class GraphSlice:
 
     def emit_node (self, n):
         (pc, env) = self.get_node_pc_env (n, request = False)
-        '''
-		print '\nemit_node:\n'
-		print pc
-		print '==='
-		print env
-		print 'emit_node done\n'
-		'''
         tag = self.p.node_tags[n[0]][0]
         app_eqs = self.apply_known_eqs_tm (n, tag)
         # node = logic.simplify_node_elementary (self.p.nodes[n[0]])
@@ -672,10 +656,6 @@ class GraphSlice:
         env = dict (env)
 
         if node.kind == 'Call':
-            #print 'tryinline:'
-            #print pc
-            #print env
-            #print 'done tryinline'
             self.try_inline (n[0], pc, env)
 
         if pc == false_term:
@@ -691,51 +671,28 @@ class GraphSlice:
                 if v.kind == 'Var':
                     upds.append ((lv, env[(v.name, v.typ)]))
                 else:
-                    print 'node:'
-                    print v.kind
-                    print v
-                    print lv
                     name = self.local_name (lv[0], n)
 
-                    print 'name %s ' % name
                     v = app_eqs (v)
                     vname = self.add_local_def (n,
                                                 ('Var', lv), name, v, env)
                     upds.append ((lv, vname))
-                    print v
-                    print vname
-                    print upds
             for (lv, v) in upds:
                 env[lv] = v
             return [(node.cont, pc, env)]
         elif node.kind == 'Cond':
-            #print 'node_cond:\n'
-            #print node
-            #print 'done node\n'
             name = self.cond_name (n)
             cond = self.p.fresh_var (name, boolT)
-            #print 'nodename:\n'
-            #print name
-            #print cond
-            #print 'nodenamedone\n'
             env[(cond.name, boolT)] = self.add_local_def (n,
                                                           'Cond', name, app_eqs (node.cond), env)
             lpc = mk_and (cond, pc)
             rpc = mk_and (mk_not (cond), pc)
             return [(node.left, lpc, env), (node.right, rpc, env)]
         elif node.kind == 'Call':
-            #print 'callhere:'
             nm = self.success_name (node.fname, n)
             success = self.solv.add_var (nm, boolT)
             success = mk_smt_expr (success, boolT)
             fun = functions[node.fname]
-            #print 'fname:\n'
-            #print node.fname
-            #print fun
-            #print 'fninputs:\n'
-            #print fun.inputs
-            #print 'fnoutputs:\n'
-            #print fun.outputs
 
             ins = dict ([((x, typ), smt_expr (app_eqs (arg), env, self.solv))
                          for ((x, typ), arg) in azip (fun.inputs, node.args)])
@@ -743,19 +700,10 @@ class GraphSlice:
             for (x, typ) in reversed (fun.inputs):
                 if typ == builtinTs['Mem']:
                     inp_mem = ins[(x, typ)]
-                    #p#rint 'inpmem:'
-                    #print inp_mem
-                    #print 'inpmemdone'
                     mem_name = (node.fname, inp_mem)
             mem_calls = self.scan_mem_calls (ins)
             mem_calls = self.add_mem_call (node.fname, mem_calls)
-            #print 'memcalls\n'
-            #print mem_calls
-            #print 'memcallsdone'
             outs = {}
-            #print 'memname:\n'
-            #print mem_name
-            #print 'memnamedone\n'
             for ((x, typ), (y, typ2)) in azip (node.rets, fun.outputs):
                 assert typ2 == typ
                 if self.fast_const_ret (n[0], x, typ):
@@ -773,10 +721,6 @@ class GraphSlice:
                     env[(x, typ)] = z
                     outs[(y, typ)] = z
             self.add_func (node.fname, ins, outs, success, n)
-            #print 'return:'
-            #print pc
-            #print env
-            #print 'done return'
             return [(node.cont, pc, env)]
         else:
             assert not 'node kind understood'
@@ -994,10 +938,6 @@ class GraphSlice:
     # note these names are designed to be unique by suffix
     # (so that smt names are independent of order of requests)
     def local_name (self, s, n_vc):
-        if s == 'stack':
-            print s
-            print n_vc
-            #assert None
         return '%s_after_%s' % (s, self.node_count_name (n_vc))
 
     def local_name_before (self, s, n_vc):
@@ -1174,8 +1114,6 @@ class GraphSlice:
         interp_imps = list (enumerate ([self.interpret_hyp_imps (hyps,
                                                                  self.interpret_hyp (hyp))
                                         for (hyps, hyp) in imps]))
-        print 'interp:'
-        print interp_imps
         reqs = list (self.pc_env_requests)
         last_test[0] = (self.interpret_hyp (hyp), hyps, reqs)
         self.solv.add_pvalid_dom_assertions ()
@@ -1203,17 +1141,8 @@ def to_smt_expr_under_op (expr, env, solv):
         return to_smt_expr (expr, env, solv)
 
 def inst_eq_with_envs ((x, env1), (y, env2), solv):
-    #print 'insteq:\n'
-    #print x
-    #print y
-    #assert None
     x = to_smt_expr_under_op (x, env1, solv)
     y = to_smt_expr_under_op (y, env2, solv)
-
-    #print 'inst_eq_with_envs\n'
-    #print x
-    #print y
-    #print 'done\n'
 
     if x.typ == syntax.builtinTs['RelWrapper']:
         return logic.apply_rel_wrapper (x, y)
