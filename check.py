@@ -135,7 +135,6 @@ def consider_inline (matched_funs, tag, force_inline, skip_underspec = False):
                                             force_inline, skip_underspec)
 
 def inst_eqs (p, restrs, eqs, tag_map = {}):
-    syntax.context_trace()
     addr_map = {}
     if not tag_map:
         tag_map = dict ([(tag, tag) for tag in p.tags ()])
@@ -155,7 +154,6 @@ def inst_eqs (p, restrs, eqs, tag_map = {}):
     return hyps
 
 def init_point_hyps (p):
-    syntax.context_trace()
     (inp_eqs, _) = p.pairing.eqs
     return inst_eqs (p, (), inp_eqs)
 
@@ -684,7 +682,6 @@ def all_rev_induct_checks (p, restrs, hyps, point, (eqs, n), (pred, n_bound)):
 
 def leaf_condition_checks (p, restrs, hyps):
     '''checks of the final refinement conditions'''
-    syntax.context_trace()
     nrerr_pc_hyp = non_r_err_pc_hyp (p.pairing.tags, restrs)
     hyps = [nrerr_pc_hyp] + hyps
     [l_tag, r_tag] = p.pairing.tags
@@ -887,9 +884,6 @@ def check_proof_report_rec (p, restrs, hyps, proof, step_num, ctxt, inducts,
         checks = []
         cases = ['case in (%d) where %d is visited' % (step_num, proof.point),
                  'case in (%d) where %d is not visited' % (step_num, proof.point)]
-
-    syntax.context_trace('p', 'restrs', 'hyps', 'proof', 'step_num', 'ctxt',
-                         'inducts', 'checks', 'do_check')
 
     if checks and do_check:
         groups = proof_check_groups (checks)

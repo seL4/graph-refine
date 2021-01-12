@@ -1466,7 +1466,6 @@ def mk_cast_generic(x, typ):
     if x.typ == typ:
         return x
     else:
-        context_trace(mk_pairing=('asm_f', 'c_fun'))
         assert x.typ.kind == 'Word', x.typ
         assert typ.kind == 'Word', typ
         return Expr ('Op', typ, name='WordCast', vals=[x])
@@ -1478,7 +1477,6 @@ def mk_cast_generic(x, typ):
 def mk_cast_pair_rv64(x, typ):
     if x.typ == typ:
         return x
-    context_trace(mk_pairing=('asm_f', 'c_fun'))
     assert x.typ.kind == 'Word', x.typ
     assert typ.kind == 'Word', typ
     signed = x.typ.num == 32 and typ.num == 64

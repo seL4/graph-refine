@@ -99,8 +99,6 @@ def mk_aligned (w, n):
     return mk_eq (mk_bwand (w, mask), mk_num (0, w.typ))
 
 def mk_eqs(var_c_args, var_c_rets, c_imem, c_omem, min_stack_size):
-    syntax.context_trace()
-
     arg_regs = mk_var_list(syntax.arch.argument_registers, syntax.arch.word_type)
     ar0 = arg_regs[0]
 
@@ -1507,8 +1505,6 @@ def mk_eq_selective_wrapper (v, (xs, ys)):
     return syntax.mk_rel_wrapper ('EqSelectiveWrapper', [v, xs, ys])
 
 def apply_rel_wrapper (lhs, rhs):
-    syntax.context_trace()
-
     assert lhs.typ == syntax.builtinTs['RelWrapper']
     assert rhs.typ == syntax.builtinTs['RelWrapper']
     assert lhs.kind == 'Op'
