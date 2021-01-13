@@ -146,6 +146,7 @@ def get_solver_set ():
     strategy = None
     model_strategy = None
     online_solver = None
+    offline_solver = None
     for line in open (find_solverlist_file ()):
         line = line.strip ()
         if not line or line.startswith ('#'):
@@ -160,9 +161,12 @@ def get_solver_set ():
         elif bits[0] == 'online-solver':
             [_, online_solver] = bits
             online_solver = online_solver.strip()
+        elif bits[0] == 'offline-solver':
+            [_, offline_solver] = bits
+            offline_solver = offline_solver.strip()
         else:
             solvers.append (parse_solver (bits))
-    return solvers, strategy, model_strategy, online_solver
+    return solvers, strategy, model_strategy, online_solver, offline_solver
 
 def parse_strategy (strat):
     solvs = strat.split (',')
@@ -192,7 +196,7 @@ def parse_config_change (config, solver):
 
 def load_solver_set ():
     import sys
-    solvers, strategy, model_strategy, online_solver = get_solver_set()
+    solvers, strategy, model_strategy, online_solver, offline_solver = get_solver_set()
     fast_solvers = [sv for sv in solvers if sv.fast]
     slow_solvers = [sv for sv in solvers if not sv.fast]
     assert fast_solvers, solvers
@@ -224,7 +228,14 @@ def load_solver_set ():
         print "known online solvers are: %s" % ', '.join(fast_dict.keys())
         sys.exit(1)
     online_solver = fast_dict[online_solver]
-    return online_solver, slow_solvers[0], strategy, model_strategy
+    if offline_solver is None:
+        offline_solver = slow_solvers[0].origname
+    if offline_solver not in slow_dict:
+        print "solverlist offline-solver uses bad offline solver: %r" % nm
+        print "known offline solvers are: %s" % ', '.join(slow_dict.keys())
+        sys.exit(1)
+    offline_solver = slow_dict[offline_solver]
+    return online_solver, offline_solver, strategy, model_strategy
 
 fast_solver, slow_solver, strategy, model_strategy = load_solver_set()
 
