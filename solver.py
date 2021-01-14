@@ -1128,16 +1128,22 @@ class Solver:
             solver = use_this_solver
         if not solver:
             return 'no-slow-solver'
+
+        # atomic write a file (avoid multiple writes)
+        (tmpfd, tmpfilename) = tempfile.mkstemp(suffix='.smt2',
+                                                dir="./logs/tmp/", prefix='temporary-')
+        tmpfile_write = open (tmpfilename, 'w')
+        self.write_solv_script (tmpfile_write, input_msgs,
+                                solver = solver)
+        tmpfile_write.close ()
+        os.close(tmpfd)
         hasher = hashlib.sha256()
         for line in input_msgs:
             hasher.update(line)
         sha256sum = hasher.hexdigest()
         filename = './logs/tmp/%s.smt2' % sha256sum
-        if not os.path.exists(filename):
-            tmpfile_write = open (filename, 'w')
-            self.write_solv_script (tmpfile_write, input_msgs,
-                                    solver = solver)
-            tmpfile_write.close ()
+        os.rename(tmpfilename, filename)
+
         print ('\nsending input to %s, dump: %s\n--- [' % (solver.origname, filename))
         if len(input_msgs) < 30:
             for line in input_msgs:
