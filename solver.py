@@ -1029,8 +1029,7 @@ class Solver:
         if recursion:
             trace ('  (recursion)')
         else:
-            for (hyp, _) in raw_hyps:
-                trace ('  ' + hyp)
+            trace ('  (%s hyps)' % len(raw_hyps))
 
         if force_solv != 'Slow':
             solvs_used.append (self.fast_solver.name)
@@ -1134,14 +1133,15 @@ class Solver:
             hasher.update(line)
         sha256sum = hasher.hexdigest()
         filename = './logs/tmp/%s.smt2' % sha256sum
-        tmpfile_write = open (filename, 'w')
-        self.write_solv_script (tmpfile_write, input_msgs,
-                                solver = solver)
-        tmpfile_write.close ()
+        if not os.path.exists(filename):
+            tmpfile_write = open (filename, 'w')
+            self.write_solv_script (tmpfile_write, input_msgs,
+                                    solver = solver)
+            tmpfile_write.close ()
         print ('\nsending input to %s, dump: %s\n--- [' % (solver.origname, filename))
         if len(input_msgs) < 30:
-            for l in input_msgs:
-                print l
+            for line in input_msgs:
+                print ((line[:87] + '...') if len(line) >= 90 else line)
         else:
             print "long, see file"
         print '--- ]\n'
@@ -1150,7 +1150,7 @@ class Solver:
                                  stdin = fd, stdout = subprocess.PIPE,
                                  preexec_fn = preexec (timeout))
         fd.close()
-        return (proc, proc.stdout)
+        return (proc, proc.stdout, filename)
 
     def use_slow_solver (self, hyps, model = None, unsat_core = None,
                          use_this_solver = None):
@@ -1167,8 +1167,8 @@ class Solver:
         else:
             solver = self.slow_solver
 
-        (proc, output) = self.exec_slow_solver (cmds,
-                                                timeout = solver.timeout, use_this_solver = solver)
+        (proc, output, filename) = self.exec_slow_solver (cmds,
+                                                          timeout = solver.timeout, use_this_solver = solver)
 
         response = output.readline ().strip ()
         if model != None and response == 'sat':
@@ -1184,7 +1184,7 @@ class Solver:
             trace ('SMT conversation problem after (check-sat)')
 
         end = time.time ()
-        trace ('Got %r from %s.' % (response, solver.name))
+        trace ('Got %r from %s on problem %s' % (response, solver.name, filename))
         trace ('  after %s' % run_time (end - start, proc))
         # adjust to save difficult problems
         cutoff_time = save_solv_example_time[0]
@@ -1208,8 +1208,8 @@ class Solver:
         solver = self.slow_solver
         if use_this_solver:
             solver = use_this_solver
-        (proc, output) = self.exec_slow_solver (cmds,
-                                                timeout = solver.timeout, use_this_solver = solver)
+        (proc, output, filename) = self.exec_slow_solver (cmds,
+                                                          timeout = solver.timeout, use_this_solver = solver)
         self.parallel_solvers[k] = (hyps, proc, output, solver, model)
 
     def wait_parallel_solver_step (self):
@@ -1362,7 +1362,7 @@ class Solver:
             cmds.extend (['(assert %s)' % hyp, '(check-sat)'])
             if model != None:
                 cmds.append (self.fetch_model_request ())
-        (proc, output) = self.exec_slow_solver (cmds, timeout = timeout)
+        (proc, output, filename) = self.exec_slow_solver (cmds, timeout = timeout)
 
         assert hyps
         for (i, hyp) in enumerate (hyps):
