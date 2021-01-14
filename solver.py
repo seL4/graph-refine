@@ -1123,28 +1123,33 @@ class Solver:
 
     def exec_slow_solver (self, input_msgs, timeout = None,
                           use_this_solver = None):
-        import shutil
+        import hashlib
         solver = self.slow_solver
         if use_this_solver:
             solver = use_this_solver
         if not solver:
             return 'no-slow-solver'
-        (fd, name) = tempfile.mkstemp (suffix='.txt',
-                                       prefix='graph-refine-problem-')
-        tmpfile_write = open (name, 'w')
+        hasher = hashlib.sha256()
+        for line in input_msgs:
+            hasher.update(line)
+        sha256sum = hasher.hexdigest()
+        filename = './logs/tmp/%s.smt2' % sha256sum
+        tmpfile_write = open (filename, 'w')
         self.write_solv_script (tmpfile_write, input_msgs,
                                 solver = solver)
         tmpfile_write.close ()
-        shutil.copyfile(name, './logs' + name + '.smt2')
-        print ('\nsending input to %s, dump: %s.smt2\n--- [' % (solver.origname, name))
-        for l in input_msgs:
-            print l
+        print ('\nsending input to %s, dump: %s\n--- [' % (solver.origname, filename))
+        if len(input_msgs) < 30:
+            for l in input_msgs:
+                print l
+        else:
+            print "long, see file"
         print '--- ]\n'
+        fd = open(filename,'r')
         proc = subprocess.Popen (solver.args,
                                  stdin = fd, stdout = subprocess.PIPE,
                                  preexec_fn = preexec (timeout))
-        os.close (fd)
-        os.unlink (name)
+        fd.close()
         return (proc, proc.stdout)
 
     def use_slow_solver (self, hyps, model = None, unsat_core = None,
