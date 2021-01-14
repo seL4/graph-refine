@@ -1210,12 +1210,12 @@ class Solver:
             solver = use_this_solver
         (proc, output, filename) = self.exec_slow_solver (cmds,
                                                           timeout = solver.timeout, use_this_solver = solver)
-        self.parallel_solvers[k] = (hyps, proc, output, solver, model)
+        self.parallel_solvers[k] = (hyps, proc, output, filename, solver, model)
 
     def wait_parallel_solver_step (self):
         import select
         assert self.parallel_solvers
-        fds = dict ([(output.fileno (), k) for (k, (_, _, output, _, _))
+        fds = dict ([(output.fileno (), k) for (k, (_, _, output, _,  _, _))
                      in self.parallel_solvers.iteritems ()])
         try:
             (rlist, _, _) = select.select (fds.keys (), [], [])
@@ -1223,14 +1223,14 @@ class Solver:
             self.close_parallel_solvers (reason = 'interrupted')
             raise e
         k = fds[rlist.pop ()]
-        (hyps, proc, output, solver, model) = self.parallel_solvers[k]
+        (hyps, proc, output, filename, solver, model) = self.parallel_solvers[k]
         del self.parallel_solvers[k]
         response = output.readline ().strip ()
         trace ('  <-- parallel solver %s closed: %s' % (k, response))
         trace ('      after %s' % run_time (None, proc))
         if response not in ['sat', 'unsat']:
             trace ('SMT conversation problem in parallel solver')
-        trace ('Got %r from %s in parallel.' % (response, solver.name))
+        trace ('Got %r from %s in parallel on problem %s' % (response, solver.name, filename))
         m = {}
         check = None
         if response == 'sat':
@@ -1284,7 +1284,7 @@ class Solver:
             ks = self.parallel_solvers.keys ()
         else:
             ks = [k for k in ks if k in self.parallel_solvers]
-        solvs = [(proc, output) for (_, proc, output, _, _)
+        solvs = [(proc, output) for (_, proc, output, _, _, _)
                  in [self.parallel_solvers[k] for k in ks]]
         if ks:
             trace (' X<-- %d parallel solvers killed: %s'
