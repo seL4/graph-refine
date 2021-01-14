@@ -1353,48 +1353,6 @@ class Solver:
         (res, k) = self.parallel_check_hyps (hyps, env, model)
         return (res == 'unsat', k, res)
 
-    def slow_solver_multisat (self, hyps, model = None, timeout = 300):
-        trace ('multisat check.')
-        start = time.time ()
-
-        cmds = []
-        for hyp in hyps:
-            cmds.extend (['(assert %s)' % hyp, '(check-sat)'])
-            if model != None:
-                cmds.append (self.fetch_model_request ())
-        (proc, output, filename) = self.exec_slow_solver (cmds, timeout = timeout)
-
-        assert hyps
-        for (i, hyp) in enumerate (hyps):
-            trace ('multisat checking %s' % hyp)
-            response = output.readline ().strip ()
-            if response == 'sat':
-                if model != None:
-                    model.clear ()
-                    most_sat = hyps[: i + 1]
-                    assert self.fetch_model_response (model,
-                                                      stream = output)
-            else:
-                self.solver = None
-                if i == 0 and response == 'unsat':
-                    self.send ('(assert (not %s))' % hyp)
-                if i > 0:
-                    if response != 'unsat':
-                        trace ('conversation problem:')
-                        trace ('multisat got %r' % response)
-                    response = 'sat'
-                break
-
-        if model:
-            assert self.check_model (most_sat, model)
-
-        end = time.time ()
-        trace ('multisat final result: %r after %s' % (response,
-                                                       run_time (end - start, proc)))
-        output.close ()
-
-        return response
-
     def fetch_model_request (self):
         vs = self.model_vars
         exprs = self.model_exprs
