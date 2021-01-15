@@ -10,6 +10,9 @@ import syntax
 # which support SMTLIB2 push/pop and are controlled by pipe, and heavyweight
 # 'slow' solvers which are run once per problem on static input files.
 import signal
+
+import hashlib
+
 solverlist_missing = """
 This tool requires the use of an SMT solver.
 
@@ -1081,57 +1084,55 @@ class Solver:
         trace ('uc tags: %s' % core)
         return core
 
-    def write_solv_script (self, f, input_msgs, solver = slow_solver,
-                           only_if_is_model = False):
+    def write_solv_script(self, input_msgs, solver = slow_solver,
+                          only_if_is_model = False):
+        hasher = hashlib.sha256()
+        # write to tmp file (avoids writing into a file being read in parallel)
+        (tmpfd, tmpfilename) = tempfile.mkstemp(suffix='.smt2',
+                                                dir="./logs/tmp/", prefix='temporary-')
+        tmpfile_write = open (tmpfilename, 'w')
         if solver.mem_mode == '8':
             smt_convs = syntax.arch.smt_word8_conversions
         else:
             smt_convs = syntax.arch.smt_native_conversions
         for msg in self.preamble (solver):
-            msg = msg.format (** smt_convs)
-            f.write (msg + '\n')
+            msg = msg.format (** smt_convs) + '\n'
+            tmpfile_write.write(msg)
+            hasher.update(msg)
         for (msg, is_model) in self.replayable:
             if only_if_is_model and not is_model:
                 continue
-            msg = msg.format (** smt_convs)
-            f.write (msg + '\n')
-
+            msg = msg.format (** smt_convs) + '\n'
+            tmpfile_write.write(msg)
+            hasher.update(msg)
         for msg in input_msgs:
-            msg = msg.format (** smt_convs)
-            f.write (msg + '\n')
-
-        f.flush ()
+            msg = msg.format (** smt_convs) + '\n'
+            tmpfile_write.write(msg)
+            hasher.update(msg)
+        tmpfile_write.close()
+        os.close(tmpfd)
+        # atomic move file to its permanent location (named by problem hash)
+        sha256sum = hasher.hexdigest()
+        filename = './logs/tmp/%s.smt2' % sha256sum
+        os.rename(tmpfilename, filename)
+        return filename
 
     def exec_slow_solver (self, input_msgs, timeout = None,
                           use_this_solver = None):
-        import hashlib
         solver = self.slow_solver
         if use_this_solver:
             solver = use_this_solver
         if not solver:
             return 'no-slow-solver'
-
-        # atomic write a file (avoid multiple writes)
-        (tmpfd, tmpfilename) = tempfile.mkstemp(suffix='.smt2',
-                                                dir="./logs/tmp/", prefix='temporary-')
-        tmpfile_write = open (tmpfilename, 'w')
-        self.write_solv_script (tmpfile_write, input_msgs,
-                                solver = solver)
-        tmpfile_write.close ()
-        os.close(tmpfd)
-        hasher = hashlib.sha256()
-        for line in input_msgs:
-            hasher.update(line)
-        sha256sum = hasher.hexdigest()
-        filename = './logs/tmp/%s.smt2' % sha256sum
-        os.rename(tmpfilename, filename)
-
+        filename = self.write_solv_script(input_msgs, solver = solver)
         print ('\nsending input to %s, dump: %s\n--- [' % (solver.origname, filename))
         if len(input_msgs) < 30:
             for line in input_msgs:
                 print ((line[:87] + '...') if len(line) >= 90 else line)
         else:
-            print "long, see file"
+            line = input_msgs[0]
+            print ((line[:87] + '...') if len(line) >= 90 else line)
+            print ("... (%s more lines)" % (len(input_msgs) - 1))
         print '--- ]\n'
         fd = open(filename,'r')
         proc = subprocess.Popen (solver.args,
