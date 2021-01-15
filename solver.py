@@ -267,26 +267,8 @@ max_active_solvers = [5]
 random_name = random.randrange (1, 10 ** 9)
 count = [0]
 
-save_solv_example_time = [-1]
-
 # the token_smt_typ is uniformly 64-bit across all architectures
 token_smt_typ = syntax.word64T
-
-def save_solv_example (solv, last_msgs, comments = []):
-    count[0] += 1
-    name = 'ex_%d_%d' % (random_name, count[0])
-    f = open ('smt_examples/' + name, 'w')
-    for msg in comments:
-        f.write ('; ' + msg + '\n')
-    solv.write_solv_script (f, last_msgs)
-    f.close ()
-
-def write_last_solv_script (solv, fname):
-    f = open (fname, 'w')
-    hyps = last_hyps[0]
-    cmds = ['(assert %s)' % hyp for (hyp, _) in hyps] + ['(check-sat)']
-    solv.write_solv_script (f, cmds)
-    f.close ()
 
 def run_time (elapsed, proc):
     user = None
@@ -1192,11 +1174,6 @@ class Solver:
         end = time.time ()
         trace ('Got %r from %s on problem %s' % (response, solver.name, filename))
         trace ('  after %s' % run_time (end - start, proc))
-        # adjust to save difficult problems
-        cutoff_time = save_solv_example_time[0]
-        if cutoff_time != -1 and end - start > cutoff_time:
-            save_solv_example (self, cmds,
-                               comments = ['reference time %s seconds' % (end - start)])
 
         if model:
             assert self.check_model ([h for (h, _) in hyps], model)
