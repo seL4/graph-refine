@@ -57,24 +57,22 @@ class VisitCount:
             assert v == sorted(v)
 
     def __hash__ (self):
-        if self.kind == 'Options':
-            return hash (self.opts)
-        else:
-            return hash((self.kind, self.n))
+        (ns, os) = self.get_opts()
+        return hash((tuple(ns),tuple(os)))
 
     def __eq__ (self, other):
-        if not other:
+        if not isinstance(other, VisitCount):
             return False
-        if self.kind == 'Options':
-            return (other.kind == 'Options'
-                    and self.opts == other.opts)
-        else:
-            return self.kind == other.kind and self.n == other.n
+        return self.get_opts() == other.get_opts()
 
     def __neq__ (self, other):
         if not other:
             return True
         return not (self == other)
+
+    def __cmp__(self, other):
+        " returning a negative value if self < other , positive if self > other , and zero if they were equal."
+        return cmp(self.get_opts(), other.get_opts())
 
     def __str__ (self):
         if self.kind == 'Number':
