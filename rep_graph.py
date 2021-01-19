@@ -17,6 +17,8 @@ from target_objects import functions, pairings, sections, trace, printout
 import target_objects
 import problem
 
+import itertools
+
 class VisitCount:
     """Used to represent a target number of visits to a split point.
     Options include a number (0, 1, 2), a symbolic offset (i + 1, i + 2),
@@ -30,16 +32,35 @@ class VisitCount:
             self.n = value
         elif kind == 'Options':
             self.opts = tuple (value)
-            for opt in self.opts:
-                assert opt.kind in ['Number', 'Offset']
         else:
             assert not 'VisitCount type understood'
+        self.assert_invs()
+
+    def assert_invs(self):
+        """
+        Check the structural invariants of the type:
+        - `Options` values contain more than one possible
+        option, so `VisitCount('Options',[x])` is flattened
+        to just `x`.
+        - `Options` values contain a list of 'Number' values,
+        followed by a list of 'Offset' values, in which
+        both sublists are sorted.
+        """
+        if self.kind in ['Number', 'Offset']:
+            return
+        assert self.kind == 'Options'
+        assert len(self.opts) > 1
+        structure = [k for k,g in itertools.groupby(self.opts, lambda x: x.kind)]
+        assert structure in [['Number','Offset'],['Number'],['Offset'],[]]
+        valueLists = [[x.n for x in g] for k,g in itertools.groupby(self.opts, lambda x: x.kind)]
+        for v in valueLists:
+            assert v == sorted(v)
 
     def __hash__ (self):
         if self.kind == 'Options':
             return hash (self.opts)
         else:
-            return hash (self.kind) + self.n
+            return hash((self.kind, self.n))
 
     def __eq__ (self, other):
         if not other:
