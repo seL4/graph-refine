@@ -733,14 +733,20 @@ def proof_checks_rec (p, restrs, hyps, proof, path):
 
 last_failed_check = [None]
 
+
 def proof_check_groups (checks):
     groups = {}
+    group_keys = []
     for (hyps, hyp, name) in checks:
         n_vcs = set ([n_vc for hyp2 in [hyp] + hyps
                       for n_vc in hyp2.visits ()])
         k = (tuple (sorted (list (n_vcs))))
-        groups.setdefault (k, []).append ((hyps, hyp, name))
-    return groups.values ()
+        group_values = groups.setdefault(k, [])
+        if not group_values:
+            group_keys.append(k)
+        group_values.append((hyps, hyp, name))
+    return [groups[k] for k in group_keys]
+
 
 def test_hyp_group (rep, group, detail = None):
     imps = [(hyps, hyp) for (hyps, hyp, _) in group]
