@@ -1169,17 +1169,13 @@ class Solver:
 
         return response
 
-    def add_parallel_solver (self, k, hyps, model = None,
-                             use_this_solver = None):
+    def add_parallel_solver (self, k, hyps, model, solver):
         cmds = ['(assert %s)' % hyp for hyp in hyps] + ['(check-sat)']
         if model != None:
             cmds.append (self.fetch_model_request ())
         trace ('  --> new parallel solver %s' % str (k))
         if k in self.parallel_solvers:
             raise IndexError ('duplicate parallel solver ID', k)
-        solver = self.slow_solver
-        if use_this_solver:
-            solver = use_this_solver
         (proc, output, filename) = self.exec_slow_solver(cmds,
                                                          timeout=solver.timeout, solver=solver)
         self.parallel_solvers[k] = (hyps, proc, output, filename, solver, model)
@@ -1237,8 +1233,7 @@ class Solver:
             (solv, test_hyps, state) = details
             self.parallel_model_states[k] = (state, hyps)
             k = ('ModelRepair', k, i + 1)
-            self.add_parallel_solver (k, test_hyps,
-                                      use_this_solver = solv, model = model)
+            self.add_parallel_solver (k, test_hyps, solver=solv, model=model)
             return None
 
     def wait_parallel_solver (self):
@@ -1287,8 +1282,7 @@ class Solver:
         def spawn ((k, hyp), stratkey):
             goal = smt_expr (syntax.mk_not (hyp), env, self)
             [self.add_parallel_solver ((solver.name, strat, k),
-                                       [goal], use_this_solver = solver,
-                                       model = model)
+                                       [goal], solver=solver, model=model)
              for (solver, strat) in self.strategy
              if strat == stratkey]
         if len (hyps) > 1:
