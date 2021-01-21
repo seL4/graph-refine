@@ -1186,6 +1186,7 @@ class Solver:
         trace ('      after %s' % run_time (None, proc))
         if response not in ['sat', 'unsat']:
             trace ('SMT conversation problem in parallel solver')
+            trace ('I got %r, but expected one of "sat", "unsat"' % response)
         trace ('Got %r from %s in parallel on problem %s' % (response, solver.name, filename))
         m = {}
         check = None
@@ -1320,8 +1321,15 @@ class Solver:
     def fetch_model_response (self, model, stream = None, recursion = False):
         if stream == None:
             stream = self.online_solver.stdout
-        values = get_s_expression (stream,
-                                   'fetch_model_response')
+        try:
+            values = get_s_expression (stream,
+                                       'fetch_model_response')
+        except ConversationProblem, e:
+            trace ('SMT conversation problem while fetching model!')
+            trace ('I sent %s' % repr(e.prompt))
+            trace ('I got %s' % repr(e.response))
+            trace ('I could not parse the model response S-expr.')
+            values = None
         if values == None:
             trace ('Failed to fetch model!')
             return None
