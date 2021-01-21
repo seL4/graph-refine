@@ -469,18 +469,6 @@ def smt_expr (expr, env, solv):
         eq = solv.add_implies_stack_eq (sp1, st1, st2, env)
         sp1 = smt_expr (sp1, env, solv)
         sp2 = smt_expr (sp2, env, solv)
-        #rv64_hack
-        # for functions that do not touch stack at all,
-        # something like
-        # (assert (not (and (= r2_init r2_init) stack-eq)))
-        # is generated. This assert cannot be satifisfied, and
-        # thus an 'unsat' result. A hack here to avoid the
-        # always 'unsat' result.
-        if sp1 == sp2 and sp1 == 'r2_init':
-            #return '(not false)'
-            #return '(and (not false) false)'
-            pass
-
         return '(and (= %s %s) %s)' % (sp1, sp2, eq)
     elif expr.is_op ('IfThenElse'):
         (sw, x, y) = [smt_expr (e, env, solv) for e in expr.vals]
