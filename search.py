@@ -899,7 +899,7 @@ def get_matching_linear_seqs (rep, head, restrs, hyps, tags):
                    rep_graph.pc_true_hyp ((vis (n, 2), l_tag))]
         res = rep.test_hyp_whyps (eq, hyps + ex_hyps, model = m)
         if not m:
-            necessary_split_opts_trace.append ((n, kind, 'NoModel'))
+            necessary_split_opts_trace.append ((n, res, 'NoModel'))
             return None
         return m
 
