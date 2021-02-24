@@ -10,6 +10,10 @@
 # (e.g. standalone c-parser and decompiler) properly, so may not know to
 # rebuild if a custom tool is updated.
 
+# branch specific part (riscv branch)
+L4V_ARCH?=RISCV64
+L4V_FEATURES?=MCS
+
 ifndef CONFIG_OPTIMISATION_LEVEL
   CONFIG_OPTIMISATION_LEVEL := -O1
 endif
