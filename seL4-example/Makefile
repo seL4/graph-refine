@@ -93,10 +93,10 @@ ${KERNEL_PATHS}: ${TARGET_DIR}/%: ${KERNEL_BUILD_ROOT}/%
 	@mkdir -p ${TARGET_DIR}
 	cp $< $@
 
-clean:
-	rm -rf build kernel.elf.* kernel_all* kernel.tar*
+#clean:
+#	rm -rf build kernel.elf.* kernel_all* kernel.tar*
 
-.PHONY: clean tar
+.PHONY: tar # clean
 
 H4PATH := $(realpath ${HOL4_ROOT}/bin):${PATH}
 
@@ -118,9 +118,16 @@ diff: ${TARGET_DIR}/.diff
 ${L4V_KERNEL_BUILD_PATH}/kernel_all.c_pp: ${KERNEL_DEPS} ${CONFIG_DOMAIN_SCHEDULE}
 	MAKEFILES= make -C ${CSPEC_DIR}/c ${L4V_KERNEL_BUILD_DIR}/kernel_all.c_pp
 
-${TARGET_DIR}/ASMFunctions.txt: ${TARGET_DIR}/kernel.elf.txt ${TARGET_DIR}/kernel.sigs
+# the straight decompiler output, without post-processing
+${TARGET_DIR}/ASMFunctions.raw: ${TARGET_DIR}/kernel.elf.txt ${TARGET_DIR}/kernel.sigs
 	cd ${TARGET_DIR} && PATH=${H4PATH} ${DECOMP_SCRIPT} --fast ./kernel --ignore=${IGNORES_${L4V_CONFIG}}
-	mv ${TARGET_DIR}/kernel_mc_graph.txt ${TARGET_DIR}/ASMFunctions.txt
+	mv ${TARGET_DIR}/kernel_mc_graph.txt $@
+
+${TARGET_DIR}/ASMFunctions.txt: ${TARGET_DIR}/ASMFunctions.raw ${TARGET_DIR}/kernel.elf.txt
+	# AUIPC fixup
+	python2 ${GREF_ROOT}/tools/check_addr.py ${TARGET_DIR}/ASMFunctions.raw ${TARGET_DIR}/kernel.elf.txt $@
+	# sfence_vma fix-up
+	sed -i 's/sfence_vma/sfence.vma/g' $@
 
 ${TARGET_DIR}/CFunctions.txt: ${L4V_KERNEL_BUILD_PATH}/kernel_all.c_pp ${L4V_REPO_PATH}/tools/asmrefine/*.thy
 	@mkdir -p ${TARGET_DIR}
@@ -140,10 +147,11 @@ GRAPH_REFINE_INPUTS := \
   ${TARGET_DIR}/target.py \
   ${GREF_ROOT}/*.py
 
-GRAPH_REFINE := python ${GREF_ROOT}/graph-refine.py
+GRAPH_REFINE := python2 ${GREF_ROOT}/graph-refine.py
 
 ${TARGET_DIR}/StackBounds.txt: ${GRAPH_REFINE_INPUTS}
-	${GRAPH_REFINE} ${TARGET_DIR}
+	# FIXME: this script is arch-specific (RISCV64)
+	python3 ${GREF_ROOT}/tools/stack_bounds.py --asm-functions ${TARGET_DIR}/ASMFunctions.txt --elf-txt ${TARGET_DIR}/kernel.elf.txt > $@
 
 ${TARGET_DIR}/demo-report.txt: ${TARGET_DIR}/StackBounds.txt ${GRAPH_REFINE_INPUTS}
 	${GRAPH_REFINE} ${TARGET_DIR} trace-to:$@.partial deps:Kernel_C.cancelAllIPC
