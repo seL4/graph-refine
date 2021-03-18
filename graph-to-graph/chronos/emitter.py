@@ -44,8 +44,8 @@ class ChronosEmitter:
             sym = ef.syms[name]
             #objects(O) in objdump is data
             if 'O' in sym.flags:
-               flag_str += 'd'
-               #functions are text
+                flag_str += 'd'
+                #functions are text
             if 'F' in sym.flags:
                 flag_str += 't'
                 self.imm_f.write('s %s 0x%s %s %s\n' % (name, sym.addr, sym.ali_size, flag_str))
@@ -117,11 +117,11 @@ class ChronosEmitter:
         #then emit them in order
         for addr in xrange (first_addr, last_addr + size, size):
             if addr in to_emit:
-               addr,is_start_bb, loop_count = to_emit[addr]
-               self.emitImm(addr,i_nodes,is_start_bb,loop_count)
+                addr,is_start_bb, loop_count = to_emit[addr]
+                self.emitImm(addr,i_nodes,is_start_bb,loop_count)
             else:
-               #pad with nop
-               self.emitNop(addr, size)
+                #pad with nop
+                self.emitNop(addr, size)
 
         for bin_head in emitted_loop_counts:
             count, desc = emitted_loop_counts[bin_head]

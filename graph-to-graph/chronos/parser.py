@@ -75,10 +75,10 @@ valid_instruction_re = re.compile(
             (?P<instruction2>%(other_instructions)s)
             (?P<cond2>%(conditions)s)
         )$''' % {
-            'arith_instructions': '|'.join(valid_arith_instructions),
-            'other_instructions': '|'.join(valid_other_instructions),
-            'conditions': '|'.join(valid_conditions)
-        }, re.X)
+        'arith_instructions': '|'.join(valid_arith_instructions),
+        'other_instructions': '|'.join(valid_other_instructions),
+        'conditions': '|'.join(valid_conditions)
+    }, re.X)
 
 #
 # The following regexes take the arguments of a specific instruction (whose
@@ -142,13 +142,13 @@ operand2 = r'''(?:
 
 onereg_and_operand2_re = re.compile(
     (r'''(?P<target_reg>%(any_register)s),\s*''' + operand2 + '(\s*;.*)?$') % {
-            'any_register' : any_register},
+        'any_register' : any_register},
     re.X)
 
 tworegs_and_operand2_re = re.compile(
     (r'''(?P<target_reg>%(any_register)s),\s*
         (?P<source_reg>%(any_register)s),\s*''' + operand2 + '(\s*;.*)?$') % {
-            'any_register' : any_register},
+        'any_register' : any_register},
     re.X)
 
 
@@ -156,7 +156,7 @@ tworegs_and_operand2_re = re.compile(
 #just used for decoding for us
 class ARMInstruction:
     def __init__(self, addr, value, disassembly,
-            mnemonic, condition, dirflags, cpsflags, setcc, args):
+                 mnemonic, condition, dirflags, cpsflags, setcc, args):
 
         self.addr = addr
         self.value = value
@@ -234,10 +234,10 @@ class LoadStoreInstruction(ARMInstruction):
         # Record input and output registers.
         # if load:
         self.output_registers.append(args['target_reg'])
-            #self.input_registers.append('memory')
+        #self.input_registers.append('memory')
         # else:
         #    self.input_registers.append(args['target_reg'])
-            #self.output_registers.append('memory')
+        #self.output_registers.append('memory')
         self.input_registers.append(args['base_addr_reg'])
         if args['incr_reg']:
             self.input_registers.append(args['incr_reg'])
@@ -269,8 +269,8 @@ class LoadStoreMultipleInstruction(ARMInstruction):
         addr_reg, reg_list = [x.strip() for x in self.args.split(',', 1)]
         writeback = addr_reg[-1] == '!'
         if writeback:
-             self.output_registers.append('writeback')
-             addr_reg = addr_reg.rstrip('!')
+            self.output_registers.append('writeback')
+            addr_reg = addr_reg.rstrip('!')
         #    self.output_registers.append(addr_reg)
         # self.input_registers.append(addr_reg)
 
@@ -556,8 +556,8 @@ mnemonic_groups_to_class_map = {
 
 # Convert above into mnemonic -> class map.
 mnemonic_to_class_map = dict([(m, c)
-        for ms, c in mnemonic_groups_to_class_map.iteritems()
-        for m in ms])
+                              for ms, c in mnemonic_groups_to_class_map.iteritems()
+                              for m in ms])
 
 def decode_instruction(addr, value, decoding):
     decoding = decoding.strip()
@@ -594,7 +594,7 @@ def decode_instruction(addr, value, decoding):
     #print '%s: %s \n    instruction %s \n   condition %s\n    dirflags %s\n     cpsflags %s\n    setcc %s\n      args %s\n' % (addr,decoding, instruction,condition,dirflags,cpsflags,setcc,args)
 
     arm_inst = cls(addr, value, decoding,
-        instruction, condition, dirflags, cpsflags, setcc, args)
+                   instruction, condition, dirflags, cpsflags, setcc, args)
     arm_inst.decode()
 
     mnemonic = arm_inst.mnemonic
