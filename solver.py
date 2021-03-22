@@ -6,6 +6,11 @@
 
 import syntax
 
+import typed_commons
+from typed_commons import (CheckModelIterationState, CMIAbort, CMIContinue, CMIResult, OfflineSolverExecution, PersistableModel, SolverImpl)
+import parallel_solver
+from parallel_solver import (ParallelTaskManager)
+
 # code and classes for controlling SMT solvers, including 'fast' solvers,
 # which support SMTLIB2 push/pop and are controlled by pipe, and heavyweight
 # 'slow' solvers which are run once per problem on static input files.
@@ -88,21 +93,6 @@ Z3-word8: offline: mem_mode=8: /usr/bin/z3 -smt2 -in
 """
 
 solverlist_file = ['.solverlist']
-class SolverImpl:
-    def __init__ (self, name, fast, args, timeout):
-        self.fast = fast
-        self.args = args
-        self.timeout = timeout
-        self.origname = name
-        self.mem_mode = None
-        if self.fast:
-            self.name = name + ' (online)'
-        else:
-            self.name = name + ' (offline)'
-
-    def __repr__ (self):
-        return 'SolverImpl (%r, %r, %r, %r, %r)' % (self.name,
-                                                    self.fast, self.mem_mode, self.args, self.timeout)
 
 def parse_solver (bits):
     import os
@@ -685,8 +675,6 @@ class Solver:
         self.unsat_cores = produce_unsat_cores
         self.mem_mode = None
         self.online_solver = None
-        self.parallel_solvers = {}
-        self.parallel_model_states = {}
 
         self.names_used = {}
         self.names_used_order = []
@@ -719,6 +707,14 @@ class Solver:
         self.add_rodata_def ()
 
         last_solver[0] = self
+
+    # implements typed_commons.SolverContextProtocol
+    def smt_expr(self, expr, env):
+        return smt_expr(expr, env, self)
+
+    # implements typed_commons.SolverContextProtocol
+    def get_strategy(self):
+        return self.strategy
 
     def preamble (self, solver_impl):
         preamble = []
@@ -758,8 +754,6 @@ class Solver:
             self.send (msg, replay=False)
 
     def close (self, reason = '?'):
-        self.close_parallel_solvers (reason = 'self.close (%s)'
-                                     % reason)
         self.close_online_solver ()
 
     def close_online_solver (self):
@@ -850,7 +844,7 @@ class Solver:
             raise ConversationProblem ('(check-sat)', response)
 
         all_ok = True
-        m = {}
+        m = PersistableModel({})
         ucs = []
         if response == 'sat' and model:
             all_ok = self.fetch_model (m)
@@ -1105,6 +1099,7 @@ class Solver:
         os.rename(tmpfilename, filename)
         return filename
 
+    # implements typed_commons.SolverContextProtocol
     def exec_slow_solver(self, input_msgs, timeout, solver):
         filename = self.write_solv_script(input_msgs, solver=solver)
         print ('\nsending input to %s, dump: %s\n--- [' % (solver.origname, filename))
@@ -1121,7 +1116,8 @@ class Solver:
                                  stdin = fd, stdout = subprocess.PIPE,
                                  preexec_fn = preexec (timeout))
         fd.close()
-        return (proc, proc.stdout, filename)
+        execution = OfflineSolverExecution(solver, proc, filename)
+        return execution
 
     def use_slow_solver(self, hyps, model, unsat_core, solver):
         start = time.time ()
@@ -1132,182 +1128,52 @@ class Solver:
         if model != None:
             cmds.append (self.fetch_model_request ())
 
-        (proc, output, filename) = self.exec_slow_solver(cmds,
-                                                         timeout=solver.timeout, solver=solver)
+        execution = self.exec_slow_solver(cmds,
+                                          timeout=solver.timeout,
+                                          solver=solver)
 
-        response = output.readline ().strip ()
+        response = execution.stdout.readline().strip()
         if model != None and response == 'sat':
             assert self.fetch_model_response (model,
-                                              stream = output)
+                                              stream = execution.stdout)
         if unsat_core != None and response == 'unsat':
             trace ('WARNING no unsat core from %s' % solver.name)
             unsat_core.extend ([tag for (_, tag) in hyps])
 
-        output.close ()
+        execution.stdout.close()
 
         if response not in ['sat', 'unsat']:
             trace ('SMT conversation problem after (check-sat)')
 
         end = time.time ()
-        trace ('Got %r from %s on problem %s' % (response, solver.name, filename))
-        trace ('  after %s' % run_time (end - start, proc))
+        trace ('Got %r from %s on problem %s' % (response,
+                                                 solver.name,
+                                                 execution.filename))
+        trace ('  after %s' % run_time (end - start, execution.process))
 
         if model:
             assert self.check_model ([h for (h, _) in hyps], model)
 
         return response
 
-    def add_parallel_solver (self, k, hyps, model, solver):
-        cmds = ['(assert %s)' % hyp for hyp in hyps] + ['(check-sat)']
-        if model != None:
-            cmds.append (self.fetch_model_request ())
-        trace ('  --> new parallel solver %s' % str (k))
-        if k in self.parallel_solvers:
-            raise IndexError ('duplicate parallel solver ID', k)
-        (proc, output, filename) = self.exec_slow_solver(cmds,
-                                                         timeout=solver.timeout, solver=solver)
-        self.parallel_solvers[k] = (hyps, proc, output, filename, solver, model)
-
-    def wait_parallel_solver_step (self):
-        import select
-        assert self.parallel_solvers
-        fds = dict ([(output.fileno (), k) for (k, (_, _, output, _,  _, _))
-                     in self.parallel_solvers.iteritems ()])
-        try:
-            (rlist, _, _) = select.select (fds.keys (), [], [])
-        except KeyboardInterrupt, e:
-            self.close_parallel_solvers (reason = 'interrupted')
-            raise e
-        k = fds[rlist.pop ()]
-        (hyps, proc, output, filename, solver, model) = self.parallel_solvers[k]
-        del self.parallel_solvers[k]
-        response = output.readline ().strip ()
-        trace ('  <-- parallel solver %s closed: %s' % (k, response))
-        trace ('      after %s' % run_time (None, proc))
-        if response not in ['sat', 'unsat']:
-            trace ('SMT conversation problem in parallel solver')
-            trace ('I got %r, but expected one of "sat", "unsat"' % response)
-        trace ('Got %r from %s in parallel on problem %s' % (response, solver.name, filename))
-        m = {}
-        check = None
-        if response == 'sat':
-            last_satisfiable_hyps[0] = hyps
-        if k[0] != 'ModelRepair':
-            if model == None or response != 'sat':
-                output.close ()
-                return (k, hyps, response)
-        # model issues
-        m = {}
-        if model != None:
-            res = self.fetch_model_response (m, stream = output)
-        output.close ()
-        if model != None and not res:
-            # just drop this solver at this point
-            trace ('failed to extract model.')
-            return None
-        if k[0] == 'ModelRepair':
-            (_, k, i) = k
-            (state, hyps) = self.parallel_model_states[k]
-        else:
-            i = 0
-            state = None
-        res = self.check_model_iteration (hyps, state, (response, m))
-        (kind, details) = res
-        if kind == 'Abort':
-            return None
-        elif kind == 'Result':
-            model.update (details)
-            return (k, hyps, 'sat')
-        elif kind == 'Continue':
-            (solv, test_hyps, state) = details
-            self.parallel_model_states[k] = (state, hyps)
-            k = ('ModelRepair', k, i + 1)
-            self.add_parallel_solver (k, test_hyps, solver=solv, model=model)
-            return None
-
-    def wait_parallel_solver (self):
-        while True:
-            assert self.parallel_solvers
-            try:
-                res = self.wait_parallel_solver_step ()
-            except ConversationProblem, e:
-                continue
-            if res != None:
-                return res
-
-    def close_parallel_solvers (self, ks = None, reason = '?'):
-        if ks == None:
-            ks = self.parallel_solvers.keys ()
-        else:
-            ks = [k for k in ks if k in self.parallel_solvers]
-        solvs = [(proc, output) for (_, proc, output, _, _, _)
-                 in [self.parallel_solvers[k] for k in ks]]
-        if ks:
-            trace (' X<-- %d parallel solvers killed: %s'
-                   % (len (ks), reason))
-        for k in ks:
-            del self.parallel_solvers[k]
-        procs = [proc for (proc, _) in solvs]
-        outputs = [output for (_, output) in solvs]
-        for proc in procs:
-            os.killpg (proc.pid, signal.SIGTERM)
-        for output in outputs:
-            output.close ()
-        for proc in procs:
-            os.killpg (proc.pid, signal.SIGKILL)
-            proc.wait ()
-
-    def parallel_check_hyps (self, hyps, env, model = None):
+    def parallel_check_hyps(self, hyps, env, model=None):
         """test a series of keyed hypotheses [(k1, h1), (k2, h2) ..etc]
         either returns (True, -) all hypotheses true
         or (False, ki) i-th hypothesis unprovable"""
         hyps = [(k, hyp) for (k, hyp) in hyps
                 if not self.test_hyp (hyp, env, force_solv = 'Fast',
                                       catch = True, hyp_name = "('hyp', %s)" % k)]
-        assert not self.parallel_solvers
-        if not hyps:
-            return ('unsat', None)
-        all_hyps = foldr1 (syntax.mk_and, [h for (k, h) in hyps])
-        def spawn ((k, hyp), stratkey):
-            goal = smt_expr (syntax.mk_not (hyp), env, self)
-            [self.add_parallel_solver ((solver.name, strat, k),
-                                       [goal], solver=solver, model=model)
-             for (solver, strat) in self.strategy
-             if strat == stratkey]
-        if len (hyps) > 1:
-            spawn ((None, all_hyps), 'all')
-        spawn (hyps[0], 'hyp')
-        solved = 0
-        while True:
-            ((nm, strat, k), _, res) = self.wait_parallel_solver ()
-            if strat == 'all' and res == 'unsat':
-                trace ('  -- hyps all confirmed by %s' % nm)
-                break
-            elif strat == 'hyp' and res == 'sat':
-                trace ('  -- hyp refuted by %s' % nm)
-                break
-            elif strat == 'hyp' and res == 'unsat':
-                ks = [(solver.name, strat, k)
-                      for (solver, strat) in self.strategy]
-                self.close_parallel_solvers (ks,
-                                             reason = 'hyp shown unsat')
-                solved += 1
-                if solved < len (hyps):
-                    spawn (hyps[solved], 'hyp')
-                else:
-                    trace ('  - hyps confirmed individually')
-                    break
-            if not self.parallel_solvers:
-                res = 'timeout'
-                trace ('  - all solvers timed out or failed.')
-                break
-        self.close_parallel_solvers (reason = ('checked %r' % res))
-        return (res, k)
+        ptm = ParallelTaskManager(parent = self, goals = hyps, environment = env, model = model)
+        (response, refuted_hyp, refuted_model) = ptm.run()
+        if response == 'sat' and model is not None:
+            model.update(refuted_model)
+        return (response, refuted_hyp)
 
     def parallel_test_hyps (self, hyps, env, model = None):
-        (res, k) = self.parallel_check_hyps (hyps, env, model)
+        (res, k) = self.parallel_check_hyps(hyps, env, model)
         return (res == 'unsat', k, res)
 
+    # implements typed_commons.SolverContextProtocol
     def fetch_model_request (self):
         vs = self.model_vars
         exprs = self.model_exprs
@@ -1318,6 +1184,7 @@ class Solver:
         vs2 = tuple (vs) + tuple ([nm for (nm, typ) in exprs.values ()])
         return '(get-value (%s))' % ' '.join (vs2)
 
+    # implements typed_commons.SolverContextProtocol
     def fetch_model_response (self, model, stream = None, recursion = False):
         if stream == None:
             stream = self.online_solver.stdout
@@ -1401,6 +1268,7 @@ class Solver:
         self.last_model_acc_hyps = (len (self.model_exprs), hyps)
         return hyps
 
+    # implements typed_commons.SolverContextProtocol
     def check_model_iteration (self, hyps, state, (res, model)):
         """process an iteration of checking a model. the solvers
         sometimes give partially bogus models, which we need to
@@ -1426,7 +1294,7 @@ class Solver:
 
         if cand_model and res == 'sat':
             if ('IsIncomplete', None) not in cand_model:
-                return ('Result', cand_model)
+                return CMIResult(cand_model)
 
         if res == 'sat':
             if set (test) - set (confirmed):
@@ -1438,7 +1306,7 @@ class Solver:
         elif res == 'unsat' and not test:
             printout ("WARNING: inconsistent sat/unsat.")
             inconsistent_hyps.append ((self, hyps, confirmed))
-            return ('Abort', None)
+            return CMIAbort()
         else:
             # since not sat, ignore model contents
             model = None
@@ -1450,8 +1318,10 @@ class Solver:
             r_hyps = get_model_hyps (reduced, self)
             solv = (solvs + self.model_strategy)[0]
             if set (r_hyps) - set (confirmed):
-                return ('Continue', (solv, confirmed + r_hyps,
-                        (confirmed, r_hyps, None, solvs)))
+                return CMIContinue(
+                    next_solver = solv,
+                    next_hypotheses = confirmed + r_hyps,
+                    state = CheckModelIterationState(confirmed, r_hyps, None, solvs))
 
         # ignore the candidate model now, and try to continue with
         # the most recently returned model. that expires the solver
@@ -1459,7 +1329,7 @@ class Solver:
         solvs = solvs[1:]
         if not model and not solvs:
             # out of options
-            return ('Abort', None)
+            return CMIAbort()
         solv = (solvs + self.model_strategy)[0]
 
         if model:
@@ -1467,28 +1337,30 @@ class Solver:
         else:
             model = None
             test_hyps = []
-        return ('Continue', (solv, confirmed + test_hyps,
-                (confirmed, test_hyps, model, solvs)))
+        return CMIContinue(
+            next_solver = solv,
+            next_hypotheses = confirmed + test_hyps,
+            state = CheckModelIterationState(confirmed, test_hyps, model, solvs))
 
     def check_model (self, hyps, model):
         orig_model = model
         state = None
         arg = ('sat', dict (model))
         while True:
-            res = self.check_model_iteration (hyps, state, arg)
+            res = self.check_model_iteration(hyps, state, arg)
             (kind, details) = res
-            if kind == 'Abort':
+            if isinstance(res, CMIAbort):
                 return False
-            elif kind == 'Result':
+            if isinstance(res, CMIResult):
                 orig_model.clear ()
-                orig_model.update (details)
+                orig_model.update(res.candidate_model)
                 return True
-            assert kind == 'Continue'
-            (solv, test_hyps, state) = details
-            m = {}
-            res = self.hyps_sat_raw (test_hyps, model = m,
-                                     force_solv = solv, recursion = True)
-            arg = (res, m)
+            assert isinstance(res, CMIContinue)
+            state = res.state
+            m = typed_commons.PersistableModel({})
+            model_repair_result = self.hyps_sat_raw(res.next_hypotheses, model = m,
+                                                    force_solv = res.next_solver, recursion = True)
+            arg = (model_repair_result, m)
 
     def reduce_model (self, model, hyps):
         all_hyps = hyps + [h for (h, _) in self.assertions]
@@ -1575,7 +1447,7 @@ class Solver:
                         + ' (_ BitVec %d) (ite (= %s %s)'
                         + ' (bvadd %s %s) %s))')
                        % (fname, n, n, top, smt_num (0, n - m),
-                       bot_appx, smt_num (m, n), top_appx))
+                          bot_appx, smt_num (m, n), top_appx))
         elif name == 'WordReverse' and n == 1:
             self.send ('(define-fun %s ((x (_ BitVec 1)))' % fname
                        + ' (_ BitVec 1) x)')
@@ -2149,7 +2021,7 @@ def quick_test (force_solv = False):
     z = syntax.mk_word32 (0)
     env = {('v', word32T): solv.add_var ('v', word32T)}
     solv.assert_fact (syntax.mk_eq (v, z), env)
-    m = {}
+    m = PersistableModel({})
     assert solv.check_hyp (false_term, {}, model = m,
                            force_solv = fs) == 'sat'
     assert m.get ('v') == z, m

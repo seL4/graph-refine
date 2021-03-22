@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: BSD-2-Clause
 #
 
+from typed_commons import PersistableModel
 from solver import Solver, merge_envs_pcs, smt_expr, mk_smt_expr, to_smt_expr
 from syntax import (true_term, false_term, boolT, mk_and, mk_not, mk_implies,
                     builtinTs, word64T, word32T, word8T, foldr1, mk_eq, mk_plus, mk_word64,
@@ -18,7 +19,6 @@ import target_objects
 import problem
 
 import itertools
-
 class VisitCount:
     """Used to represent a target number of visits to a split point.
     Options include a number (0, 1, 2), a symbolic offset (i + 1, i + 2),
@@ -1136,7 +1136,7 @@ class GraphSlice:
         reqs = list (self.pc_env_requests)
         last_test[0] = (self.interpret_hyp (hyp), hyps, reqs)
         self.solv.add_pvalid_dom_assertions ()
-        result = self.solv.parallel_test_hyps (interp_imps, {})
+        result = self.solv.parallel_test_hyps(interp_imps, PersistableModel({}))
         assert result[0] in [True, False], result
         if result[0] == False:
             (hyps, hyp) = imps[result[1]]

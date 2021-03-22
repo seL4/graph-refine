@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: BSD-2-Clause
 #
 
+from typed_commons import PersistableModel
 import solver
 from solver import mk_smt_expr, to_smt_expr, smt_expr
 import check
@@ -206,7 +207,7 @@ class EqSearchKnowledge:
             # instead force a model
             test_expr = false_term
         test_expr = mk_implies (self.premise, test_expr)
-        m = {}
+        m = PersistableModel({})
         (r, _) = self.rep.solv.parallel_check_hyps ([(1, test_expr)],
                                                     {}, model = m)
         if r == 'unsat':
@@ -279,7 +280,7 @@ class SearchKnowledge:
             # instead force a model
             test_expr = false_term
         test_expr = mk_implies (self.premise, test_expr)
-        m = {}
+        m = PersistableModel({})
         (r, _) = self.rep.solv.parallel_check_hyps ([(1, test_expr)],
                                                     {}, model = m)
         if r == 'unsat':
@@ -806,7 +807,7 @@ def get_necessary_split_opts (p, head, restrs, hyps, tags = None):
         vis_hyp = rep_graph.pc_true_hyp ((vis (n, l_start), l_tag))
         vis_hyps = [vis_hyp] + stuff['hyps']
         eq = foldr1 (mk_and, map (rep.interpret_hyp, eqs))
-        m = {}
+        m = PersistableModel({})
         if rep.test_hyp_whyps (eq, vis_hyps, model = m):
             trace ('found necessary split info: (%s, %s), (%s, %s)'
                    % (l_start, l_step, r_start, r_step))
@@ -891,7 +892,7 @@ def get_matching_linear_seqs (rep, head, restrs, hyps, tags):
     vis = stuff['vis']
 
     def get_model (n, offs):
-        m = {}
+        m = PersistableModel({})
         offs_smt = stuff['smt'] (offs, n, 1)
         eq = mk_eq (mk_times (offs_smt, mk_num (4, offs_smt.typ)),
                     mk_num (0, offs_smt.typ))

@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: BSD-2-Clause
 #
 
+from typed_commons import PersistableModel
 import hashlib
 import os.path
 
@@ -921,7 +922,7 @@ def add_recursion_ident (f, group, idents, extra_unfolds):
     rep = rep_graph.mk_graph_slice (p, fast = True)
     (_, env) = rep.get_node_pc_env ((entry, ()))
 
-    m = {}
+    m = PersistableModel({})
     res = rep.test_hyp_whyps (syntax.false_term, assns, model = m)
     assert m
 
