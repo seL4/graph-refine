@@ -15,7 +15,7 @@ use of SMT solvers.
 The design and theory of this tool are described in the paper [Translation
 Validation for a Verified OS Kernel][1] by Sewell, Myreen & Klein.
 
-  [1]: https://ssrg.nicta.com.au/publications/nictaabstracts/Sewell_MK_13.abstract.pml "Translation Validation for a Verified OS Kernel"
+  [1]: https://ts.data61.csiro.au/publications/nictaabstracts/Sewell_MK_13.abstract "Translation Validation for a Verified OS Kernel"
 
 Repository Setup
 ----------------
