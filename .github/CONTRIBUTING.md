@@ -6,7 +6,7 @@
 
 # Contributions Welcome
 
-Please see the [contributing guidelines][1] on the [seL4 website][2] for
+Please see the [seL4 contributing guidelines][1] on the [seL4 website][2] for
 details.
 
 [1]: https://docs.sel4.systems/processes/contributing.html
