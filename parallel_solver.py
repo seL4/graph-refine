@@ -907,7 +907,7 @@ class ParallelTaskManager:
             return []
         startable_goals = self.collect_startable_goals()
         if len(startable_goals) == 0:
-            self.log.warning('no further goals to start')
+            self.log.warning('cannot start new goal, no further goals to start')
             return []
         goal = startable_goals[0]
         return self.start_prove_task([goal], TaskStrategy.HYP)
