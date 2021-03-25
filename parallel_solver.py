@@ -170,7 +170,7 @@ ModelRepairTask = NamedTuple('ModelRepairTask', [('provenance', TaskId),
                                                  ('state', TaskState)])
 # ModelRepairTask.__doc__ = """A task that was created to repair a counter-model to some hypothesis.
 #
-# When an SMT solver refutes one of the goals (or a conjunction thereof), i
+# When an SMT solver refutes one of the goals (or a conjunction thereof), it
 # provides a countermodel, a variable assignment which makes the relevant
 # hypotheses false. Unfortunately, these returned models can be incomplete,
 # as determined by a 'bogus model check'.
@@ -641,7 +641,7 @@ class ParallelTaskManager:
         have to be executed to refine them into complete models usable by the
         'model-guided' search heuristics of `graph-refine`.
 
-        This function is responsible for checking if the taks with the given id
+        This function is responsible for checking if the task with the given id
         has produced such a bogus model. If so, it starts the appropriate model
         repair tasks. Note that a model repair task may itself produce another
         bogus model, in which case another model repair task may be started.
