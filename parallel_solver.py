@@ -112,6 +112,7 @@ KeyedHypothesis = Tuple[Key, Hypothesis]
 
 SMTResponse = List[str]
 
+
 class TaskStrategy(Enum):
     ALL = 0
     HYP = 1
@@ -545,7 +546,6 @@ class ParallelTaskManager:
                                    state=execution)
         return self.add_task_to_pool(new_task)
 
-
     def restart_model_repair_task_change_solver(self, task_id):
         # type: (TaskId) -> Optional[TaskId]
         """Restarts the failed model repair task with the given id using the next available solver.
@@ -808,7 +808,7 @@ class ParallelTaskManager:
         A task is considered 'explicit' if it has exactly one associated goal.
         See `collect_explicit_refutations` for more on the "refuted / explicit
         refuted" distinction.
-        
+
         A goal that is not associated to any (running or finished) task is not
         considered failed: we consider a task failed only if we have started
         _explicit_ attempts to confirm or refute it, but all such attempts have

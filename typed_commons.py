@@ -373,10 +373,6 @@ class ErrorOnlyLogger:  # implements LoggerProtocol
         # type: (str) -> None
         self.tag = the_tag
 
-    def set_function(self, function_name):
-        # type: (str) -> None
-        self.current_function = function_name
-
     def info(self, the_message):
         # type: (str) -> None
         pass
@@ -393,4 +389,3 @@ class ErrorOnlyLogger:  # implements LoggerProtocol
     def raw_print(self, the_message):
         # type: (str) -> None
         print the_message
-
