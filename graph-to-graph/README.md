@@ -10,32 +10,38 @@ Building on the Data 61 Graph Refinement toolset, this tool estimates the Worst 
 
 Dependencies
 ----------
-You will need an operational setup of the graph-refine toolset, follow the instructions on:
-https://github.com/seL4-projects/graph-refine
+You will need an operational setup of the graph-refine toolset.
+Follow its [instructions][graph-refine README].
 
-We have tested SONOLAR
-(http://www.informatik.uni-bremen.de/agbs/florian/sonolar/) and
-CVC4(http://cvc4.cs.nyu.edu/downloads/) and for this setup. The specific
-versions we used were SONOLAR-2014-12-04, CVC4-1.4.
+[graph-refine README]: https://github.com/seL4/graph-refine
+
+We have tested [SONOLAR][] and [CVC4][] for this setup.
+The specific versions we used were SONOLAR-2014-12-04, CVC4-1.4.
+
+[SONOLAR]: http://www.informatik.uni-bremen.de/agbs/florian/sonolar/
+[CVC4]: https://cvc4.github.io/downloads.html
 
 Refer to graph-refine/seL4-example/README.md for details.
 We have tested with this following .solverlist setup:
 
 ---
-
-SONOLAR: offline : (path to sonolar dir/bin/sonolar) --input-format=smtlib2
-CVC4: online: (path to the cvc4-1.4 binary) --incremental --lang smt -tlimit=5000
-
+SONOLAR: offline :: (path to sonolar dir/bin/sonolar) --input-format=smtlib2
+CVC4: online:: (path to the cvc4-1.4 binary) --incremental --lang smt -tlimit=5000
 ---
 
 *NUS Chronos*
 
-The toolchain expects our modified version of the NUS Chronos WCET toolchain (http://www.comp.nus.edu.sg/~rpembed/chronos/) to live at (verification)/chronos4.2/
-Which is avaliable via:
+The toolchain expects our modified version of the
+[NUS Chronos WCET toolchain](http://www.comp.nus.edu.sg/~rpembed/chronos/)
+to live at (verification)/chronos4.2/
 
-`git clone https://github.com/seL4-projects/chronos4.2`
-`cd chronos4.2`
-`make`
+This is avaliable via:
+
+```
+git clone https://github.com/seL4-projects/chronos4.2
+cd chronos4.2
+make
+```
 
 *IBM Cplex 12.6.0.0*
 
@@ -146,7 +152,6 @@ Overview
  - [auto\_infea.py](auto\_infea.py): Repeatedly and automatically eliminate infeasible paths
  - [graph\_to\_graph.py](graph\_to\_graph.py): The command line interface to graph\_to\_graph.
  - [dot\_utils.py](dot\_utils.py): Visualize function graphs, used to debug CFG conversion. It's outdated and requires rewritings.
- - [py\_dot.py](py\_dot.py): A direct copy of Graphviz's dot language Python interface. It's distributed under the MIT license.
  - [chronos/parser.py](chronos/parser.py): An single instruction parser used to emit the IMM file that chronos accepts
  - [chronos/emitter.py](chronos/emitter.py): Our interface to Chronos, generates a CFG in Chronos's IMM format from an immFunction
 
