@@ -391,7 +391,7 @@ class ParallelTaskManager:
         new_state = TaskStateFinished(the_task.state.solver, the_task.state.filename, TaskOutcome.cancelled, [])
         the_task.state.kill()
         self.task_pool[task_id] = self.task_with_state(the_task, new_state)
-        return None
+        return
 
     def _task_id_to_int(self, task_id):
         # type: (TaskId) -> int
@@ -628,17 +628,17 @@ class ParallelTaskManager:
         if the_task.model is None:
             # we won't be returning the model, so we can skip this check
             self.log.info('check elided, no model will be returned')
-            return None
+            return
         assert the_task.model is not None
         if not isinstance(the_task.state, TaskStateFinished):
             self.log.info('check elided, given task is still running')
-            return None
+            return
         assert isinstance(the_task.state, TaskStateFinished)
         if the_task.state.outcome != TaskOutcome.refuted_some:
             if isinstance(the_task, ProveTask):
                 # on ModelRepair, we abort later due to inconsistent sat/unsat
                 self.log.info('check elided, given task did not refute any hypotheses')
-                return None
+                return
             if isinstance(the_task, ModelRepairTask) and the_task.state.outcome == TaskOutcome.failed:
                 self.log.warning('given task may have failed due to faulty solver, changing solver')
                 self.restart_model_repair_task_change_solver(task_id)
@@ -651,7 +651,7 @@ class ParallelTaskManager:
             the_task.model.persist()
             finished_state = self.state_with_outcome(the_task.state, TaskOutcome.failed)
             self.task_pool[task_id] = self.task_with_state(the_task, finished_state)
-            return None
+            return
         assert response_model is not None
         smt_hypothesis = self.smt_expr_from_goals(self.get_goals_by_id(task_id))
         state = the_task.check_model_iteration_result_state if isinstance(the_task, ModelRepairTask) else None
@@ -665,7 +665,7 @@ class ParallelTaskManager:
             the_task.model.persist()
             finished_state = self.state_with_outcome(the_task.state, TaskOutcome.failed)
             self.task_pool[task_id] = self.task_with_state(the_task, finished_state)
-            return None
+            return
         elif isinstance(cmi_verdict, CMIContinue):
             # The model is still bogus (incomplete), but we might be able to repair it by spawning a ModelRepair task.
             self.log.info('model is incomplete, requires repair')
@@ -673,13 +673,13 @@ class ParallelTaskManager:
             finished_state = self.state_with_outcome(the_task.state, TaskOutcome.sent_for_model_repair)
             self.task_pool[task_id] = self.task_with_state(the_task, finished_state)
             self.start_model_repair_task(task_id, the_task.model, cmi_verdict)
-            return None
+            return
         elif isinstance(cmi_verdict, CMIResult):
             # We passed the check, and the model is complete. We return it.
             self.log.info('model is complete, check passed')
             the_task.model.update(cmi_verdict.candidate_model)
             the_task.model.persist()
-            return None
+            return
         raise TypeError('inexhaustive pattern, unknown CheckModelIterationVerdict type %r' % type(cmi_verdict))
 
     def handle_progress(self, task_id):
@@ -709,7 +709,7 @@ class ParallelTaskManager:
         finished_state = TaskStateFinished(original_state.solver, original_state.filename, the_outcome, the_raw_response)
         self.task_pool[task_id] = self.task_with_state(the_task, finished_state)
         self.perform_bogus_model_check(task_id)
-        return None
+        return
 
     def wait_for_progress(self):
         # type: () -> List[TaskId]
@@ -866,7 +866,7 @@ class ParallelTaskManager:
         running_tasks = [id for (id, task) in self.task_pool.iteritems() if isinstance(task.state, OfflineSolverExecution)]
         for task_id in running_tasks:
             self.cancel_task_by_id(task_id)
-        return None
+        return
 
     def start_next_explicit_goal(self):
         # type: () -> List[TaskId]
