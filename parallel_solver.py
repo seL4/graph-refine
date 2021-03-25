@@ -502,8 +502,11 @@ class ParallelTaskManager:
             the_solver: The given solver (to be used to settle the query).
         """
         smt_hypothesis = self.smt_expr_from_goals(goals)
-        execution = self.start_execution([smt_hypothesis], model, the_solver)
-        new_task = ProveTask(goals, strategy, model, execution)
+        model_copy = None  # type: Optional[PersistableModel]
+        if model is not None:
+            model_copy = model.copy()
+        execution = self.start_execution([smt_hypothesis], model_copy, the_solver)
+        new_task = ProveTask(goals, strategy, model_copy, execution)
         return self.add_task_to_pool(new_task)
 
     def start_prove_task(self, goals, strategy):
@@ -519,10 +522,7 @@ class ParallelTaskManager:
             raise ValueError('list of goals must be non-empty')
         self.log.info('starting prove task for %s goal(s)' % len(goals))
         solvers = self.get_solvers_by_strategy(strategy)
-        model = None  # Optional[PersistableModel]
-        if self.model is not None:
-            model = self.model.copy()
-        return [self.start_prove_task_with_solver(goals, strategy, model, solver) for solver in solvers]
+        return [self.start_prove_task_with_solver(goals, strategy, self.model, solver) for solver in solvers]
 
     def start_model_repair_task(self, original_task_id, original_task_model, check_model_iteration_result):
         # type: (TaskId, PersistableModel, CMIContinue) -> TaskId
