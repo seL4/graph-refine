@@ -490,7 +490,7 @@ class ParallelTaskManager:
         confirm or refute a single hypothesis use the HYP strategy.
 
         Args:
-            task_id: The given task id.
+            the_strategy: The given strategy.
         """
         result = []  # type: List[SolverImpl]
         if the_strategy == TaskStrategy.ALL:
