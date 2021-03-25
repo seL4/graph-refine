@@ -394,11 +394,3 @@ class ErrorOnlyLogger:  # implements LoggerProtocol
         # type: (str) -> None
         print the_message
 
-
-# FIXME: remove this legacy class
-class ParallelSolversEntry:
-    def __init__(self, hypotheses, execution, model):
-        # type: (List[Hypothesis], OfflineSolverExecution, Optional[PersistableModel]) -> None
-        self.hypotheses = hypotheses
-        self.execution = execution
-        self.model = model

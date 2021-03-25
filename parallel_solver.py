@@ -284,36 +284,6 @@ class ParallelTaskManager:
                                    with_state)
         raise TypeError('inexhaustive pattern, unknown Task type %r' % type(the_task))
 
-    def task_finished_with_outcome(self, the_task, with_outcome, with_raw_response):
-        # type: (Task, TaskOutcome, SMTResponse) -> Task
-        """Returns a copy of the given running `Task`, with the value of the `state` replaced with a finished state of the given outcome.
-
-        The operation preserves all shared fields between the initial value of
-        the `state` variable (the `OfflineSolverExecution`) and the modified
-        value (the `TaskStateFinished`).
-
-        Note that this does not constitute an in-place update: `Task` objects
-        are immutable, so we return a modified copy instead.
-
-        Warning: this does not kill/close the process associated with the
-        running `Task`!
-
-        Args:
-            the_task: The given task.
-            with_outcome: The given outcome (resulting value of the `state.outcome` field).
-            with_raw_response: The resulting value of the `state.raw_response` field.
-        """
-        if not isinstance(the_task.state, OfflineSolverExecution):
-            self.log.error("cannot finish non-running task %s" % repr(the_task))
-            raise TypeError('expected OfflineSolverExecution, got %s' % type(the_task.state))
-        assert isinstance(the_task.state, OfflineSolverExecution)
-        final_state = TaskStateFinished(the_task.state.solver,
-                                        the_task.state.filename,
-                                        with_outcome,
-                                        with_raw_response)
-        return self.task_with_state(the_task, final_state)
-
-
     def extract_outcome_from_smt_response(self, the_raw_response):
         # type: (SMTResponse) -> TaskOutcome
         """Returns the outcome of a task by parsing its given SMT response.
