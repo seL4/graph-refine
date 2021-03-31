@@ -47,7 +47,7 @@ from typing import (Callable, Dict, FrozenSet, Iterable, Iterator, Mapping, Name
 # boolean variable at invocations corresponding to that node.
 
 # This is the specification for seL4.
-def sel4_recurse_spec_template(finalise_cap_rec: str, cte_delete_rec: str) -> 'RecurseSpec':
+def sel4_recurse_spec_template_O1(finalise_cap_rec: str, cte_delete_rec: str) -> 'RecurseSpec':
     return recurse_spec(
         # The two functions which may recurse.
         recurse={'finaliseCap': finalise_cap_rec,
@@ -63,10 +63,27 @@ def sel4_recurse_spec_template(finalise_cap_rec: str, cte_delete_rec: str) -> 'R
                  (('finaliseCap', 1), 'deletingIRQHandler'),
                  ('cteDeleteOne', ('finaliseCap', 0))))
 
+def sel4_recurse_spec_template_O2(finalise_cap_rec: str, finalise_slot_rec: str) -> 'RecurseSpec':
+    return recurse_spec(
+        # The two functions which may recurse.
+        recurse={'finaliseCap': finalise_cap_rec,
+                 'finaliseSlot': finalise_slot_rec},
+        # `cteDelete` may directly recurse to itself.
+        # The recursive call takes 0 for the controlling argument.
+        include=((('finaliseSlot', 1), ('finaliseSlot', 0)),),
+        # `finaliseCap` may indirectly recurse via `cteDeleteOne`,
+        # but not if the controlling argument took the value 1.
+        # `cteDeleteOne` may call `finaliseCap`, but only the
+        # copy that may not recurse.
+        exclude=((('finaliseCap', 1), 'cteDeleteOne'),
+                 ('cteDeleteOne', ('finaliseCap', 0))))
 
-def sel4_recurse_spec(arch: str) -> 'RecurseSpec':
-    if arch == 'RISCV64':
-        return sel4_recurse_spec_template(finalise_cap_rec='r14', cte_delete_rec='r11')
+
+def sel4_recurse_spec(arch: str, optimisation: str) -> 'RecurseSpec':
+    if arch == 'RISCV64' and optimisation == 'O2':
+        return sel4_recurse_spec_template_O2(finalise_cap_rec='r14', finalise_slot_rec='r12')
+    elif arch == 'RISCV64' and optimisation == 'O1':
+        return sel4_recurse_spec_template_O1(finalise_cap_rec='r14', cte_delete_rec='r11')
     raise NotImplemented
 
 
@@ -76,6 +93,8 @@ def parse_arguments():
                         default='ASMFunctions.txt', help='ASM GraphLang input file')
     parser.add_argument('--elf-txt', metavar='FILE', type=FileType(),
                         default='kernel.elf.txt', help='Disassembled ELF file')
+    parser.add_argument('--optimisation', metavar='OPT', type=str,
+                        default='O1', help='Optimisation level (O1 or O2)')
     return parser.parse_args()
 
 
@@ -619,15 +638,15 @@ def render_stack_usages(usages: Map[str, StackUsage],
     return (f'StackBound {fun} {render(usage)}' for fun, usage in usages.items())
 
 
-def main(asm_functions: TextIO, elf_txt: TextIO):
-    usages = stack_usage(sel4_recurse_spec('RISCV64'), asm_functions, elf_txt)
+def main(asm_functions: TextIO, elf_txt: TextIO, optimisation: str):
+    usages = stack_usage(sel4_recurse_spec('RISCV64', optimisation), asm_functions, elf_txt)
     for usage_line in render_stack_usages(usages, render_stack_usage(bits=64)):
         print(usage_line)
 
 
 def script_main():
     args = parse_arguments()
-    main(args.asm_functions, args.elf_txt)
+    main(args.asm_functions, args.elf_txt, args.optimisation)
 
 
 if __name__ == '__main__':
