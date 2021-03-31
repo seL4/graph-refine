@@ -1,0 +1,12 @@
+strategy: Yices2 all, Yices2 hyp, Yices2-word8 all, Yices2-word8 hyp, CVC4-word8 all, CVC4-word8 hyp
+model-strategy: Yices2-word8, Yices2, CVC4-word8
+online-solver: CVC4
+offline-solver: CVC4
+
+CVC4: online:: SOLVERS_ROOT/cvc4/cvc4-1.8-x86_64-linux-opt --incremental --lang smt --tlimit=5000
+
+CVC4: offline:: SOLVERS_ROOT/cvc4/cvc4-1.8-x86_64-linux-opt --lang smt
+CVC4-word8: offline: mem_mode=8: SOLVERS_ROOT/cvc4/cvc4-1.8-x86_64-linux-opt --lang smt
+
+Yices2: offline:: SOLVERS_ROOT/yices-2.6.2/bin/yices-smt2
+Yices2-word8: offline: mem_mode=8: SOLVERS_ROOT/yices-2.6.2/bin/yices-smt2
