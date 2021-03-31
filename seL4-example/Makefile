@@ -135,9 +135,9 @@ ${TARGET_DIR}/CFunctions.txt: ${L4V_KERNEL_BUILD_PATH}/kernel_all.c_pp ${L4V_REP
 	# FIXME: the following path should really depend on L4V_FEATURES.
 	cp ${L4V_REPO_PATH}/proof/asmrefine/export/${L4V_ARCH}/CFunDump.txt $@
 
-${TARGET_DIR}/target.py: target.py
+${TARGET_DIR}/target.py: target-${L4V_ARCH}.py
 	@mkdir -p ${TARGET_DIR}
-	cp target.py $@
+	cp target-${L4V_ARCH}.py $@
 
 GRAPH_REFINE_INPUTS := \
   ${TARGET_DIR}/kernel.elf.rodata \
