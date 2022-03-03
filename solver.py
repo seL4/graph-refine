@@ -121,7 +121,8 @@ def parse_solver (bits):
 def find_solverlist_file ():
     import os
     import sys
-    path = os.path.abspath (os.getcwd ())
+    solverlist_dir = os.environ.get('GRAPH_REFINE_SOLVERLIST_DIR') or os.getcwd()
+    path = os.path.abspath(solverlist_dir)
     while not os.path.exists (os.path.join (path, '.solverlist')):
         (parent, _) = os.path.split (path)
         if parent == path:
