@@ -283,7 +283,7 @@ def rerun_set(vs):
     strs = [pair.funs[pair.tags[0]] for pair in pairs if pair]
     return ' '.join(strs)
 
-def exitWithUsage():
+def exitWithUsage(args):
     objname = os.path.basename (args[0])
     dirname = os.path.dirname (args[0])
     exname = os.path.join (dirname, 'example')
@@ -326,7 +326,7 @@ def main():
 
     # then we need to load all syntax from target
     if len(args) <= 1:
-        exitWithUsage()
+        exitWithUsage(args)
     target = args[1]
     target_arguments = [ arg[7:] for arg in args if arg.startswith('target:') ]
     target_objects.load_target(target, target_arguments)
