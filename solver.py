@@ -235,7 +235,7 @@ fast_solver, slow_solver, strategy, model_strategy = load_solver_set()
 
 from syntax import (Expr, fresh_name, builtinTs, true_term, false_term,
                     foldr1, mk_or, boolT, word64T, word32T, word16T, word8T, mk_implies, Type, get_global_wrapper)
-from target_objects import structs, rodata, sections, trace, printout
+from target_objects import structs, rodata, sections, trace, printout, target_dir
 from logic import mk_align_valid_ineq, pvalid_assertion1, pvalid_assertion2
 
 import syntax
@@ -1070,33 +1070,38 @@ class Solver:
     def write_solv_script(self, input_msgs, solver = slow_solver,
                           only_if_is_model = False):
         hasher = hashlib.sha256()
-        # write to tmp file (avoids writing into a file being read in parallel)
-        (tmpfd, tmpfilename) = tempfile.mkstemp(suffix='.smt2',
-                                                dir="./logs/tmp/", prefix='temporary-')
-        tmpfile_write = open (tmpfilename, 'w')
+        # Write SMT problems to specified directory, or target directory by default.
+        smt2_dir = os.environ.get('GRAPH_REFINE_SMT2_DIR') or os.path.join(str(target_dir), 'smt2')
+        smt2_dir = os.path.abspath(smt2_dir)
+        if not os.path.exists(smt2_dir):
+            os.mkdir(smt2_dir)
+        # Write to tmp file (avoids writing into a file being read in parallel).
+        (tmpfd, tmpfilename) = tempfile.mkstemp(dir=smt2_dir, prefix='temporary-',
+                                                suffix='.smt2')
+        tmpfile_write = open(tmpfilename, 'w')
         if solver.mem_mode == '8':
             smt_convs = syntax.arch.smt_word8_conversions
         else:
             smt_convs = syntax.arch.smt_native_conversions
         for msg in self.preamble (solver):
-            msg = msg.format (** smt_convs) + '\n'
+            msg = msg.format(**smt_convs) + '\n'
             tmpfile_write.write(msg)
             hasher.update(msg)
         for (msg, is_model) in self.replayable:
             if only_if_is_model and not is_model:
                 continue
-            msg = msg.format (** smt_convs) + '\n'
+            msg = msg.format(**smt_convs) + '\n'
             tmpfile_write.write(msg)
             hasher.update(msg)
         for msg in input_msgs:
-            msg = msg.format (** smt_convs) + '\n'
+            msg = msg.format(**smt_convs) + '\n'
             tmpfile_write.write(msg)
             hasher.update(msg)
         tmpfile_write.close()
         os.close(tmpfd)
         # atomic move file to its permanent location (named by problem hash)
         sha256sum = hasher.hexdigest()
-        filename = './logs/tmp/%s.smt2' % sha256sum
+        filename = os.path.join(smt2_dir, '%s.smt2' % sha256sum)
         os.rename(tmpfilename, filename)
         return filename
 
