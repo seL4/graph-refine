@@ -64,14 +64,6 @@ $(if ${SOLV_TEST},,$(error Solver self-test failed (${SOLV} test)))
 
 # compile and decompile
 
-${TARGET_DIR}/summary.txt: ${TARGET_DIR}/kernel_all.c_pp
-	echo Summary > pre_summary.txt
-	bash mk_summ ${SOURCE_ROOT} >> pre_summary.txt
-	bash mk_summ ${L4V_REPO_PATH} >> pre_summary.txt
-	bash mk_summ ${HOL4_ROOT} >> pre_summary.txt
-	bash mk_summ . >> pre_summary.txt
-	mv pre_summary.txt summary.txt
-
 KERNEL_FILES := kernel.elf.rodata kernel.elf.txt kernel.elf.symtab kernel_all.c_pp kernel.sigs kernel.elf
 TARGET_FILES := target.py CFunctions.txt ASMFunctions.txt
 
@@ -120,12 +112,12 @@ ${L4V_KERNEL_BUILD_PATH}/kernel_all.c_pp: ${KERNEL_DEPS} ${CONFIG_DOMAIN_SCHEDUL
 
 # the straight decompiler output, without post-processing
 ${TARGET_DIR}/ASMFunctions.raw: ${TARGET_DIR}/kernel.elf.txt ${TARGET_DIR}/kernel.sigs
-	cd ${TARGET_DIR} && PATH=${H4PATH} ${DECOMP_SCRIPT} --fast ./kernel --ignore=${IGNORES_${L4V_CONFIG}}
+	PATH=${H4PATH} ${DECOMP_SCRIPT} --fast ${TARGET_DIR}/kernel --ignore=${IGNORES_${L4V_CONFIG}}
 	mv ${TARGET_DIR}/kernel_mc_graph.txt $@
 
 ${TARGET_DIR}/ASMFunctions.txt: ${TARGET_DIR}/ASMFunctions.raw ${TARGET_DIR}/kernel.elf.txt
 	# AUIPC fixup
-	python2 ${GREF_ROOT}/tools/check_addr.py ${TARGET_DIR}/ASMFunctions.raw ${TARGET_DIR}/kernel.elf.txt $@
+	python2 ${GREF_ROOT}/scripts/check_addr.py ${TARGET_DIR}/ASMFunctions.raw ${TARGET_DIR}/kernel.elf.txt $@
 	# sfence_vma fix-up
 	sed -i 's/sfence_vma/sfence.vma/g' $@
 
@@ -151,7 +143,7 @@ GRAPH_REFINE := python2 ${GREF_ROOT}/graph-refine.py
 
 ${TARGET_DIR}/StackBounds.txt: ${GRAPH_REFINE_INPUTS}
 	# FIXME: this script is arch-specific (RISCV64)
-	python3 ${GREF_ROOT}/tools/stack_bounds.py --asm-functions ${TARGET_DIR}/ASMFunctions.txt --elf-txt ${TARGET_DIR}/kernel.elf.txt > $@
+	python3 ${GREF_ROOT}/scripts/stack_bounds.py --asm-functions ${TARGET_DIR}/ASMFunctions.txt --elf-txt ${TARGET_DIR}/kernel.elf.txt > $@
 
 ${TARGET_DIR}/demo-report.txt: ${TARGET_DIR}/StackBounds.txt ${GRAPH_REFINE_INPUTS}
 	${GRAPH_REFINE} ${TARGET_DIR} trace-to:$@.partial deps:Kernel_C.cancelAllIPC
