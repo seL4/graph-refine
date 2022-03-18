@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 
+# Copyright 2021, Data61, CSIRO (ABN 41 687 119 230)
+# Copyright 2022, Kry10 Limited
+# SPDX-License-Identifier: BSD-2-Clause
+
 # Generate StackBounds.txt from ASMFunctions.txt and kernel.elf.txt.
 
 # This is a temporary replacement for the StackBounds computation in
@@ -14,10 +18,13 @@
 
 # Requires Python 3.8 (for Protocol typing)
 
+import os
 import re
+import sys
+
 from argparse import ArgumentParser, FileType
 from typing import (Callable, Dict, FrozenSet, Iterable, Iterator, Mapping, NamedTuple,
-                    Optional, Set, TextIO, Tuple, TypeVar, Union, List, Protocol)
+                    Optional, Sequence, Set, TextIO, Tuple, TypeVar, Union, List, Protocol)
 
 
 # As in the original graph-refine StackBounds computation, we allow for
@@ -36,18 +43,30 @@ from typing import (Callable, Dict, FrozenSet, Iterable, Iterator, Mapping, Name
 # those which may not. Stack usage bounds are then given as conditional
 # expressions in terms of that argument.
 
-# To specify how to construct a non-recursive call graph, we give a
-# mapping from the functions that may recurse to the name of the
-# register used for the argument which controls recursion. We also give
-# lists of edges to include and exclude from the modified graph. An edge
-# is given as a pair of nodes. A node is given in one of two forms. For
-# a function which does not recurse, the node is simply given as the
-# name of the function. For each recursive function, we create two
+# To specify how to construct a non-recursive call graph, we first give
+# a mapping from each function that may recurse to a GraphLang
+# expression for the argument which controls recursion. The latter may
+# be a register or a stack slot. Each specified function is split into a
+# pair of nodes, with each node in the pair given as a tuple of the
+# function name and one of the two possible values of the boolean
+# controlling argument. In the resulting graph, each of the split nodes
+# initially has the same edges as in the original graph.
+
+# To make the graph non-recursive, we then give lists of edges to
+# include and exclude from the modified graph. An edge is given as a
+# pair of nodes. A node is given in one of two forms. For a function
+# which does not recurse, the node is simply given as the name of the
+# function. As noted above, each functions that may recurse has two
 # nodes, each given as a pair of the function name and the value of the
 # boolean variable at invocations corresponding to that node.
 
-# This is the specification for seL4.
-def sel4_recurse_spec_template_O1(finalise_cap_rec: str, cte_delete_rec: str) -> 'RecurseSpec':
+# Following are the specifications for seL4, compiled with GCC 10.3. We
+# have several different specifications, since different compilers,
+# configurations and optimisation levels result in different functions
+# being inlined. We try all configurations until we find one that
+# results in an acyclic graph.
+
+def sel4_recurse_spec_O1(finalise_cap_rec: str, cte_delete_rec: str) -> 'RecurseSpec':
     return recurse_spec(
         # The two functions which may recurse.
         recurse={'finaliseCap': finalise_cap_rec,
@@ -63,28 +82,56 @@ def sel4_recurse_spec_template_O1(finalise_cap_rec: str, cte_delete_rec: str) ->
                  (('finaliseCap', 1), 'deletingIRQHandler'),
                  ('cteDeleteOne', ('finaliseCap', 0))))
 
-def sel4_recurse_spec_template_O2(finalise_cap_rec: str, finalise_slot_rec: str) -> 'RecurseSpec':
+
+def sel4_recurse_spec_O2(finalise_cap_rec: str, finalise_slot_rec: str) -> 'RecurseSpec':
     return recurse_spec(
         # The two functions which may recurse.
         recurse={'finaliseCap': finalise_cap_rec,
                  'finaliseSlot': finalise_slot_rec},
-        # `cteDelete` may directly recurse to itself.
+        # `finaliseSlot` may directly recurse to itself.
         # The recursive call takes 0 for the controlling argument.
         include=((('finaliseSlot', 1), ('finaliseSlot', 0)),),
-        # `finaliseCap` may indirectly recurse via `cteDeleteOne`,
+        # `finaliseCap` may indirectly recurse via `cteDeleteOne` or `cancelIPC`,
         # but not if the controlling argument took the value 1.
-        # `cteDeleteOne` may call `finaliseCap`, but only the
-        # copy that may not recurse.
+        # `cteDeleteOne` may call `finaliseCap`, but only the # copy that may not recurse.
         exclude=((('finaliseCap', 1), 'cteDeleteOne'),
+                 (('finaliseCap', 1), 'cancelIPC'),
                  ('cteDeleteOne', ('finaliseCap', 0))))
 
 
-def sel4_recurse_spec(arch: str, optimisation: str) -> 'RecurseSpec':
-    if arch == 'RISCV64' and optimisation == 'O2':
-        return sel4_recurse_spec_template_O2(finalise_cap_rec='r14', finalise_slot_rec='r12')
-    elif arch == 'RISCV64' and optimisation == 'O1':
-        return sel4_recurse_spec_template_O1(finalise_cap_rec='r14', cte_delete_rec='r11')
-    raise NotImplemented
+def empty_spec() -> 'RecurseSpec':
+    return recurse_spec(recurse={}, include=(), exclude=())
+
+
+def mk_stack_access(offset: int, stack_pointer: str, bits: int) -> str:
+    word = f'Word {bits}'
+    sp = f'Var {stack_pointer} {word}'
+
+    def stack_acc(addr: str) -> str:
+        return f'Op MemAcc {word} 2 Var stack Mem {addr}'
+
+    if offset:
+        return stack_acc(f'Op Plus {word} 2 {sp} Num {offset} {word}')
+    else:
+        return stack_acc(sp)
+
+
+def sel4_recurse_specs(arch: str) -> List['RecurseSpec']:
+    empty = empty_spec()
+    if arch == 'ARM':
+        finalise_cap_rec = mk_stack_access(offset=0, stack_pointer='r13', bits=32)
+        return [sel4_recurse_spec_O1(finalise_cap_rec=finalise_cap_rec,
+                                     cte_delete_rec='Var r1 Word 32'),
+                sel4_recurse_spec_O2(finalise_cap_rec=finalise_cap_rec,
+                                     finalise_slot_rec='Var r2 Word 32'),
+                empty]
+    if arch == 'RISCV64':
+        return [sel4_recurse_spec_O1(finalise_cap_rec='Var r14 Word 64',
+                                     cte_delete_rec='Var r11 Word 64'),
+                sel4_recurse_spec_O2(finalise_cap_rec='Var r14 Word 64',
+                                     finalise_slot_rec='Var r12 Word 64'),
+                empty]
+    return [empty]
 
 
 def parse_arguments():
@@ -93,8 +140,9 @@ def parse_arguments():
                         default='ASMFunctions.txt', help='ASM GraphLang input file')
     parser.add_argument('--elf-txt', metavar='FILE', type=FileType(),
                         default='kernel.elf.txt', help='Disassembled ELF file')
-    parser.add_argument('--optimisation', metavar='OPT', type=str,
-                        default='O1', help='Optimisation level (O1 or O2)')
+    parser.add_argument('--arch', metavar='L4V_ARCH', choices=('ARM', 'RISCV64'),
+                        default=os.environ.get('L4V_ARCH'),
+                        help='Architecture (ARM or RISCV64)')
     return parser.parse_args()
 
 
@@ -201,7 +249,7 @@ class ElfFunction(NamedTuple):
 
 ElfFunctions = Map[str, ElfFunction]
 
-elf_file_format_re = re.compile(r'.+:\s+file format elf64-littleriscv')
+elf_file_format_re = re.compile(r'.+:\s+file format elf(?:32|64)-(?:\w+)')
 elf_section_head_re = re.compile(r'Disassembly of section (?P<section>\S+):')
 elf_symbol_head_re = re.compile(r'(?P<addr>\w+) <(?P<name>\S+)>:')
 elf_instr_re = re.compile(r'(?P<addr>\w+):\t(?P<bin>\w+)\s+\t(?P<opcode>\S+)(?:\t(?P<args>.+))?')
@@ -314,24 +362,55 @@ def parse_elf_txt(elf_txt: TextIO) -> ElfFunctions:
         elf_txt.close()
 
 
-stack_usage_re = re.compile(r'sp,sp,-(?P<bytes>\d+)')
+ElfInstrUsage = Callable[[ElfInstr], int]
+NodeUsage = Callable[[Node], int]
+
+arm_instr_push_re = re.compile(r'{(?P<regs>\w+(?:,\s*\w+)*)}')
+arm_instr_sub_sp_re = re.compile(r'sp,\s*sp,\s*#(?P<bytes>\d+)(?:\s+;.*)?')
 
 
-def instr_stack_usage(instr: ElfInstr) -> int:
+def arm_instr_usage(instr: ElfInstr) -> int:
+    if instr.opcode == 'push':
+        assert instr.args is not None
+        match = arm_instr_push_re.match(instr.args)
+        return len(match['regs'].split(',')) * 4 if match else 0
+    if instr.opcode == 'sub':
+        assert instr.args is not None
+        match = arm_instr_sub_sp_re.fullmatch(instr.args)
+        return int(match['bytes']) if match else 0
+    return 0
+
+
+riscv64_instr_usage_re = re.compile(r'sp,sp,-(?P<bytes>\d+)')
+
+
+def riscv64_instr_usage(instr: ElfInstr) -> int:
     if instr.opcode == 'addi':
         assert instr.args is not None
-        match = stack_usage_re.fullmatch(instr.args)
+        match = riscv64_instr_usage_re.fullmatch(instr.args)
         if match:
             return int(match['bytes'])
     return 0
 
 
-def node_stack_usage(node: ElfNode) -> int:
-    return node.elim(instr_stack_usage, lambda _: 0)
+arch_instr_usage: Map[str, ElfInstrUsage] = Map({'ARM': arm_instr_usage,
+                                                 'RISCV64': riscv64_instr_usage})
 
 
-def elf_fun_stack_usage(fun: ElfFunction) -> int:
-    return sum(node_stack_usage(node) for node in fun.nodes.values())
+def elf_funs_stack_usage(funs: ElfFunctions, instr_usage: ElfInstrUsage) -> NodeUsage:
+
+    def node_usage(node: ElfNode) -> int:
+        return node.elim(instr_usage, lambda _: 0)
+
+    def fun_usage(fun: ElfFunction) -> int:
+        return sum(node_usage(node) for node in fun.nodes.values())
+
+    function_usages: Map[str, int] = Map({name: fun_usage(fun) for name, fun in funs.items()})
+
+    def get_usage(fun: Node) -> int:
+        return function_usages.get(unsplit_label(fun), 0)
+
+    return get_usage
 
 
 class AsmNode(Protocol):
@@ -540,18 +619,11 @@ def checked_acyclic_call_graph_of(cyclic_graph: Graph[str], spec: RecurseSpec) -
     return acyclic_graph
 
 
-def elf_funs_stack_usage(funs: ElfFunctions) -> Callable[[Node], int]:
-    def usage(fun: Node) -> int:
-        return elf_fun_stack_usage(funs.get(unsplit_label(fun), ElfFunction()))
-
-    return usage
-
-
 class CyclicGraph(Exception):
     pass
 
 
-def acyclic_stack_usages(graph: Graph[Node], local_usage: Callable[[Node], int]) -> Map[Node, int]:
+def acyclic_stack_usages(graph: Graph[Node], local_usage: NodeUsage) -> Map[Node, int]:
     global_usage: Dict[Node, int] = {}
 
     # We check that the graph is acyclic as we go.
@@ -596,9 +668,14 @@ class SplitStackUsage(NamedTuple):
         return split(self)
 
 
+class StackUsages(NamedTuple):
+    spec: RecurseSpec
+    usages: Map[str, StackUsage]
+
+
 def cyclic_stack_usage(funs: Iterable[str],
                        spec: RecurseSpec,
-                       node_usages: Map[Node, int]) -> Map[str, StackUsage]:
+                       node_usages: Map[Node, int]) -> StackUsages:
     def usage(fun: str) -> StackUsage:
         if fun in spec.recurse:
             return SplitStackUsage(control=spec.recurse[fun],
@@ -607,14 +684,26 @@ def cyclic_stack_usage(funs: Iterable[str],
         else:
             return SimpleStackUsage(usage=node_usages[fun])
 
-    return Map({fun: usage(fun) for fun in funs})
+    usages = Map({fun: usage(fun) for fun in funs})
+    return StackUsages(spec=spec, usages=usages)
 
 
-def stack_usage(spec: RecurseSpec, asm_functions: TextIO, elf_txt: TextIO) -> Map[str, StackUsage]:
+def stack_usage(specs: Sequence[RecurseSpec], asm_functions: TextIO, node_usage: NodeUsage) -> StackUsages:
     call_graph: Graph[str] = call_graph_of(parse_asm_functions(asm_functions))
-    usage: Map[Node, int] = acyclic_stack_usages(acyclic_graph_of(call_graph, spec),
-                                                 elf_funs_stack_usage(parse_elf_txt(elf_txt)))
-    return cyclic_stack_usage(call_graph.keys(), spec, usage)
+    for spec in specs:
+        try:
+            usage: Map[Node, int] = acyclic_stack_usages(
+                acyclic_graph_of(call_graph, spec), node_usage)
+            return cyclic_stack_usage(call_graph.keys(), spec, usage)
+        except CyclicGraph:
+            pass
+    # Modified graph was still cyclic, so find all cycles in the original graph.
+    import networkx  # type: ignore
+    nx_graph = networkx.DiGraph()
+    nx_graph.add_nodes_from(call_graph.values())
+    nx_graph.add_edges_from([(x, y) for x, ys in call_graph.items() for y in ys])
+    cycles = list(networkx.simple_cycles(nx_graph))
+    raise CyclicGraph(cycles)
 
 
 def render_stack_usage(bits: int) -> Callable[[StackUsage], str]:
@@ -623,7 +712,7 @@ def render_stack_usage(bits: int) -> Callable[[StackUsage], str]:
 
     def render_split(split_usage: SplitStackUsage) -> str:
         return (f'Op IfThenElse Word {bits} 3'
-                + f' Op Equals Bool 2 Var {split_usage.control} Word {bits} Num 0 Word {bits}'
+                + f' Op Equals Bool 2 {split_usage.control} Num 0 Word {bits}'
                 + f' Num {split_usage.usage_0} Word {bits}'
                 + f' Num {split_usage.usage_1} Word {bits}')
 
@@ -638,15 +727,26 @@ def render_stack_usages(usages: Map[str, StackUsage],
     return (f'StackBound {fun} {render(usage)}' for fun, usage in usages.items())
 
 
-def main(asm_functions: TextIO, elf_txt: TextIO, optimisation: str):
-    usages = stack_usage(sel4_recurse_spec('RISCV64', optimisation), asm_functions, elf_txt)
-    for usage_line in render_stack_usages(usages, render_stack_usage(bits=64)):
+def main(asm_functions: TextIO, elf_txt: TextIO, arch: str, bits: int):
+    elf_usage = elf_funs_stack_usage(parse_elf_txt(elf_txt), arch_instr_usage[arch])
+    usages = stack_usage(sel4_recurse_specs(arch), asm_functions, elf_usage)
+    for usage_line in render_stack_usages(usages.usages, render_stack_usage(bits=bits)):
         print(usage_line)
+
+
+arch_bits = {'ARM': 32, 'RISCV64': 64}
 
 
 def script_main():
     args = parse_arguments()
-    main(args.asm_functions, args.elf_txt, args.optimisation)
+    if args.arch is None:
+        print('error: stack_bounds: neither --arch nor L4V_ARCH was supplied',
+              file=sys.stderr)
+        exit(1)
+    main(asm_functions=args.asm_functions,
+         elf_txt=args.elf_txt,
+         arch=args.arch,
+         bits=arch_bits[args.arch])
 
 
 if __name__ == '__main__':
