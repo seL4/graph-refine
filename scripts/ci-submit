@@ -1,0 +1,47 @@
+#!/bin/bash
+
+# Copyright 2022, Kry10 Limited.
+# SPDX-License-Identifier: BSD-2-Clause
+
+# Submit a job from GitHub CI to the graph-refine back end.
+# Takes arguments:
+# - Path of a directory on GitHub CI containing the job to submit.
+# Requires environment variables to be set:
+# - BV_CI_JOB_DIR: path on the back-end host of the graph-refine job directory.
+# - BV_SSH_CONFIG: SSH config file contents for a `graph-refine` host.
+# - BV_SSH_KEY: private key with access to a user on the `graph-refine` host.
+# - BV_SSH_KNOWN_HOSTS: SSH known hosts file contents.
+# Assumes that this script is running from a `graph-refine` checkout,
+# where it will be able to find the `dir_hash.py` script.
+
+set -euo pipefail
+
+JOB_DIR="$1"
+[ -d "${JOB_DIR}" ] || exit 1
+
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
+
+JOB_ID=$("${SCRIPT_DIR}/dir_hash.py" "${JOB_DIR}")
+[ -n "${JOB_ID}" ] || exit 1
+
+SSH_CONFIG_DIR=$(mktemp -d)
+cleanup() { rm -rf "${SSH_CONFIG_DIR}"; }
+trap cleanup EXIT
+
+touch "${SSH_CONFIG_DIR}"/key
+chmod 0700 "${SSH_CONFIG_DIR}"/key
+cat > "${SSH_CONFIG_DIR}"/key <<< "${BV_SSH_KEY}"
+cat > "${SSH_CONFIG_DIR}"/hosts <<< "${BV_SSH_KNOWN_HOSTS}"
+
+# The config should define how to connect to a host named `graph-refine`.
+cat > "${SSH_CONFIG_DIR}"/config <<EOF
+${BV_SSH_CONFIG}
+Host *
+IdentityFile ${SSH_CONFIG_DIR}/key
+UserKnownHostsFile ${SSH_CONFIG_DIR}/hosts
+EOF
+
+bv_ssh() { ssh -F "${SSH_CONFIG_DIR}"/config graph-refine "$@"; }
+
+# Assumes that the bv_ssh user has a script `graph-refine/submit`.
+tar -cJf - -C "${JOB_DIR}" . | bv_ssh graph-refine/scripts/ci-receive "${JOB_ID}" "${BV_CI_JOB_DIR}"
