@@ -16,8 +16,13 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout graph-refine
+      - name: Checkout graph-refine (RISCV64)
         uses: actions/checkout@v3
+      - name: Checkout graph-refine (ARM)
+        uses: actions/checkout@v3
+        with:
+          path: ARM
+          ref: master
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v1
         with:
@@ -45,13 +50,22 @@ jobs:
           name: sel4-bv
           authToken: "${{ secrets.BV_CACHIX_AUTH_TOKEN }}"
       - name: Build graph-refine
-        run: nix-build -A graph-refine-image -o graph-refine-image nix/graph-refine.nix
-      - name: Load and tag graph-refine image
+        shell: bash
+        run: |
+          build_archs() { nix-build --arg graph_refine_srcs "{ RISCV64 = ./.; ARM = ./ARM; }" "$@"; }
+          build_image() { build_archs -A "$1" -o "$1" nix/graph-refine.nix; }
+          build_image graph-refine-image
+          build_image graph-refine-parallel-image
+      - name: Load and tag graph-refine images
         run: |
           ./graph-refine-image | docker load
+          ./graph-refine-parallel-image | docker load
           IMAGE_TAG="$(docker image ls --format '{{.Tag}}' graph-refine)"
-          docker tag "graph-refine:$IMAGE_TAG" ghcr.io/sel4/graph-refine-riscv64:latest
-          docker tag "graph-refine:$IMAGE_TAG" ghcr.io/sel4/graph-refine-riscv64:"$IMAGE_TAG"
+          PAR_IMAGE_TAG="$(docker image ls --format '{{.Tag}}' graph-refine-parallel)"
+          docker tag "graph-refine:$IMAGE_TAG" ghcr.io/sel4/graph-refine:latest
+          docker tag "graph-refine:$IMAGE_TAG" ghcr.io/sel4/graph-refine:"$IMAGE_TAG"
+          docker tag "graph-refine-parallel:$PAR_IMAGE_TAG" ghcr.io/sel4/graph-refine-parallel:latest
+          docker tag "graph-refine-parallel:$PAR_IMAGE_TAG" ghcr.io/sel4/graph-refine-parallel:"$PAR_IMAGE_TAG"
       - name: Set up Python
         uses: actions/setup-python@v2
       - name: Checkout HOL4 and polyml
@@ -67,7 +81,8 @@ jobs:
       - name: Push Docker images
         if: github.event_name == 'push' || github.event_name == 'schedule'
         run: |
-          docker push --all-tags ghcr.io/sel4/graph-refine-riscv64
+          docker push --all-tags ghcr.io/sel4/graph-refine
+          docker push --all-tags ghcr.io/sel4/graph-refine-parallel
           docker push --all-tags ghcr.io/sel4/decompiler
       - name: Push upstream branches
         if: github.event_name == 'push' || github.event_name == 'schedule'
