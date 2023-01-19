@@ -1,25 +1,19 @@
-# Copyright (c) 2022, Kry10 Limited.
+# Copyright 2023 Kry10 Limited
 # SPDX-License-Identifier: BSD-2-Clause
 
 # Packages graph-refine and a solver configuration as a Nix derivation,
 # and also produces a Docker image.
 
-{
-  pkgs ? import <nixpkgs> {},
-  solver_config ? {},
-  graph_refine_srcs ? { RISCV64 = ../.; },
-}:
-
-with pkgs;
-with lib;
-with stdenv;
-
-with (import ./util.nix { inherit pkgs; });
-with (import ./solvers.nix { inherit pkgs solver_config; });
+{ solver_config ? {} }:
 
 let
 
-  graph-refine-python = python2.withPackages (python-pkgs: with python-pkgs; [
+  inherit (import ./pins.nix) pkgs python_2_7_pkgs lib stdenv;
+  inherit (import ./util.nix) explicit_sources;
+
+  solvers = import ./solvers.nix { inherit solver_config; };
+
+  graph-refine-python =  python_2_7_pkgs.python2.withPackages (python-pkgs: with python-pkgs; [
     enum34 typing psutil
   ]);
 
@@ -48,89 +42,81 @@ let
   ];
 
   # Byte-code-compiled Python sources.
-  # Parameterised by architecture and source location, so that we can use
-  # different implementations for different architectures.
-  graph-refine-py = arch: src:
+  graph-refine-py = with lib;
     let
-      paths = paths_absolute (toString src + "/") (paths_with_dir_prefixes graph-refine-modules);
-      arch_suffix = name: name + "-" + arch;
-      srcs = cleanSourceWith rec {
-        name = arch_suffix "graph-refine-sources";
-        inherit src;
-        filter = path: type: hasAttr (toString path) paths;
-      };
-      py = mkDerivation rec {
-        name = arch_suffix "graph-refine-py";
-        src = srcs;
+      modules = toString graph-refine-modules;
+      py = stdenv.mkDerivation rec {
+        name = "graph-refine-py";
+        src = explicit_sources "graph-refine-sources" ./.. graph-refine-modules;
         installPhase = ''
           mkdir -p $out
-          (cd $src && cp --preserve=all *py $out)
-          (cd $out && ${graph-refine-python.interpreter} -m compileall *.py)
+          (cd $src && tar cf - ${modules}) | (cd $out && tar xf -)
+          (cd $out && ${graph-refine-python.interpreter} -m compileall ${modules})
         '';
       };
     in py;
 
-  # Wrapper that dispatches to the graph-refine version indicated
-  # by the L4V_ARCH environment variable, and also passes additional
-  # environment variables to graph-refine.
-  # We use runCommand instead of writeScriptBin so we can grab the
-  # store path from `$out`.
+  # Wrapper that sets environment variables for graph-refine.
+  # We use runCommand instead of writeScriptBin so we can grab the store path from `$out`.
   graph-refine =
     let
-      case = arch: src: "\"${arch}\") GRAPH_REFINE_PY=\"${graph-refine-py arch src}\";;";
-      cmd = ''
+      text = ''
+        #!${pkgs.runtimeShell}
+        set -euo pipefail
+        export GRAPH_REFINE_SOLVERLIST_DIR="${solvers.solverlist}"
+        export GRAPH_REFINE_VERSION_INFO="NIX_STORE_PATH NIX_GRAPH_REFINE_OUTPUT_DIR"
+        exec "${graph-refine-python.interpreter}" "${graph-refine-py}/graph-refine.py" "$@"
+      '';
+      deriv_args = { inherit text; passAsFile = [ "text" ]; nativeBuildInputs = [pkgs.perl]; };
+      script = pkgs.runCommand "graph-refine" deriv_args ''
         mkdir -p "$out/bin"
-        cat > "$out/bin/graph-refine" <<EOF
-        #!${runtimeShell}
-        case "\$L4V_ARCH" in
-          ${concatStringsSep "\n  " (mapAttrsToList case graph_refine_srcs)}
-          "") echo "error: graph-refine: L4V_ARCH was not set" >&2 && exit 1;;
-          *) echo "error: graph-refine: unsupported L4V_ARCH \"\$L4V_ARCH\"" >&2 && exit 1;;
-        esac
-        export GRAPH_REFINE_SOLVERLIST_DIR="${solverlist}"
-        export GRAPH_REFINE_VERSION_INFO="NIX_STORE_PATH $(basename $out)"
-        exec "${graph-refine-python.interpreter}" "\$GRAPH_REFINE_PY/graph-refine.py" "\$@"
-        EOF
+        out_dir="$(basename "$out")"
+        perl -pe "s/\bNIX_GRAPH_REFINE_OUTPUT_DIR\b/$out_dir/" "$textPath" > "$out/bin/graph-refine"
         chmod +x "$out/bin/graph-refine"
       '';
-    in runCommand "graph-refine" {} cmd;
+    in script;
 
   # A graph-refine Docker image.
-  graph-refine-image = dockerTools.streamLayeredImage {
+  graph-refine-image = with pkgs; dockerTools.streamLayeredImage {
     name = "graph-refine";
     contents = [ bashInteractive coreutils graph-refine graph-refine-python ];
-    config = { Entrypoint = "${graph-refine}/bin/graph-refine"; };
+    config = { Entrypoint = [ "${graph-refine}/bin/graph-refine" ]; };
   };
 
-  graph-refine-parallel-py = runCommand "graph-refine-parallel-py" {} ''
+  graph-refine-runner-py = with pkgs; runCommand "graph-refine-runner-py" {} ''
     mkdir -p "$out"
-    cp --preserve=all "${../queue/worker.py}" "$out/graph-refine-parallel.py"
-    (cd "$out" && "${python3.interpreter}" -m compileall "graph-refine-parallel.py")
+    cp --preserve=all "${../ci/runner.py}" "$out/graph-refine-runner.py"
+    (cd "$out" && "${python3.interpreter}" -m compileall "graph-refine-runner.py")
   '';
 
-  graph-refine-parallel = writeScriptBin "graph-refine-parallel" ''
+  graph-refine-runner = with pkgs; writeScriptBin "graph-refine-runner" ''
     #!${runtimeShell}
     export GRAPH_REFINE_SCRIPT="${graph-refine}/bin/graph-refine"
-    exec "${python3.interpreter}" "${graph-refine-parallel-py}/graph-refine-parallel.py" "$@"
+    exec "${python3.interpreter}" "${graph-refine-runner-py}/graph-refine-runner.py" "$@"
   '';
 
-  graph-refine-parallel-image = dockerTools.streamLayeredImage {
-    name = "graph-refine-parallel";
+  graph-refine-runner-image = with pkgs; dockerTools.streamLayeredImage {
+    name = "graph-refine-runner";
     contents = [
       bashInteractive coreutils
-      graph-refine graph-refine-parallel
+      graph-refine graph-refine-runner
       graph-refine-python python3
+      sqlite
     ];
-    config = { Entrypoint = "${graph-refine-parallel}/bin/graph-refine-parallel"; };
+    config = { Entrypoint = [ "${graph-refine-runner}/bin/graph-refine-runner" ]; };
   };
 
 in {
+
   inherit
     graph-refine
     graph-refine-image
-    graph-refine-parallel
-    graph-refine-parallel-image
-    graph-refine-python
+    graph-refine-runner
+    graph-refine-runner-image
+    graph-refine-python;
+
+  inherit (solvers)
     solverlist
     solvers;
+
 }

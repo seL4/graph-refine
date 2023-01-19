@@ -4,9 +4,11 @@
 # SPDX-License-Identifier: BSD-2-Clause
 
 import argparse
+import itertools
 import mmap
 import os
 import subprocess
+import sys
 import textwrap
 
 from pathlib import Path
@@ -75,12 +77,13 @@ class DecompileLocal(NamedTuple):
 
 
 class DecompileDocker(NamedTuple):
+    command: str
     image: str
     args: Args
 
     def decompile(self) -> None:
         target_dir = self.args.filename_prefix.parent
-        cmd = ['docker', 'run', '--rm', '-i',
+        cmd = [self.command, 'run', '--rm', '-i',
                '--mount', f'type=bind,source={target_dir},dst=/target',
                '--mount', 'type=tmpfs,dst=/tmp',
                self.image, f'/target/{self.args.filename_prefix.name}']
@@ -97,20 +100,24 @@ def parse_args() -> Decompile:
                         help='input filename prefix, e.g. /path/to/example for /path/to/example.elf.txt')
     parser.add_argument('--fast', action='store_true', dest='fast',
                         help='skip some proofs')
-    parser.add_argument('--ignore', metavar='NAMES', type=str, default='',
+    parser.add_argument('--ignore', metavar='NAMES', type=str, action='append',
                         help='functions to ignore (comma-separated list)')
     # For internal use only.
-    parser.add_argument('--docker', action='store_true', dest='docker', help=argparse.SUPPRESS)
+    parser.add_argument('--docker', metavar='COMMAND', help=argparse.SUPPRESS)
 
     parsed_args = parser.parse_args()
 
+    # Combine multiple ignore options
+    ignore_gen = (i for j in (parsed_args.ignore or []) for i in j.split(',') if i)
+    ignore = ','.join({i: None for i in ignore_gen}.keys())
+
     args = Args(filename_prefix=Path(parsed_args.filename).resolve(),
                 fast=parsed_args.fast,
-                ignore=parsed_args.ignore)
+                ignore=ignore)
 
     if parsed_args.docker:
         image = os.environ.get('DECOMPILER_DOCKER_IMAGE', 'ghcr.io/sel4/decompiler:latest')
-        return DecompileDocker(image=image, args=args)
+        return DecompileDocker(command=parsed_args.docker, image=image, args=args)
 
     hol4_dir = os.environ.get('HOL4_DIR')
     if hol4_dir is None:

@@ -65,7 +65,7 @@ def hash_path(path: Path) -> bytes:
 
 
 def hash_path_b32(path: str) -> str:
-    path_hash = blake2b(hash_path(Path(path)), digest_size=24).digest()
+    path_hash = blake2b(hash_path(Path(path)), digest_size=20).digest()
     return b32encode(path_hash).decode().lower().rstrip('=')
 
 

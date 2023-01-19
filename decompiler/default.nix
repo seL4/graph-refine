@@ -4,47 +4,46 @@
 # Packages the decompiler as a Nix derivation,
 # and also produces a Docker image.
 
+# This assumes that PolyML and HOL4 sources have been checked out.
+# These can be checked out using:
+#   ./setup-decompiler checkout --upstream
+
 {
-  pkgs ? import <nixpkgs> {},
-  decompiler_dir ? ./.,
-  polyml_src ? decompiler_dir + "/src/polyml",
-  hol4_src ? decompiler_dir + "/src/HOL4",
-  image_name ? "decompiler",
+  polyml_src ? ./src/polyml,
+  hol4_src ? ./src/HOL4,
 }:
-
-with pkgs;
-with lib;
-with stdenv;
-
-with (import ../nix/util.nix { inherit pkgs; });
 
 let
 
+  pins = import ../nix/pins.nix;
+  inherit (pins) pkgs lib stdenv;
+  inherit (pins.herculesGitignore) gitignoreFilter;
+
   polyml = pkgs.polyml.overrideAttrs (_: {
     name = "polyml";
-    src = cleanSourceWith {
+    src = lib.cleanSourceWith {
       name = "polyml-source";
       src = polyml_src;
       filter = gitignoreFilter polyml_src;
     };
   });
 
-  hol4-graph-decompiler = mkDerivation {
+  hol4-graph-decompiler = stdenv.mkDerivation {
     name = "hol4-graph-decompiler";
 
-    src = cleanSourceWith {
+    src = lib.cleanSourceWith {
       name = "hol4-source";
       src = hol4_src;
       filter = gitignoreFilter hol4_src;
     };
 
-    buildInputs = [ fontconfig graphviz polyml ];
+    buildInputs = [ pkgs.fontconfig pkgs.graphviz polyml ];
 
     buildCommand = ''
       set -eu
 
       mkdir fonts
-      cat ${fontconfig.out}/etc/fonts/fonts.conf > fonts/fonts.conf
+      cat ${pkgs.fontconfig.out}/etc/fonts/fonts.conf > fonts/fonts.conf
       export FONTCONFIG_FILE=$PWD/fonts/fonts.conf
 
       cp -r "$src" "$out"
@@ -52,8 +51,6 @@ let
       cd "$out"
 
       poly < tools/smart-configure.sml
-
-      [ -x bin/build ]
       bin/build
 
       PATH="$out/bin:$PATH"
@@ -62,26 +59,28 @@ let
     '';
   };
 
-  decompile-py = runCommand "decompile-py" {} ''
+  decompile-py = pkgs.runCommand "decompile-py" {} ''
     mkdir -p "$out"
-    cp --preserve=all "${decompiler_dir + "/decompile.py"}" "$out/decompile.py"
-    (cd $out && ${python3.interpreter} -m compileall "decompile.py")
+    cp --preserve=all "${./decompile.py}" "$out/decompile.py"
+    (cd $out && ${pkgs.python3.interpreter} -m compileall "decompile.py")
   '';
 
-  decompiler = runCommand "decompiler" {} ''
-    mkdir -p "$out/bin"
-    cat > "$out/bin/decompile" <<EOF
-    #!${runtimeShell}
+  decompile_script = ''
+    #!${pkgs.runtimeShell}
     export HOL4_DIR="${hol4-graph-decompiler}"
-    exec "${python3.interpreter}" "${decompile-py}/decompile.py" "\$@"
-    EOF
-    chmod +x "$out/bin/decompile"
+    exec "${pkgs.python3.interpreter}" "${decompile-py}/decompile.py" "$@"
   '';
 
-  decompiler-image = dockerTools.streamLayeredImage {
-    name = image_name;
-    contents = [ bashInteractive coreutils polyml python3 ];
-    config = { Entrypoint = "${decompiler}/bin/decompile"; };
+  # For the Docker customisation layer, the script should be in a `bin` directory.
+  decompile-bin = pkgs.writeScriptBin "decompile" decompile_script;
+
+  # But for non-Docker use, a plain script is more convenient.
+  decompile = pkgs.writeScript "decompile" decompile_script;
+
+  decompiler-image = pkgs.dockerTools.streamLayeredImage {
+    name = "decompiler";
+    contents = with pkgs; [ bashInteractive coreutils polyml python3 decompile-bin ];
+    config = { Entrypoint = [ "${decompile-bin}/bin/decompile" ]; };
   };
 
-in { inherit decompiler decompiler-image; }
+in { inherit decompile decompile-bin decompiler-image; }
