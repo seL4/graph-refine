@@ -1,0 +1,157 @@
+# Copyright 2022 Kry10 Limited
+#
+# SPDX-License-Identifier: BSD-2-Clause
+
+name: Binary decompilation
+
+on:
+  repository_dispatch:
+    types:
+      - binary-verification
+  workflow_dispatch:
+    inputs:
+      repo:
+        description: 'Repository'
+        required: true
+        type: string
+        default: 'seL4/l4v'
+      run_id:
+        description: 'Workflow run ID'
+        required: true
+      tag:
+        description: |
+          A brief description of the source of the event,
+          e.g. a workflow identifier. This is used when
+          reporting the results of a binary verification
+          run, to help users identify the proof run that
+          triggered the binary verification run.
+        required: true
+        type: string
+        default: 'workflow-dispatch'
+
+jobs:
+  targets:
+    # Fetch artifacts from the remote workflow that triggered this one,
+    # and store them locally in this workflow for easier access during the
+    # matrix job. Also identify which targets to run in the matrix.
+    name: Prepare decompilation targets
+    runs-on: ubuntu-latest
+    outputs:
+      targets_enabled: ${{ steps.prepare.outputs.targets_enabled }}
+    steps:
+      - name: Indentify trigger
+        id: id_trigger
+        # Different event types use different context variables for the inputs,
+        # so here we figure out which variables to use.
+        run: |
+          # Identify source workflow
+          set -euo pipefail
+          case "${{ github.event_name }}" in
+            repository_dispatch)
+              echo "trigger_repo=${{ github.event.client_payload.repo }}" >> "${GITHUB_OUTPUT}"
+              echo "trigger_run=${{ github.event.client_payload.run_id }}" >> "${GITHUB_OUTPUT}"
+              echo "trigger_tag=${{ github.event.client_payload.tag }}" >> "${GITHUB_OUTPUT}"
+              ;;
+            workflow_dispatch)
+              echo "trigger_repo=${{ github.event.input.repo }}" >> "${GITHUB_OUTPUT}"
+              echo "trigger_run=${{ github.event.input.run_id }}" >> "${GITHUB_OUTPUT}"
+              echo "trigger_tag=${{ github.event.input.tag }}" >> "${GITHUB_OUTPUT}"
+              ;;
+            *)
+              echo "Unexpected github.event_name: ${{ github.event_name }}"
+              exit 1
+              ;;
+          esac
+
+      - name: Download kernel builds from source workflow
+        uses: seL4/ci-actions/await-remote-artifacts@master
+        with:
+          repo: ${{ steps.id_trigger.outputs.trigger_repo }}
+          run-id: ${{ steps.id_trigger.outputs.trigger_run }}
+          artifact-names: kernel-builds
+          token: ${{ secrets.PRIV_REPO_TOKEN }}
+          download-dir: artifacts
+
+      - name: Checkout graph-refine
+        uses: actions/checkout@v3
+        with:
+          path: graph-refine
+
+      - name: Install Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - run: pip install lxml
+
+      - name: Prepare job
+        id: prepare
+        run: graph-refine/ci/github-prepare-decompile.py artifacts/kernel-builds job
+        env:
+          TAG: ${{ steps.id_trigger.outputs.trigger_tag }}
+          PROOF_REPO: ${{ steps.id_trigger.outputs.trigger_repo }}
+          PROOF_RUN: ${{ steps.id_trigger.outputs.trigger_run }}
+          DECOMPILE_REPO: ${{ github.repository }}
+          DECOMPILE_RUN: ${{ github.run_id }}
+
+      - name: Upload job
+        uses: actions/upload-artifact@v3
+        with:
+          name: graph-refine-job
+          path: job
+          if-no-files-found: ignore
+
+  decompilation:
+    name: Decompile
+    needs: targets
+    if: needs.targets.outputs.targets_enabled != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(needs.targets.outputs.targets_enabled) }}
+    steps:
+      - name: Download targets
+        uses: actions/download-artifact@v3
+        with:
+          name: graph-refine-job
+          path: job
+      - name: Decompile
+        run: |
+          # Decompile
+          docker run --rm -i \
+            --mount "type=bind,src=${PWD}/job/targets/${{matrix.target}}/target,dst=/target" \
+            --mount "type=tmpfs,dst=/tmp" \
+            ghcr.io/sel4/sel4-decompiler /target
+          # Isolate current target for re-upload,
+          # to avoid interference between matrix jobs.
+          mkdir -p "my-job/targets/${{matrix.target}}"
+          mv "job/targets/${{matrix.target}}/target" "my-job/targets/${{matrix.target}}/target"
+      - name: Re-upload target
+        uses: actions/upload-artifact@v3
+        with:
+          name: graph-refine-job
+          path: my-job
+
+  submission:
+    name: Submit graph-refine job
+    needs: decompilation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download targets
+        uses: actions/download-artifact@v3
+        with:
+          name: graph-refine-job
+          path: job
+      - name: Checkout graph-refine
+        uses: actions/checkout@v3
+        with:
+          path: graph-refine
+      - name: Submit graph-refine job
+        env:
+          BV_BACKEND_WORK_DIR: bv
+          BV_SSH_CONFIG: "${{ secrets.BV_SSH_CONFIG }}"
+          BV_SSH_KEY: "${{ secrets.BV_SSH_KEY }}"
+          BV_SSH_KNOWN_HOSTS: "${{ secrets.BV_SSH_KNOWN_HOSTS }}"
+          DOCKER_RUN_COMMAND: "${{ secrets.DOCKER_RUN_COMMAND }}"
+          JOB_DIR: job
+        run: graph-refine/ci/submit-graph-refine

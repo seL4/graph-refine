@@ -1,0 +1,148 @@
+#!/bin/bash
+
+# Copyright 2023 Kry10 Limited
+# SPDX-License-Identifier: BSD-2-Clause
+
+# Submit a job from GitHub CI to the graph-refine back end.
+#
+# This script is intended to be run in the GitHub CI workflow
+# that prepares graph-refine inputs. It sends those inputs over
+# SSH to a back-end server that is suitable for running
+# graph-refine.
+#
+# It requires environment variables:
+# - BV_BACKEND_WORK_DIR: Path on the remote (back-end) host of the
+#   graph-refine work directory, relative to the SSH home directory.
+# - BV_SSH_CONFIG: Contents of an SSH config file that uses the name
+#   `graph-refine` for the remote (back-end) host.
+# - BV_SSH_KEY: Private key with access to a user on the `graph-refine` host.
+# - BV_SSH_KNOWN_HOSTS: Contents of an SSH known hosts file suitable for
+#   accessing the `graph-refine` host.
+# - DOCKER_RUN_COMMAND: Command to use in place of `docker run`,
+#   e.g. `podman run --memory 20g`.
+# - JOB_DIR: Path of a local directory (on GitHub CI) containing the job
+#   to submit.
+# - RUNNER_TEMP: Path to a local temporary directory.
+#
+# It assumes that this script is running from a `graph-refine` checkout,
+# where it is able to find the `dir_hash.py` script.
+#
+# The BV_BACKEND_WORK_DIR is assumed to follow the same structure as used
+# in the parallel job runner (see runner.py).
+
+set -euo pipefail
+
+if [ $# -ne 0 ]; then
+  echo "submit-graph-refine: error: unexpected arguments" >&2
+  exit 1
+fi
+
+if [ ! -d "${JOB_DIR}" ]; then
+  echo "submit-graph-refine: error: JOB_DIR does not exist: ${JOB_DIR}" >&2
+  exit 1
+fi
+
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
+
+JOB_ID=$("${SCRIPT_DIR}/dir_hash.py" "${JOB_DIR}")
+if [ -z "${JOB_ID}" ]; then
+  echo "submit-graph-refine: error: failed to get job ID" >&2
+  exit 1
+fi
+
+CI_TMP=$(mktemp -d -p "${RUNNER_TEMP}")
+cleanup() { rm -rf "${CI_TMP}"; }
+trap cleanup EXIT
+
+# Build an SSH config for reaching the back end.
+SSH_DIR="${CI_TMP}/ssh"
+mkdir "${SSH_DIR}"
+touch "${SSH_DIR}/ssh_key"
+chmod 0700 "${SSH_DIR}/ssh_key"
+cat > "${SSH_DIR}/ssh_key" <<< "${BV_SSH_KEY}"
+cat > "${SSH_DIR}/ssh_known_hosts" <<< "${BV_SSH_KNOWN_HOSTS}"
+
+# BV_SSH_CONFIG should define how to connect to a host named `graph-refine`.
+# For example, it might contain something like:
+# ```
+# Host graph-refine
+# Hostname real-hostname.example.org
+# User bv
+# ```
+# It may also contain configuration for any required jump hosts.
+cat > "${SSH_DIR}/ssh_config" <<EOF
+${BV_SSH_CONFIG}
+Host *
+IdentityFile ${SSH_DIR}/ssh_key
+UserKnownHostsFile ${SSH_DIR}/ssh_known_hosts
+EOF
+
+# Build a script to be directly interpreted by the shell at the remote end
+# of the SSH connection.
+# We do this to avoid the need to copy the script to the remote host before
+# executing it.
+# We also need to prefix the script with some variable settings, since we
+# can't send environment variables through SSH.
+# First, define a header, using antiquotation to set variables assumed by
+# the body.
+cat > "${CI_TMP}/ci-receive" <<EOF
+set -euo pipefail
+
+WORK_DIR="${BV_BACKEND_WORK_DIR}"
+JOB_ID="${JOB_ID}"
+DOCKER_RUN_COMMAND="${DOCKER_RUN_COMMAND}"
+EOF
+
+# Next, add the body without antiquotation so we can use internal variables
+# without having to escape variable references.
+# But we assume some variables have already been set in the header.
+cat >> "${CI_TMP}/ci-receive" <<'EOF'
+mkdir -p "${WORK_DIR}/private/tmp" "${WORK_DIR}/public/jobs" "${WORK_DIR}/private/new"
+
+INCOMING_TMP="$(mktemp -d -p "${WORK_DIR}/private/tmp")"
+cleanup() { rm -rf "${INCOMING_TMP}"; }
+trap cleanup EXIT
+chmod +rx "${INCOMING_TMP}"
+
+# Unpack the job into a temp directory, so we can atomically
+# move it to work directory.
+mkdir -p "${INCOMING_TMP}/jobs/${JOB_ID}"
+tar -xJf - -C "${INCOMING_TMP}/jobs/${JOB_ID}"
+
+if ! mv "${INCOMING_TMP}/jobs/${JOB_ID}" "${WORK_DIR}/public/jobs" 2>/dev/null; then
+  # If the job directory already exists, then someone else has
+  # submitted a job with the same hash. In that case, we assume the
+  # existing job is identical to the one we're trying to submit, so
+  # ignore the error.
+  echo "Job already exists" >&2
+fi
+
+# Whether or not someone else got here first, the job directory should
+# now exist, so it's a real error if it doesn't.
+if [ ! -d "${WORK_DIR}/public/jobs/${JOB_ID}" ]; then
+  echo "Failed to submit job" >&2
+  exit 1
+fi
+
+# Flag the job as new, unless it has already been flagged.
+mkdir -p "${INCOMING_TMP}/new"
+TZ=UTC date +'%Y-%m-%d %H:%M:%S+00:00' > "${INCOMING_TMP}/new/${JOB_ID}"
+mv -n "${INCOMING_TMP}/new/${JOB_ID}" "${WORK_DIR}/private/new"
+
+# Start a runner, in case there is not one already running.
+# We use the Docker image tag as the runner ID.
+ID_FILE="${WORK_DIR}/private/active_runner_id.txt"
+if [ -f "${ID_FILE}" ]; then
+  RUNNER_TAG="$(< "${ID_FILE}")"
+  if [ -n "${RUNNER_TAG}" ]; then
+    ${DOCKER_RUN_COMMAND} --init -d \
+      --mount "type=bind,src=${HOME}/${WORK_DIR},dst=/work" \
+      "ghcr.io/sel4/graph-refine-runner:${RUNNER_TAG}" \
+      --id "${RUNNER_TAG}" \
+      --work /work
+  fi
+fi
+EOF
+
+bv_ssh() { ssh -F "${SSH_DIR}/ssh_config" graph-refine "$@"; }
+tar -cJf - -C "${JOB_DIR}" . | bv_ssh "$(cat "${CI_TMP}/ci-receive")"

@@ -11,9 +11,10 @@ import shutil
 import signal
 import subprocess
 import sys
+import textwrap
 
 from pathlib import Path
-from typing import NamedTuple, Protocol
+from typing import Callable, NamedTuple, Protocol, TypeVar
 
 STATUS_SIGNAL_OFFSET = 128
 STATUS_USAGE = 1
@@ -29,10 +30,10 @@ polyml_install_dir = decompiler_dir / 'install' / 'polyml'
 
 # File/link names relative to `decompiler_dir`:
 decompile_local = Path('decompile.py')
-decompile_docker = Path('decompile-docker.py')
-decompile_nix = Path('decompile-nix')
 
 seL4_branch = 'seL4-decompiler'
+
+T = TypeVar('T')
 
 
 class Repo(Protocol):
@@ -53,16 +54,19 @@ class Branch(NamedTuple):
 
 
 class Source(NamedTuple):
+    name: str
     upstream: Branch
     fork: Branch
     checkout_dir: Path
 
 
-hol4_source = Source(upstream=Branch(repo=GitHub('HOL-Theorem-Prover/HOL'), branch='master'),
+hol4_source = Source(name='HOL4',
+                     upstream=Branch(repo=GitHub('HOL-Theorem-Prover/HOL'), branch='master'),
                      fork=Branch(repo=GitHub('seL4/HOL'), branch=seL4_branch),
                      checkout_dir=hol4_source_dir)
 
-polyml_source = Source(upstream=Branch(repo=GitHub('polyml/polyml'), branch='master'),
+polyml_source = Source(name='PolyML',
+                       upstream=Branch(repo=GitHub('polyml/polyml'), branch='master'),
                        fork=Branch(repo=GitHub('seL4/polyml'), branch=seL4_branch),
                        checkout_dir=polyml_source_dir)
 
@@ -86,7 +90,7 @@ def check_empty(*paths: Path) -> None:
     non_empty_paths = [p for p in paths if p.exists()]
     if non_empty_paths:
         sys.stderr.write(
-            'decompiler-setup: paths should not exist when using --checkout without --force:\n')
+            'setup-decompiler: paths should not exist when using --checkout without --force:\n')
         for p in non_empty_paths:
             sys.stderr.write(f'  {p}\n')
         sys.stderr.flush()
@@ -97,7 +101,7 @@ def check_exists(*paths: Path) -> None:
     paths_not_exist = [p for p in paths if not p.is_dir()]
     if paths_not_exist:
         sys.stderr.write(
-            'decompiler-setup: paths should already exist when not using --checkout:\n')
+            'setup-decompiler: paths should already exist when not using --checkout:\n')
         for p in paths_not_exist:
             sys.stderr.write(f'  {p}\n')
         sys.stderr.flush()
@@ -105,6 +109,7 @@ def check_exists(*paths: Path) -> None:
 
 
 def checkout_source(source: Source, ssh: bool) -> None:
+    print(f'setup-decompiler: Checking out {source.name}...')
     source.checkout_dir.parent.mkdir(parents=True, exist_ok=True)
     subprocess.run(['git', 'clone', '-q', '-b', source.fork.branch,
                     source.fork.repo.url(ssh), source.checkout_dir],
@@ -116,6 +121,7 @@ def checkout_source(source: Source, ssh: bool) -> None:
 
 
 def upstream_source(source: Source) -> None:
+    print(f'setup-decompiler: Merging upstream {source.name}...')
     subprocess.run(['git', 'merge', '-q', '-m', 'merge upstream', f'upstream/{source.upstream.branch}'],
                    cwd=source.checkout_dir, stdin=subprocess.DEVNULL, check=True)
 
@@ -132,7 +138,7 @@ class CheckoutSources(NamedTuple):
     def do_checkout(self) -> None:
         if (self.force or self.upstream) and not self.checkout:
             sys.stderr.write(
-                'decompiler-setup: --upstream and --force only makes sense with --checkout\n')
+                'setup-decompiler: --upstream and --force only makes sense with --checkout\n')
             sys.stderr.flush()
             exit(STATUS_USAGE)
         if not self.checkout:
@@ -167,7 +173,7 @@ class InstallNone(NamedTuple):
 
 
 def rm_decompiler_setup() -> None:
-    rm_path(decompile, decompiler_dir / decompile_nix)
+    rm_path(decompile)
 
 
 # This is mainly intended for initial installation of the decompiler,
@@ -178,6 +184,7 @@ class InstallLocal(NamedTuple):
         rm_decompiler_setup()
         rm_path(polyml_install_dir)
         # PolyML
+        print('setup-decompiler: Building Polyml...')
         subprocess.run(['git', 'clean', '-fdX'],
                        cwd=polyml_source_dir, stdin=subprocess.DEVNULL, check=True)
         subprocess.run(['./configure', f'--prefix={polyml_install_dir}'],
@@ -187,6 +194,7 @@ class InstallLocal(NamedTuple):
                        stdin=subprocess.DEVNULL, check=True)
         poly = polyml_install_dir / 'bin' / 'poly'
         # HOL4
+        print('setup-decompiler: Building HOL4...')
         subprocess.run(['git', 'clean', '-fdX'],
                        cwd=hol4_source_dir, stdin=subprocess.DEVNULL, check=True)
         with open(hol4_source_dir / 'tools' / 'smart-configure.sml') as configure:
@@ -194,6 +202,7 @@ class InstallLocal(NamedTuple):
         subprocess.run([hol4_source_dir / 'bin' / 'build'],
                        cwd=hol4_source_dir, stdin=subprocess.DEVNULL, check=True)
         # Decompiler
+        print('setup-decompiler: Building the decompiler...')
         PATH = os.environ['PATH']
         decompiler_src = hol4_source_dir / 'examples' / 'machine-code' / 'graph'
         env = {**os.environ, 'PATH': f'{hol4_source_dir}/bin:{PATH}'}
@@ -206,17 +215,42 @@ class InstallLocal(NamedTuple):
 class InstallNix(NamedTuple):
     def do_install(self) -> None:
         rm_decompiler_setup()
-        subprocess.run(['nix-build', '-A', 'decompiler', '-o', decompile_nix],
+        print('setup-decompiler: Building the decompiler using Nix...')
+        subprocess.run(['nix-build', '-A', 'decompiler', '-o', decompile],
                        cwd=decompiler_dir, stdin=subprocess.DEVNULL, check=True)
-        os.symlink(decompile_nix / 'bin' / 'decompile', decompile)
 
 
 class InstallDocker(NamedTuple):
+    command: str
+
     def do_install(self) -> None:
         rm_decompiler_setup()
-        subprocess.run(['docker', 'pull', 'ghcr.io/sel4/decompiler:latest'],
+        print('setup-decompiler: Installing a container-based decompiler...')
+        subprocess.run([self.command, 'pull', 'ghcr.io/sel4/decompiler:latest'],
                        stdin=subprocess.DEVNULL, check=True)
-        os.symlink(decompile_docker, decompile)
+        wrapper_script = textwrap.dedent(f'''\
+            #!/usr/bin/env python3
+
+            # Copyright (c) 2022, Kry10 Limited
+            # SPDX-License-Identifier: BSD-2-Clause
+
+            # Use {self.command} to run the decompiler.
+
+            import subprocess
+            import sys
+            from pathlib import Path
+
+            # The actual functionality is in decompile.py, so we don't
+            # have to duplicate argument parsing here.
+            decompile = Path(__file__).resolve().parent / 'decompile.py'
+            p = subprocess.run([decompile, '--docker', '{self.command}'] + sys.argv[1:])
+            sys.exit(p.returncode)
+        ''')
+        with open(decompile, 'w') as script_file:
+            script_file.write(wrapper_script)
+        # Copy read permissions to execute permissions.
+        mode = decompile.stat().st_mode
+        decompile.chmod(mode | mode >> 2 & 0o111)
 
 
 class SetupCommand(NamedTuple):
@@ -250,27 +284,36 @@ def parse_args() -> SetupCommand:
                                       help='Install decompiler built locally.')
     nix_cmd = subparsers.add_parser('nix', parents=[checkout_opt, checkout_extra],
                                     help='Install decompiler built using Nix.')
-    docker_cmd = subparsers.add_parser('docker', help='Install decompiler from Docker.')
+    docker_cmd = subparsers.add_parser('docker', help='Install decompiler using Docker.')
+    podman_cmd = subparsers.add_parser('podman', help='Install decompiler using podman.')
 
-    def require_checkout(args) -> CheckoutPhase:
+    def require_checkout(args: argparse.Namespace) -> CheckoutPhase:
         return CheckoutSources(checkout=args.checkout,
                                upstream=args.upstream,
                                force=args.force,
                                ssh=args.ssh)
 
-    def no_checkout(args) -> CheckoutPhase:
-        return CheckoutNone()
+    def install_docker(command: str) -> Callable[[argparse.Namespace], InstallPhase]:
+        def do_it(args: argparse.Namespace) -> InstallPhase:
+            return InstallDocker(command=command)
+        return do_it
+
+    def just(cons: Callable[[], T]) -> Callable[[argparse.Namespace], T]:
+        def do_it(args: argparse.Namespace) -> T:
+            return cons()
+        return do_it
 
     checkout_cmd.set_defaults(checkout=True,
-                              checkout_phase=require_checkout, install_phase=InstallNone)
-    local_cmd.set_defaults(checkout_phase=require_checkout, install_phase=InstallLocal)
-    nix_cmd.set_defaults(checkout_phase=require_checkout, install_phase=InstallNix)
-    docker_cmd.set_defaults(checkout_phase=no_checkout, install_phase=InstallDocker)
+                              checkout_phase=require_checkout, install_phase=just(InstallNone))
+    local_cmd.set_defaults(checkout_phase=require_checkout, install_phase=just(InstallLocal))
+    nix_cmd.set_defaults(checkout_phase=require_checkout, install_phase=just(InstallNix))
+    docker_cmd.set_defaults(checkout_phase=just(CheckoutNone), install_phase=install_docker('docker'))
+    podman_cmd.set_defaults(checkout_phase=just(CheckoutNone), install_phase=install_docker('podman'))
 
     args = parser.parse_args()
 
     return SetupCommand(checkout=args.checkout_phase(args),
-                        install=args.install_phase())
+                        install=args.install_phase(args))
 
 
 def main(setup_command: SetupCommand) -> int:
