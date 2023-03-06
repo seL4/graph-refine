@@ -29,6 +29,10 @@ on:
         type: string
         default: 'workflow-dispatch'
 
+  push:
+    branches:
+      - decompilation-test
+
 jobs:
   targets:
     # Fetch artifacts from the remote workflow that triggered this one,
@@ -56,6 +60,11 @@ jobs:
               echo "trigger_repo=${{ github.event.input.repo }}" >> "${GITHUB_OUTPUT}"
               echo "trigger_run=${{ github.event.input.run_id }}" >> "${GITHUB_OUTPUT}"
               echo "trigger_tag=${{ github.event.input.tag }}" >> "${GITHUB_OUTPUT}"
+              ;;
+            push)
+              echo "trigger_repo=seL4/l4v" >> "${GITHUB_OUTPUT}"
+              echo "trigger_run=4519832078" >> "${GITHUB_OUTPUT}"
+              echo "trigger_tag=matt-decompilation-test" >> "${GITHUB_OUTPUT}"
               ;;
             *)
               echo "Unexpected github.event_name: ${{ github.event_name }}"
