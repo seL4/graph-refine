@@ -5,4 +5,12 @@
 #
 
 .pyc
-/internal/
+__pycache__/
+
+# Nix
+/result*
+
+# Decompiler setup
+/decompiler/decompile
+/decompiler/src/
+/decompiler/install/

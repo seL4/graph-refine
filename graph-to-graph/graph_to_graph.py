@@ -27,6 +27,7 @@ def printHelp():
       --i interactive mode (for debugging)
       --x automated WCET estimating, firstly generate the loop heads, then automatically deduce the loop bounds, and finally use the automatically determined loopbounds to estimate teh WCET. A conflict file specifying additional preemption points
       --xL same as --x but do not generate (and thus overwrite) loop_counts.py
+      --a architecture (armv7, rv64) armv7 by default
 
       '''
 
@@ -45,10 +46,19 @@ if __name__ == '__main__':
         dir_name = sys.argv[1]
         print 'dir_name: %s' % dir_name
         flag = sys.argv[3]
-        assert flag in ['--l','--L','--i', '--x', '--xL']
+        # hack fo now, assume the last two parameters are arch
+        # and we use armv7 by default
+        if len(sys.argv) == 6:
+            arch = sys.argv[5]
+        else:
+           arch = 'armv7'
+        print len(sys.argv)
+        print "arch is %s" % arch
+        assert arch in ['armv7', 'rv64']
+        assert flag in ['--l','--L','--i', '--x', '--xL', '--a']
         if flag == '--l':
             gen_heads = True
-            bench.bench(dir_name, entry_point_function, gen_heads, load_counts,interactive)
+            bench.bench(dir_name, entry_point_function, gen_heads, load_counts,interactive, False, None, arch)
             sys.exit(0)
         if flag == '--L':
           load_counts = True
@@ -58,7 +68,7 @@ if __name__ == '__main__':
             if len(sys.argv) < 4:
                 printHelp()
                 sys.exit(-1)
-            asm_fs = bench.init(dir_name)
+            asm_fs = bench.init(dir_name, arch)
             if flag == '--x':
                 import convert_loop_bounds
                 analyseFunction(entry_point_function,asm_fs, dir_name, True, False, False)
@@ -79,5 +89,5 @@ if __name__ == '__main__':
             preemption_limit = 5
             conflict.conflict(entry_point_function, tcfg_map_file_name, [], stripped_ilp, ilp_to_generate, dir_name, sol_to_generate, emit_conflicts=True, do_cplex=True, preempt_limit= preemption_limit,default_phantom_preempt=True)
             sys.exit(0)
-    bench_ret = bench.bench(dir_name, entry_point_function, gen_heads,load_counts,interactive)
+    bench_ret = bench.bench(dir_name, entry_point_function, gen_heads,load_counts,interactive, False, None, arch)
     print 'bench returned: ' +  str(bench_ret)
