@@ -156,7 +156,7 @@ def mk_eqs_arm_none_eabi_gnu (var_c_args, var_c_rets, c_imem, c_omem,
 		init_save_seq = mk_stack_sequence (r0, 4, st, word32T,
 			len (var_c_rets))
 		(_, last_arg_addr) = arg_seq[len (var_c_args) - 1]
-		preconds += [mk_less_eq (sp, addr)
+		preconds += [mk_less_eq (r0, addr)
 			for (_, addr) in init_save_seq[-1:]]
 		if last_arg_addr:
 			preconds += [mk_less (last_arg_addr, addr)
