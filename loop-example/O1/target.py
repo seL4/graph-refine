@@ -39,12 +39,12 @@ print 'Checking.'
 syntax.check_funs (functions)
 
 def asm_split_pairings ():
-	pairs = [(s, 'Loop.' + s) for s in afunctions]
-	target_objects.use_hooks.add ('stack_logic')
-	import stack_logic
-	stack_bounds = '%s/StackBounds.txt' % target_dir
-	new_pairings = stack_logic.mk_stack_pairings (pairs, stack_bounds)
-	pairings.update (new_pairings)
+    pairs = [(s, 'Loop.' + s) for s in afunctions]
+    target_objects.use_hooks.add ('stack_logic')
+    import stack_logic
+    stack_bounds = '%s/StackBounds.txt' % target_dir
+    new_pairings = stack_logic.mk_stack_pairings (pairs, stack_bounds)
+    pairings.update (new_pairings)
 
 asm_split_pairings ()
 

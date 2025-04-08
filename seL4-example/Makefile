@@ -10,123 +10,89 @@
 # (e.g. standalone c-parser and decompiler) properly, so may not know to
 # rebuild if a custom tool is updated.
 
-ifndef CONFIG_OPTIMISATION_LEVEL
-  CONFIG_OPTIMISATION_LEVEL := -O1
-endif
-
-# FIXME: solver self-test is currently broken
-SKIP_SOLV_TEST := SKIP
-
-ifndef GREF_ROOT
-  GREF_ROOT := $(realpath $(dir $(lastword ${MAKEFILE_LIST}))..)
-endif
-
-ifndef HOL4_ROOT
-  HOL4_ROOT := $(realpath ${GREF_ROOT}/../HOL4)
+ifndef KERNEL_CONFIG_OPTIMISATION_LEVEL
+  KERNEL_CONFIG_OPTIMISATION_LEVEL := -O1
 endif
 
 L4V_CONFIG := ${L4V_ARCH}$(if ${L4V_FEATURES},-${L4V_FEATURES},)
-TARGET_NAME := ${L4V_CONFIG}${CONFIG_OPTIMISATION_LEVEL}
-TARGET_DIR := target/${TARGET_NAME}
+TARGET_NAME := ${L4V_CONFIG}${KERNEL_CONFIG_OPTIMISATION_LEVEL}
+
+ifndef TARGET_DIR
+  TARGET_DIR := target/${TARGET_NAME}
+endif
+
+ifndef GRAPH_REFINE_ROOT
+  GRAPH_REFINE_ROOT := $(realpath $(dir $(lastword ${MAKEFILE_LIST}))..)
+endif
+
+ifndef DECOMPILER
+  DECOMPILER := ${GRAPH_REFINE_ROOT}/decompiler/decompile
+endif
+
+ifndef L4V_KERNEL_MK
+  L4V_KERNEL_MK := $(realpath ${GRAPH_REFINE_ROOT}/../l4v/spec/cspec/c/kernel.mk)
+endif
+
+ifndef KERNEL_BUILD_ROOT
+  KERNEL_BUILD_ROOT=${GRAPH_REFINE_ROOT}/seL4-example/build/${TARGET_NAME}
+endif
+
+KERNEL_BUILD_EXPORT_DIR := ${TARGET_DIR}
 
 # We build our own kernel locally, so we can store builds
 # according to their optimisation levels.
-KERNEL_BUILD_ROOT := ${TARGET_DIR}/build
-KERNEL_CMAKE_EXTRA_OPTIONS := -DKernelOptimisation=${CONFIG_OPTIMISATION_LEVEL}
-include ${GREF_ROOT}/../l4v/spec/cspec/c/kernel.mk
+# This depends on KERNEL_BUILD_ROOT and KERNEL_BUILD_EXPORT_DIR.
+include ${L4V_KERNEL_MK}
 
 # However, CFunctions.txt depends on l4v's kernel build.
-# FIXME: the l4v build directory should really depend on L4V_FEATURES.
 L4V_KERNEL_BUILD_DIR := build/${L4V_ARCH}
 L4V_KERNEL_BUILD_PATH := ${CSPEC_DIR}/c/${L4V_KERNEL_BUILD_DIR}
 
-DECOMP_DIR := ${HOL4_ROOT}/examples/machine-code/graph
-DECOMP_SCRIPT := $(shell PATH="${DECOMP_DIR}:${PATH}" sh -c "which decompile.py")
+${DECOMPILER}:
+	@echo "No decompiler found. Use setup-decompiler.py to install one." >&2
+	@exit 1
 
-# sanity test configuration
+# Compile and decompile
 
-$(if ${DECOMP_SCRIPT},,$(error decompile.py not executable in ${DECOMP_DIR}))
+${L4V_KERNEL_BUILD_PATH}/kernel_all.c_pp: ${KERNEL_DEPS} ${CONFIG_DOMAIN_SCHEDULE}
+	MAKEFILES= make -C ${CSPEC_DIR}/c ${L4V_KERNEL_BUILD_DIR}/kernel_all.c_pp
 
-$(if $(wildcard ${HOL4_ROOT}/bin/Holmake ${HOL4_ROOT}/bin/build),, \
-  $(error Holmake/build not found in ${HOL4_ROOT}/bin - first configure HOL4. \
-  See INSTALL in HOL4, but skip the bin/build step))
-
-SOLV=python ${GREF_ROOT}/solver.py
-
-SOLV_TEST_SUCC := 'Solver self-test succ'
-SOLV_TEST := $(shell $(if ${SKIP_SOLV_TEST}, echo ${SOLV_TEST_SUCC}, \
-    ${SOLV} testq) | grep ${SOLV_TEST_SUCC})
-$(if ${SOLV_TEST},,$(error Solver self-test failed (${SOLV} test)))
-
-# compile and decompile
-
-${TARGET_DIR}/summary.txt: ${TARGET_DIR}/kernel_all.c_pp
-	echo Summary > pre_summary.txt
-	bash mk_summ ${SOURCE_ROOT} >> pre_summary.txt
-	bash mk_summ ${L4V_REPO_PATH} >> pre_summary.txt
-	bash mk_summ ${HOL4_ROOT} >> pre_summary.txt
-	bash mk_summ . >> pre_summary.txt
-	mv pre_summary.txt summary.txt
-
-KERNEL_FILES := kernel.elf.rodata kernel.elf.txt kernel.elf.symtab kernel_all.c_pp kernel.sigs kernel.elf
-TARGET_FILES := target.py CFunctions.txt ASMFunctions.txt
-
-KERNEL_PATHS := $(patsubst %, $(TARGET_DIR)/%, $(KERNEL_FILES))
-TARGET_PATHS := $(patsubst %, $(TARGET_DIR)/%, $(TARGET_FILES))
-
-KERNEL_TGZ := ${TARGET_DIR}/kernel.tar.gz
-TARGET_TGZ := ${TARGET_DIR}/target.tar.gz
-
-${KERNEL_TGZ}: ${KERNEL_PATHS}
-	tar -czf $@ -C ${TARGET_DIR} ${KERNEL_FILES}
-
-${TARGET_TGZ}: ${KERNEL_PATHS} ${TARGET_PATHS}
-	tar -czf $@ -C ${TARGET_DIR} ${KERNEL_FILES} ${TARGET_FILES}
-
-tar: ${KERNEL_TGZ} ${TARGET_TGZ}
-
-${KERNEL_PATHS}: ${TARGET_DIR}/%: ${KERNEL_BUILD_ROOT}/%
-	@mkdir -p ${TARGET_DIR}
-	cp $< $@
-
-clean:
-	rm -rf build kernel.elf.* kernel_all* kernel.tar*
-
-.PHONY: clean tar
-
-H4PATH := $(realpath ${HOL4_ROOT}/bin):${PATH}
-
-IGNORES_ARM := restore_user_context,c_handle_fastpath_call,c_handle_fastpath_reply_recv
-IGNORES_RISCV64 := # TODO
-
-KERNEL_ALL_PP_FILES := ${L4V_KERNEL_BUILD_PATH}/kernel_all.c_pp ${KERNEL_BUILD_ROOT}/kernel_all.c_pp
-
-# FIXME: This should be a prerequisite of some other essential target,
-#        but for convenience during development, it is currently not.
-${TARGET_DIR}/.diff: ${KERNEL_ALL_PP_FILES}
-	diff -q --ignore-matching-lines='^#' ${KERNEL_ALL_PP_FILES}
+# A quick check that the two kernel builds produce the same C source
+${TARGET_DIR}/.diff: ${L4V_KERNEL_BUILD_PATH}/kernel_all.c_pp ${KERNEL_BUILD_ROOT}/kernel_all.c_pp
+	diff -q --ignore-matching-lines='^#' $^
 	@mkdir -p ${TARGET_DIR}
 	@touch $@
 
 diff: ${TARGET_DIR}/.diff
 .PHONY: diff
 
-${L4V_KERNEL_BUILD_PATH}/kernel_all.c_pp: ${KERNEL_DEPS} ${CONFIG_DOMAIN_SCHEDULE}
-	MAKEFILES= make -C ${CSPEC_DIR}/c ${L4V_KERNEL_BUILD_DIR}/kernel_all.c_pp
+ASM_FUNCTIONS_DEPS := ${TARGET_DIR}/kernel.elf.txt ${TARGET_DIR}/kernel.sigs ${DECOMPILER} ${AUIPC_FIXUP}
+ASM_FUNCTIONS := ${TARGET_DIR}/ASMFunctions.txt
+ASM_FUNCTIONS_OUT := ${ASM_FUNCTIONS} ${TARGET_DIR}/kernel_output.txt ${TARGET_DIR}/StackBounds.txt
 
-${TARGET_DIR}/ASMFunctions.txt: ${TARGET_DIR}/kernel.elf.txt ${TARGET_DIR}/kernel.sigs
-	cd ${TARGET_DIR} && PATH=${H4PATH} ${DECOMP_SCRIPT} --fast ./kernel --ignore=${IGNORES_${L4V_CONFIG}}
-	mv ${TARGET_DIR}/kernel_mc_graph.txt ${TARGET_DIR}/ASMFunctions.txt
+IGNORE_ARM := _start,c_handle_fastpath_call,c_handle_fastpath_reply_recv,restore_user_context
 
-${TARGET_DIR}/CFunctions.txt: ${L4V_KERNEL_BUILD_PATH}/kernel_all.c_pp ${L4V_REPO_PATH}/tools/asmrefine/*.thy
+${ASM_FUNCTIONS_OUT} &: ${ASM_FUNCTIONS_DEPS}
+	${DECOMPILER} ${TARGET_DIR}/kernel --ignore=${IGNORE_${L4V_ARCH}}
+	${GRAPH_REFINE_ROOT}/seL4-example/functions-tool.py \
+	  --target-dir ${TARGET_DIR} \
+	  --asm-functions-out ASMFunctions.txt \
+	  --stack_bounds-out StackBounds.txt
+
+C_FUNCITONS_DEPS := \
+  ${L4V_KERNEL_BUILD_PATH}/kernel_all.c_pp \
+  ${L4V_REPO_PATH}/tools/asmrefine/*.thy \
+  ${L4V_REPO_PATH}/tools/asmrefine/${L4V_ARCH}/*.thy
+
+${TARGET_DIR}/CFunctions.txt: ${C_FUNCTIONS_DEPS}
 	@mkdir -p ${TARGET_DIR}
 	MAKEFILES= make -C ${L4V_REPO_PATH}/proof/ SimplExport
-	# FIXME: the following path should really depend on L4V_FEATURES.
 	cp ${L4V_REPO_PATH}/proof/asmrefine/export/${L4V_ARCH}/CFunDump.txt $@
 
-${TARGET_DIR}/target.py: target.py
+TARGET_PY := ${GRAPH_REFINE_ROOT}/seL4-example/target-${L4V_ARCH}.py
+${TARGET_DIR}/target.py: ${TARGET_PY}
 	@mkdir -p ${TARGET_DIR}
-	cp target.py $@
+	cp ${TARGET_PY} $@
 
 GRAPH_REFINE_INPUTS := \
   ${TARGET_DIR}/kernel.elf.rodata \
@@ -134,12 +100,9 @@ GRAPH_REFINE_INPUTS := \
   ${TARGET_DIR}/ASMFunctions.txt \
   ${TARGET_DIR}/CFunctions.txt \
   ${TARGET_DIR}/target.py \
-  ${GREF_ROOT}/*.py
+  ${GRAPH_REFINE_ROOT}/*.py
 
-GRAPH_REFINE := python ${GREF_ROOT}/graph-refine.py
-
-${TARGET_DIR}/StackBounds.txt: ${GRAPH_REFINE_INPUTS}
-	${GRAPH_REFINE} ${TARGET_DIR}
+GRAPH_REFINE := python2 ${GRAPH_REFINE_ROOT}/graph-refine.py
 
 ${TARGET_DIR}/demo-report.txt: ${TARGET_DIR}/StackBounds.txt ${GRAPH_REFINE_INPUTS}
 	${GRAPH_REFINE} ${TARGET_DIR} trace-to:$@.partial deps:Kernel_C.cancelAllIPC
@@ -166,7 +129,7 @@ default: report
 
 # WCET (worst-case execution time) targets
 
-GTG := ${GREF_ROOT}/graph-to-graph/
+GTG := ${GRAPH_REFINE_ROOT}/graph-to-graph/
 TARGET_DIR_ABS := $(realpath TARGET_DIR)
 
 ${TARGET_DIR}/loop_counts_1.py: ${TARGET_DIR}/StackBounds.txt ${GRAPH_REFINE_INPUTS}

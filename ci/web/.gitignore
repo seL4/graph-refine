@@ -1,0 +1,6 @@
+/dist/style.css
+/node_modules/
+
+# Useful for development
+/dist/jobs/
+/dist/jobs.json

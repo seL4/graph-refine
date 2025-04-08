@@ -7,6 +7,8 @@
 from elf_file import *
 import re
 
+elf_arch = 'armv7'
+
 def parseSymTab():
     ef = elfFile()
     #parse the symbol table
@@ -36,6 +38,7 @@ def parseSymTab():
           break
 
 def parseTxt ():
+    print elf_arch
     ef = elfFile()
     curr_func_name = None
     skip_next_line = False
@@ -47,8 +50,16 @@ def parseTxt ():
       #ingore empty lines and the header
       if line in ['\n','\r\n']:
         continue
-      header = re.search('kernel\.elf:\s*file\s*format\s*elf32-littlearm',line)
-      header2 = re.search('Disassembly of section \..*:',line)
+      if elf_arch == 'armv7':
+        header = re.search('kernel\.elf:\s*file\s*format\s*elf32-littlearm',line)
+        header2 = re.search('Disassembly of section \..*:',line)
+      elif elf_arch == 'rv64':
+        header = re.search('kernel\.o:\s*file\s*format\s*elf64-littleriscv', line)
+        header2 = re.search('Disassembly of section \..*:', line)
+      else:
+        print 'Unsupported arch %s' % elf_arch
+        assert False
+
       if header != None or header2 != None:
         continue
       #ndsk_boot is a strange function only used in bootstrapping
@@ -76,6 +87,8 @@ def parseTxt ():
       else:
         #check if this is a literal line
         literal = re.search('(?P<addr>.*):\s*[a-f0-9]+\s*(?P<size>(\.word)|(\.short)|(\.byte))\s*(?P<value>0x[a-f0-9]+)$',line)
+        print line
+        print literal
         if literal != None:
            if literal.group('size') == '.word':
                 size = 4
@@ -105,8 +118,10 @@ def isDirectBranch(addr):
   match = re.search(r'[a-f0-9]+:\s*[a-f0-9]+\s+(b|bx)\s+.*',inst)
   return match is not None
 
-def parseElf(dir_name):
+def parseElf(dir_name, arch='armv7'):
     ef = elfFile(dir_name)
+    global elf_arch
+    elf_arch = arch
     parseTxt()
     parseSymTab()
     return ef

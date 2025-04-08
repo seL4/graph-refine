@@ -1,0 +1,144 @@
+#!/bin/bash
+
+# Copyright 2023 Kry10 Limited
+# SPDX-License-Identifier: BSD-2-Clause
+
+# Install the latest graph-refine runner on the graph-refine back end.
+#
+# This script is intended to be run in the GitHub CI workflow
+# that builds graph-refine Docker images. When it builds a new
+# graph-refine-runner image, the workflow uses this script to
+# tell the backend about the new version, and to start a runner
+# with the new version. The new version will take over from any
+# currently running version.
+#
+# It requires arguments:
+#
+# It requires environment variables:
+# - BV_BACKEND_WORK_DIR: Path on the remote (back-end) host of the
+#   graph-refine work directory, relative to the SSH home directory.
+# - BV_BACKEND_CONCURRENCY: Number of concurrent function analyses to run
+#   on the back-end.
+# - BV_SSH_CONFIG: Contents of an SSH config file that uses the name
+#   `graph-refine` for the remote (back-end) host.
+# - BV_SSH_KEY: Private key with access to a user on the `graph-refine` host.
+# - BV_SSH_KNOWN_HOSTS: Contents of an SSH known hosts file suitable for
+#   accessing the `graph-refine` host.
+# - DOCKER_RUN_COMMAND: Command to use in place of `docker run`,
+#   e.g. `podman run --memory 20g`.
+# - RUNNER_TAG: Unique tag of the new image.
+# - RUNNER_TEMP: Path to a local temporary directory.
+#
+# The BV_BACKEND_WORK_DIR is assumed to follow the same structure as used
+# in the parallel job runner (see runner.py).
+
+
+set -euo pipefail
+
+if [ $# -ne 0 ]; then
+  echo "install-runner: error: unexpected arguments" >&2
+  exit 1
+fi
+
+if [ -z ${RUNNER_TAG:+x} ]; then
+  echo "install-runner: error: RUNNER_TAG not set" >&2
+  exit 1
+fi
+
+CI_TMP="$(mktemp -d -p "${RUNNER_TEMP}")"
+cleanup() { rm -rf "${CI_TMP}"; }
+trap cleanup EXIT
+
+# Build an SSH config for reaching the back end.
+SSH_DIR="${CI_TMP}/ssh"
+mkdir "${SSH_DIR}"
+touch "${SSH_DIR}/ssh_key"
+chmod 0700 "${SSH_DIR}/ssh_key"
+cat > "${SSH_DIR}/ssh_key" <<< "${BV_SSH_KEY}"
+cat > "${SSH_DIR}/ssh_known_hosts" <<< "${BV_SSH_KNOWN_HOSTS}"
+
+# BV_SSH_CONFIG should define how to connect to a host named `graph-refine`.
+# For example, it might contain something like:
+#   Host graph-refine
+#   Hostname real-hostname.example.org
+#   User bv
+# It may also contain configuration for any required jump hosts.
+cat > "${SSH_DIR}/ssh_config" <<EOF
+${BV_SSH_CONFIG}
+Host *
+IdentityFile ${SSH_DIR}/ssh_key
+UserKnownHostsFile ${SSH_DIR}/ssh_known_hosts
+EOF
+
+# Build a script to be directly interpreted by the shell at the remote end
+# of the SSH connection.
+# We do this to avoid the need to copy the script to the remote host before
+# executing it.
+# We also need to prefix the script with some variable settings, since we
+# can't send environment variables through SSH.
+# First, define a header, using antiquotation to set variables assumed by
+# the body.
+cat > "${CI_TMP}/ci-install" <<EOF
+set -euo pipefail
+
+WORK_DIR="${BV_BACKEND_WORK_DIR}"
+CONCURRENCY="${BV_BACKEND_CONCURRENCY}"
+DOCKER_RUN_COMMAND="${DOCKER_RUN_COMMAND}"
+RUNNER_TAG="${RUNNER_TAG}"
+EOF
+
+# Next, add the body without antiquotation so we can use internal variables
+# without having to escape variable references.
+# But we assume some variables have already been set in the header.
+cat >> "${CI_TMP}/ci-install" <<'EOF'
+mkdir -p "${WORK_DIR}/private"
+
+# We follow the back end's locking protocol. See the
+# comments in runner.py for details.
+
+# Set the allowed back-end concurrency.
+
+CPUS_ALLOWED_FILE="${WORK_DIR}/private/cpus_allowed.txt"
+
+exec 15<> "${CPUS_ALLOWED_FILE}.lock"
+if ! flock -w 30 15; then
+  echo "Failed to lock cpus_allowed.txt" >&2
+  exit 1
+fi
+
+echo "${CONCURRENCY}" > "${CPUS_ALLOWED_FILE}.tmp"
+mv "${CPUS_ALLOWED_FILE}.tmp" "${CPUS_ALLOWED_FILE}"
+
+flock -u 15
+
+# Installing the new version, by writing the image tag to a file
+# which determines which image is used on the back end.
+# This is effectively a no-op if the build is identical to the
+# previously installed version.
+
+ID_FILE="${WORK_DIR}/private/active_runner_id.txt"
+
+exec 15<> "${ID_FILE}.lock"
+if ! flock -w 30 15; then
+  echo "Failed to lock active_runner_id.txt" >&2
+  exit 1
+fi
+
+echo "${RUNNER_TAG}" > "${ID_FILE}.tmp"
+mv "${ID_FILE}.tmp" "${ID_FILE}"
+
+flock -u 15
+
+# Start a runner, whether or not this is really a new version.
+# This helps maintain runner uptime, without having to configure
+# the runner as an operating system service on the back end.
+
+${DOCKER_RUN_COMMAND} --init -d \
+  --mount "type=bind,src=${HOME}/${WORK_DIR},dst=/work" \
+  "ghcr.io/sel4/graph-refine-runner:${RUNNER_TAG}" \
+  --id "${RUNNER_TAG}" \
+  --work /work
+EOF
+
+bv_ssh() { ssh -F "${SSH_DIR}/ssh_config" graph-refine "$@"; }
+bv_ssh "$(cat "${CI_TMP}/ci-install")"

@@ -5,7 +5,9 @@
 #
 
 import pydot
+import subprocess
 from elf_file import *
+
 
 '''
 All functions in this file will be updated to reflect changes made, they are currently outdated and produce misleading outputs if called.

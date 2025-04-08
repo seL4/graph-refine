@@ -25,16 +25,16 @@ syntax.check_funs (functions)
 #pseudo_compile.combine_function_duplicates (functions)
 
 def run_pairings ():
-	for f in functions:
-		if f.startswith ('C.'):
-			f2 = 'mc_' + f[2:]
-		else:
-			f2 = f + '_impl'
-		if f2 in functions:
-			pair = logic.mk_pairing (functions, f, f2)
-			pairings[f] = [pair]
-			pairings[f2] = [pair]
-	print '%d pairing halves built.' % (len (pairings))
+    for f in functions:
+        if f.startswith ('C.'):
+            f2 = 'mc_' + f[2:]
+        else:
+            f2 = f + '_impl'
+        if f2 in functions:
+            pair = logic.mk_pairing (functions, f, f2)
+            pairings[f] = [pair]
+            pairings[f2] = [pair]
+    print '%d pairing halves built.' % (len (pairings))
 
 run_pairings ()
 

@@ -39,6 +39,9 @@ boot_funs_called = [
 'strncmp'
 ]
 
+# Global arch variable
+
+bench_arch = 'armv7'
 
 def makeGraph(f_name,fs):
     p = fs[f_name].as_problem(problem.Problem)
@@ -104,7 +107,7 @@ def analyseFunction(f,asm_fs,dir_name,gen_heads,load_counts,emit_graphs, stopAtI
         #toDot(imm_fun)
         #toDotBB(imm_fun)
 
-    emitter = chronos.emitter.ChronosEmitter(dir_name, f, imm_fun)
+    emitter = chronos.emitter.ChronosEmitter(dir_name, f, imm_fun, None, bench_arch)
     emitter.emitTopLevelFunction()
 
     imm_file_name = emitter.imm_file_name
@@ -118,7 +121,9 @@ def analyseFunction(f,asm_fs,dir_name,gen_heads,load_counts,emit_graphs, stopAtI
       return wcet
     return None
 
-def init(dir_name):
+def init(dir_name, arch='armv7'):
+    global bench_arch
+    bench_arch = arch
     '''setup the target and initialise the elfFile'''
     target_objects.load_target(dir_name)
     sys.setrecursionlimit(2000)
@@ -137,7 +142,7 @@ def init(dir_name):
         print s
 
     target_objects.tracer[0] = silent_tracer
-    elf_parser.parseElf(dir_name)
+    elf_parser.parseElf(dir_name, arch)
     asm_fs = elfFile().asm_fs
     tran_call_graph = call_graph_utils.transitiveCallGraph(asm_fs,dir_name,dummy_funs)
 
@@ -146,8 +151,10 @@ def init(dir_name):
     elfFile().immed = None
     return asm_fs
 
-def bench(dir_name, entry_point_function, gen_heads,load_counts, interactive, parse_only=False, conflict_file=None):
-    asm_fs = init(dir_name)
+def bench(dir_name, entry_point_function, gen_heads,load_counts, interactive, parse_only=False, conflict_file=None, arch='armv7'):
+    global bench_arch
+    bench_arch = arch
+    asm_fs = init(dir_name, bench_arch)
     functions = target_objects.functions
     if parse_only or interactive:
         t = entry_point_function
